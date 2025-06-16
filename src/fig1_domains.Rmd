@@ -130,13 +130,10 @@ cat("Final merged dataset:", dim(megascale_merged_df), "\n")
 #Final merged dataset: 65724 47
 
 head(megascale_merged_df)
-```
 
-```{r}
-write.csv(final_merged_df,
-          "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned/megascale_esm1v_64_proteingym.csv",
+write.csv(megascale_merged_df,
+          "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/megascale/megascale_esm1v_64_proteingym.csv",
           row.names = FALSE)
-
 ```
 
 ```{r}
@@ -212,7 +209,6 @@ megascale_merged_df %>% filter(base_name == "1UZC") %>% slice(1) %>% pull(wt_seq
 
 megascale_merged_df %>% filter(base_name == "3DKM") %>% slice(1) %>% pull(wt_seq) #checked unique 
 merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "Q9ULT8") %>% pull(aa_seq)
-
 ```
 
 
@@ -221,6 +217,10 @@ megascale_merged_df_fil <- megascale_merged_df %>% filter(!base_name %in% c("1UR
 nrow(megascale_merged_df_fil) #58055
 length(unique(megascale_merged_df_fil$base_name)) #56
 head(megascale_merged_df_fil)
+
+#write.csv(megascale_merged_df_fil,
+#          "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/megascale/megascale_esm1v_58_proteingym.csv",
+#          row.names = FALSE)
 ```
 
 
@@ -294,7 +294,7 @@ p1 <- ggplot(r2_combined, aes(x = source, y = adj.r.squared, fill = source)) +
     plot.subtitle = element_text(size = 13),
     legend.position = "none"
   )
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig1_domains_r2.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig1_domains_r2.pdf", 
        plot = p1, width = 6, height = 4, dpi = 300)
 p1
 ```
@@ -305,27 +305,126 @@ range(megascale_r_squared_df$adj.r.squared) # 0.0009137284 0.5690583561
 
 
 ```{r}
-nrow(pdb_map %>% filter(!From %in% c("1URF","1I6C","2WQG","1W4G","1TUD","1YU5","3L1X","7JJK")) %>% filter(Organism == "Homo sapiens (Human)"))
+nrow(pdb_map %>% filter(!From %in% c("1URF","1I6C","2WQG","1W4G","1TUD","1YU5","3L1X","7JJK")) %>% filter(Organism == "Homo sapiens (Human)")) #18
 # 18 human domains in megascale 
 # 500 human domains in domainome 
 ```
 
 
 ```{r}
+# Step 1: Calculate z-scores based on scaled_gr and its sigma
+domainome_data[, z := scaled_fitness / scaled_fitness_sigma]
 
+# Step 2: Calculate p-values for stabilizing and destabilizing mutations
+domainome_data[, p_stabilising := 1 - pnorm(z)]
+domainome_data[, fdr_stabilising := p.adjust(p_stabilising, method = "fdr")]
+
+domainome_data[, p_destabilising := pnorm(z)]
+domainome_data[, fdr_destabilising := p.adjust(p_destabilising, method = "fdr")]
+
+# Step 3: Classify mutations based on FDR and scaled_gr
+domainome_data[, stability_class := "wild type-like"]
+
+domainome_data[fdr_stabilising < 0.1 & scaled_fitness > 0.3, stability_class := "stabilizing"]
+
+domainome_data[fdr_destabilising < 0.1 & scaled_fitness < 0, stability_class := "mildly destabilizing"]
+
+domainome_data[fdr_destabilising < 0.1 & scaled_fitness < (-0.3), stability_class := "strongly destabilizing"]
+
+table(domainome_data$stability_class)
+  mildly destabilizing            stabilizing strongly destabilizing         wild type-like 
+                103114                   4932                 194801                 237436 
 ```
+
+```{r}
+clinvar_csv <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/proteome_meta/20250616_clinvar_proteome.csv")
+nrow(clinvar_csv) #113994
+
+domainome_data <- domainome_data %>% dplyr::rename( variant = mut_id )
+domainome_data <- domainome_data %>% dplyr::rename( uniprot = uniprot_ID )
+domainome_merged_df <- clinvar_csv %>% inner_join(domainome_data, by = c("uniprot", "variant"))
+nrow(domainome_merged_df) #632
+head(domainome_merged_df)
+```
+
+```{r}
+# megascale_merged_df_fil <- merge(pdb_map, megascale_merged_df_fil, by.x = "From", by.y = "base_name")
+# megascale_merged_df_fil <- megascale_merged_df_fil %>% dplyr::rename(variant = mutant,
+#                                                                      uniprot = Entry)
+# clinvar_csv %>% inner_join(megascale_merged_df_fil, by = c("uniprot", "variant"))
+# # null
+```
+
+```{r}
+domainome_merged_df <- domainome_merged_df %>%
+  mutate(stability = case_when(
+    stability_class %in% c("stabilizing") ~ "stabilizing",
+    stability_class %in% c("strongly destabilizing") ~ "destabilizing",
+    stability_class %in% c("wild type-like","mildly destabilizing") ~ "WT-like",
+    TRUE ~ stability_class  # Keep other categories unchanged
+  )) 
+
+table(domainome_merged_df$stability)
+```
+
+```{r}
+domainome_summary_df <- domainome_merged_df %>%
+  mutate(clinvar_clinical_significance = case_when(
+    clinvar_clinical_significance %in% c("likely_benign", "benign") ~ "benign",
+    clinvar_clinical_significance %in% c("likely_pathogenic", "pathogenic") ~ "pathogenic",
+    TRUE ~ clinvar_clinical_significance  # Keep other categories unchanged
+  )) %>%
+  # Group by the new clinical significance categories and stability
+  group_by(clinvar_clinical_significance, stability) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  # Recalculate percentages after merging
+  group_by(clinvar_clinical_significance) %>%
+  mutate(percent = (count / sum(count)) * 100) %>%
+  ungroup()
+
+domainome_summary_df
+```
+
+
+
+```{r}
+# Set factor levels for consistent ordering
+domainome_summary_df$stability <- factor(domainome_summary_df$stability, levels = c("WT-like", "destabilizing", "stabilizing"))
+domainome_summary_df$clinvar_clinical_significance <- factor(domainome_summary_df$clinvar_clinical_significance, levels = c("benign", "pathogenic"))
+unique(domainome_summary_df$stability)
+
+nrow(domainome_merged_df) #632
+length(unique(domainome_merged_df$domain_ID)) #167
+
+p2 <- ggplot(domainome_summary_df, aes(x = clinvar_clinical_significance, y = percent, fill = stability)) +
+  geom_bar(stat = "identity", position = "stack", width = 0.7) +  # Stacked bars
+  geom_text(aes(label = paste0(round(percent, 1), "% (", count, ")")), 
+            position = position_stack(vjust = 0.5), size = 4) +  # Center labels in stacks
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "Domainome: 167 Human Domains", subtitle = "632 variants",
+       x = NULL, y = "Variant percentage (%)", fill = NULL) +
+  theme_classic() + ylim(0, 101) +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 16, hjust = 0, face = "bold"),
+        plot.subtitle = element_text(size = 14, hjust = 0),
+        axis.text.y = element_text(size = 12) ,
+        axis.text.x = element_text(size = 12) ,
+        axis.title.y = element_text(size = 14))    
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig1_domains_clinvar.pdf", 
+       plot = p2, width = 4, height = 4, dpi = 300)
+p2
+```
+
+
+
+
+
+
+
 
 
 ```{r}
 
 ```
-
-
-
-
-
-
-
-
-
 

@@ -1,0 +1,788 @@
+---
+title: "1.hpc_fig1"
+output: pdf_document
+date: "2025-06-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(lme4)
+library(data.table)
+library(future.apply)
+library(performance)
+
+# Set up parallelization
+future::plan(multisession)
+```
+
+```{r}
+all_var_r2 <- read.csv("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/00.human_proteome_results/all_var_lm_r2.csv")
+all_var_r2 <- all_var_r2 %>% filter(!is.na(adj_r2))
+nrow(all_var_r2) #19804
+median(all_var_r2$adj_r2, na.rm = TRUE) #0.2243766
+
+IQR(all_var_r2$adj_r2, na.rm = FALSE) #0.1730944
+quantile(all_var_r2$adj_r2, 0.25, na.rm = FALSE) #0.1250503 
+quantile(all_var_r2$adj_r2, 0.75, na.rm = FALSE) #0.2981447
+
+core_var_r2 <- read.csv("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/00.human_proteome_results/core_lm_r2.csv")
+nrow(core_var_r2) #17420
+sum(!is.na(core_var_r2$adj_r2)) #17420
+median(core_var_r2$adj_r2, na.rm = TRUE) #0.1581737
+
+IQR(core_var_r2$adj_r2, na.rm = FALSE) #0.1356202
+quantile(core_var_r2$adj_r2, 0.25, na.rm = FALSE) #0.09595388
+quantile(core_var_r2$adj_r2, 0.75, na.rm = FALSE) #0.2315741 
+
+```
+
+```{r}
+# # Use multiple sessions (parallel workers)
+# plan(multisession)
+# 
+# # Set the directory path where your RDS files are stored
+# dir_path <- "/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/00.human_proteome_results/lm_rds/"
+# 
+# # List all RDS files in the directory
+# rds_files <- list.files(path = dir_path, pattern = "\\_lm.rds$", full.names = TRUE)
+# 
+# safe_read_and_count <- safely(function(file) {
+#   lm_rds <- readRDS(file)
+#   if (!is.null(lm_rds$predicted_data)) {
+#     sum(rowSums(!is.na(lm_rds$predicted_data)) > 0)
+#   } else {
+#     0
+#   }
+# })
+# 
+# results <- future_map(rds_files, safe_read_and_count)
+# 
+# # Extract row counts (default to 0 if error)
+# row_counts <- map_int(results, ~ if (is.null(.x$error)) .x$result else 0)
+# 
+# # Identify files with errors
+# error_files <- rds_files[which(!map_lgl(results, ~ is.null(.x$error)))]
+# 
+# # Print or save
+# writeLines(error_files, "corrupted_rds_files.txt")
+#Total number of rows in predicted_data across all RDS files: 193469108
+```
+
+```{r}
+# # Use multiple sessions (parallel workers)
+# future::plan(multisession)
+# 
+# # Set the directory path where your RDS files are stored
+# core_dir_path <- "/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/00.human_proteome_results/core_lm_rds"
+# 
+# # List all RDS files in the directory
+# core_rds_files <- list.files(path = core_dir_path, pattern = "\\_lm.rds", full.names = TRUE)
+# length(core_rds_files) #17420
+# 
+# #nrow(readRDS(rds_files[1])$predicted_data)
+# #sum(rowSums(!is.na(readRDS(rds_files[1])$predicted_data)) > 0)
+# core_results <- future_map(core_rds_files, safe_read_and_count)
+# 
+# # Extract row counts (default to 0 if error)
+# core_row_counts <- map_int(core_results, ~ if (is.null(.x$error)) .x$result else 0)
+# 
+# # Identify files with errors
+# core_error_files <- rds_files[which(!map_lgl(core_results, ~ is.null(.x$error)))]
+# 
+# core_error_files
+# #character(0)
+# # Sum up the total rows
+# core_total_rows <- sum(core_row_counts)
+# 
+# # Print the result
+# cat("Total number of rows in predicted_data across all RDS files:", core_total_rows, "\n")
+# #Total number of rows in predicted_data across all RDS files: 47841329 
+```
+
+
+```{r, fig.width=5, fig.height=4}
+r2_combined <- bind_rows(
+  all_var_r2 %>% mutate(source = "All"),
+  core_var_r2 %>% mutate(source = "Core")
+)
+#min(all_var_r2$adj_r2) #-0.004163465
+
+# Count summaries
+n_all <- length(unique(all_var_r2$protein_id))
+n_var_all <- 193469108
+
+n_core <- length(unique(core_var_r2$protein_id))
+n_var_core <- 47841329
+
+# Median R²s
+med_all <- median(all_var_r2$adj_r2, na.rm = TRUE) #0.2243766
+med_core <- median(core_var_r2$adj_r2) #0.1581737
+
+# Rename column to standardize
+r2_combined <- r2_combined  %>%
+  mutate(source = factor(source, levels = c("All", "Core")))
+
+# Plot
+p1 <- ggplot(r2_combined, aes(x = source, y = adj_r2, fill = source)) +
+  geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
+  geom_boxplot(width = 0.5, outlier.shape = NA, color = "grey", alpha = 0.7) +
+  #stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
+  geom_point(stat = "summary", fun = median, shape = 18, size = 4, color = "black") +
+  geom_text(aes(label = paste0("Median R²: ", round(..y.., 3))),
+            stat = "summary", fun = median, vjust = -1, size = 4.5) +
+  annotate("text", x = 1, y = 0.87, label = paste0(n_all, " proteins\n", format(n_var_all, big.mark = ","), " variants"), size = 4.5) +
+  annotate("text", x = 2, y = 0.87, label = paste0(n_core, " proteins\n", format(n_var_core, big.mark = ","), " variants"), size = 4.5) +
+  scale_y_continuous(limits = c(-0.1, 1), expand = c(0, 0.01)) +
+  labs(
+    title = "Human Proteome",
+    subtitle = paste(n_all, "proteins"),
+    x = NULL,
+    y = expression("R² between ddGf and ESM1v pathogenicity")
+  ) +
+  scale_fill_manual(values = c("skyblue1", "steelblue3")) +
+  theme_classic(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    plot.subtitle = element_text(size = 13),
+    legend.position = "none"
+  )
+
+ggsave("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/git_allostery_pathogenicity/figs/panels/fig1_r2.pdf", plot = p1, width = 5, height = 4, dpi = 300)
+
+p1
+```
+
+```{r, fig.width=10, fig.height=5}
+protein_atlas_anno <- read.csv("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/git_allostery_pathogenicity/data/proteome_meta/idmapping_gene_name.tsv")
+nrow(protein_atlas_anno)
+
+table(protein_atlas_anno$source_file)
+#core_var_r2$protein_id <- sub("_filtered_with_esm1v\\.csv$", "", core_var_r2$protein_id)
+#write.csv(core_var_r2, "/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/git_allostery_pathogenicity/data/proteome_meta/core_lm_r2.csv", row.names = FALSE)
+
+core_var_r2_anno <- merge(core_var_r2, protein_atlas_anno, by.x="protein_id", by.y="uniprot", all.x = TRUE )
+nrow(core_var_r2_anno)#35710<- same protein can be part of multiple groups 
+length(unique(core_var_r2$protein_id)) #17420
+
+core_var_r2_anno$source_file <- gsub("_", " ", core_var_r2_anno$source_file)
+
+core_var_r2_anno <- core_var_r2_anno %>% filter(!is.na(source_file))
+nrow(core_var_r2_anno) #35121
+
+summary <- core_var_r2_anno %>%
+  group_by(source_file) %>%
+  summarise(
+    count = n(),
+    median_value = median(adj_r2)
+  )
+
+p6 <- ggplot(core_var_r2_anno, aes(
+  x = source_file,
+  y = adj_r2
+)) +
+  # Sample size annotation
+  geom_text(
+    data = summary, 
+    aes(
+      x = reorder(source_file, -median_value), 
+      y = 0.8,
+      label = paste0("n=", count)
+    ), 
+    size = 3.5, 
+    color = "black"
+  ) +
+  # Violin plot with fixed color
+  geom_violin(trim = FALSE, fill = "#0072B2", alpha = 0.7, color = NA) +  # All violins same color
+
+  # Mean point
+  stat_summary(
+    fun = median, 
+    geom = "point", 
+    shape = 21, 
+    size = 1, 
+    color = "black", 
+    fill = "black"
+  ) +
+
+  # Mean label
+  stat_summary(
+    fun = median, 
+    geom = "text", 
+    aes(label = round(..y.., 2)), 
+    vjust = -0.5, 
+    size = 3.5, 
+    color = "black"
+  ) +
+
+  labs(
+    title = "47,841,329 Variants (Protein Cores)",
+    subtitle = "Protein cores excluding binding sites",
+    x = "",
+    y = "R²"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 14, hjust = 0, face = "bold"),
+    plot.subtitle = element_text(size = 14, hjust = 0),
+    axis.text.y = element_text(size = 10),
+    axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
+    axis.title.y = element_text(size = 12),
+    axis.line = element_line(size = 0.6)
+  ) +
+  ylim(-0.1, 1)
+
+range(core_var_r2_anno$adj_r2) # -0.05881657  0.86482045
+
+ggsave("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/git_allostery_pathogenicity/figs/panels/fig1_r2_protein_type.pdf", plot = p6, width = 10, height = 5, dpi = 300)
+p6
+```
+
+```{r}
+clinvar_all_var <- read.csv("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/00.human_proteome_results/clinvar_all_protein_filtered_with_esm1v_new.csv")
+nrow(clinvar_all_var) #114903
+clinvar_all_var <- clinvar_all_var %>% 
+  filter(!is.na(ESM.1v)) %>% 
+  filter(!is.na(ddG_pred)) %>%
+  dplyr::select(variant, Model, Dataset, ddG_pred, ESM.1v, new_position, wildtype, mutation,
+                exposure_rasa, spot_disorder, clinvar_clinical_significance, chain, uniprot, 
+                aa_sequence)
+nrow(clinvar_all_var) #113994
+
+#write.csv(clinvar_all_var, "/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/git_allostery_pathogenicity/data/proteome_meta/20250616_clinvar_proteome.csv", row.names = FALSE)
+
+total_patho <- clinvar_all_var %>%
+  dplyr::filter(clinvar_clinical_significance %in% c("pathogenic", "likely_pathogenic"))
+nrow(total_patho) #42576
+
+total_benign <- clinvar_all_var %>%
+  dplyr::filter(clinvar_clinical_significance %in% c("benign", "likely_benign"))
+nrow(total_benign) #71418
+
+clinvar_all_var <- clinvar_all_var %>%
+  mutate(stability = case_when(
+    ddG_pred > 1 ~ "destabilizing",
+    ddG_pred < -0.5 ~ "stabilizing",
+    TRUE ~ "WT-like"  # Default case
+  ))
+
+# Summarize data by categories and pathogenicity
+summary_df <- clinvar_all_var %>%
+  mutate(clinvar_clinical_significance = case_when(
+    clinvar_clinical_significance %in% c("likely_benign", "benign") ~ "benign",
+    clinvar_clinical_significance %in% c("likely_pathogenic", "pathogenic") ~ "pathogenic",
+    TRUE ~ clinvar_clinical_significance  # Keep other categories unchanged
+  )) %>%
+  # Group by the new clinical significance categories and stability
+  group_by(clinvar_clinical_significance, stability) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  # Recalculate percentages after merging
+  group_by(clinvar_clinical_significance) %>%
+  mutate(percent = (count / sum(count)) * 100) %>%
+  ungroup()
+
+summary_df
+```
+```{r}
+# Creating a contingency table
+contingency_table <- matrix(c(
+  summary_df$count[summary_df$clinvar_clinical_significance == "pathogenic" & summary_df$stability == "destabilizing"], 
+  summary_df$count[summary_df$clinvar_clinical_significance == "benign" & summary_df$stability == "destabilizing"],
+  sum(summary_df$count[summary_df$clinvar_clinical_significance == "pathogenic" & summary_df$stability != "destabilizing"]),
+  sum(summary_df$count[summary_df$clinvar_clinical_significance == "benign" & summary_df$stability != "destabilizing"])
+), nrow = 2, byrow = TRUE)
+
+# Adding row and column names for clarity
+colnames(contingency_table) <- c("Pathogenic", "Benign")
+rownames(contingency_table) <- c("Destabilizing", "Non-Destabilizing")
+
+# Displaying the table
+print(contingency_table)
+#                  Pathogenic Benign
+#Destabilizing          20549   6292
+#Non-Destabilizing      22027  65126
+```
+
+```{r}
+# Calculate the Odds Ratio using Fisher's Test
+result <- fisher.test(contingency_table)
+result
+# 	Fisher's Exact Test for Count Data
+# 
+# data:  contingency_table
+# p-value < 2.2e-16
+# alternative hypothesis: true odds ratio is not equal to 1
+# 95 percent confidence interval:
+#  9.352171 9.975718
+# sample estimates:
+# odds ratio 
+#    9.65372 
+```
+```{r}
+# library(pROC)
+# library(PRROC)
+# 
+# # Create expanded binary vectors
+# y_true <- c(
+#   rep(1, 20549),  # pathogenic destabilizing
+#   rep(1, 22027),  # pathogenic non-destabilizing
+#   rep(0, 6292),   # benign destabilizing
+#   rep(0, 65126)   # benign non-destabilizing
+# )
+# 
+# # Predicted labels or scores: 1 for destabilizing, 0 for not
+# y_pred <- c(
+#   rep(1, 20549),  # pathogenic destabilizing
+#   rep(0, 22027),  # pathogenic non-destabilizing
+#   rep(1, 6292),   # benign destabilizing
+#   rep(0, 65126)   # benign non-destabilizing
+# )
+# 
+# # ROC AUC
+# roc_obj <- roc(y_true, y_pred)
+# roc_auc <- auc(roc_obj)
+# 
+# # PR AUC
+# pr_obj <- pr.curve(scores.class0 = y_pred[y_true == 1],
+#                    scores.class1 = y_pred[y_true == 0],
+#                    curve = TRUE)
+# pr_auc <- pr_obj$auc.integral
+# 
+# # Print results
+# cat("ROC-AUC:", round(roc_auc, 4), "\n")
+# #ROC-AUC: 0.6973 
+# cat("PR-AUC:", round(pr_auc, 4), "\n")
+# #PR-AUC: 0.6184
+```
+
+```{r, fig.width=4, fig.height=4}
+summary_df$stability <- factor(summary_df$stability, levels = c("WT-like", "destabilizing", "stabilizing"))
+summary_df$clinvar_clinical_significance <- factor(summary_df$clinvar_clinical_significance, levels = c("benign", "pathogenic"))
+
+nrow(clinvar_all_var) #113994
+length(unique(clinvar_all_var$uniprot)) #12336
+
+ggplot(summary_df, aes(x = clinvar_clinical_significance, y = percent, fill = stability)) +
+  geom_bar(stat = "identity", position = "stack", width = 0.7) +  # Stacked bars
+  geom_text(aes(label = paste0(round(percent, 1), "% (", count, ")")), 
+            position = position_stack(vjust = 0.5), size = 4) +  # Center labels in stacks
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "113,994 ClinVar Variants", subtitle = "12,336 proteins",
+       x = NULL, y = "Variant percentage (%)", fill = NULL) +
+  theme_classic() + ylim(0, 101) +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 16, hjust = 0, face = "bold"),
+        plot.subtitle = element_text(size = 14, hjust = 0),
+        axis.text.y = element_text(size = 12) ,
+        axis.text.x = element_text(size = 12) ,
+        axis.title.y = element_text(size = 14))            
+```
+
+```{r}
+clinvar_core_fil <- read.csv("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/git_allostery_pathogenicity/data/proteome_meta/20250616_clinvar_proteome_core.csv")
+
+nrow(clinvar_core_fil) #30744
+
+clinvar_core_fil <- clinvar_core_fil %>% 
+  filter(!is.na(ESM.1v)) %>% 
+  filter(!is.na(ddG_pred)) %>%
+  dplyr::select(variant, Model, Dataset, ddG_pred, ESM.1v, new_position, wildtype, mutation,
+                exposure_rasa, spot_disorder, clinvar_clinical_significance, chain, uniprot, 
+                aa_sequence)
+nrow(clinvar_core_fil) #30455
+
+#write.csv(clinvar_core_fil, "/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/git_allostery_pathogenicity/data/proteome_meta/20250616_clinvar_proteome_core.csv", row.names = FALSE)
+
+total_patho <- clinvar_core_fil %>%
+  dplyr::filter(clinvar_clinical_significance %in% c("pathogenic", "likely_pathogenic"))
+nrow(total_patho) #20765
+
+total_benign <- clinvar_core_fil %>%
+  dplyr::filter(clinvar_clinical_significance %in% c("benign", "likely_benign"))
+nrow(total_benign) #9690
+
+clinvar_core_fil <- clinvar_core_fil %>%
+  mutate(stability = case_when(
+    ddG_pred > 1 ~ "destabilizing",
+    ddG_pred < -0.5 ~ "stabilizing",
+    TRUE ~ "WT-like"  # Default case
+  ))
+
+# Summarize data by categories and pathogenicity
+summary_df <- clinvar_core_fil %>%
+  mutate(clinvar_clinical_significance = case_when(
+    clinvar_clinical_significance %in% c("likely_benign", "benign") ~ "benign",
+    clinvar_clinical_significance %in% c("likely_pathogenic", "pathogenic") ~ "pathogenic",
+    TRUE ~ clinvar_clinical_significance  # Keep other categories unchanged
+  )) %>%
+  # Group by the new clinical significance categories and stability
+  group_by(clinvar_clinical_significance, stability) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  # Recalculate percentages after merging
+  group_by(clinvar_clinical_significance) %>%
+  mutate(percent = (count / sum(count)) * 100) %>%
+  ungroup()
+
+summary_df
+```
+```{r}
+# Creating a contingency table
+contingency_table <- matrix(c(
+  summary_df$count[summary_df$clinvar_clinical_significance == "pathogenic" & summary_df$stability == "destabilizing"], 
+  summary_df$count[summary_df$clinvar_clinical_significance == "benign" & summary_df$stability == "destabilizing"],
+  sum(summary_df$count[summary_df$clinvar_clinical_significance == "pathogenic" & summary_df$stability != "destabilizing"]),
+  sum(summary_df$count[summary_df$clinvar_clinical_significance == "benign" & summary_df$stability != "destabilizing"])
+), nrow = 2, byrow = TRUE)
+
+# Adding row and column names for clarity
+colnames(contingency_table) <- c("Pathogenic", "Benign")
+rownames(contingency_table) <- c("Destabilizing", "Non-Destabilizing")
+
+# Displaying the table
+print(contingency_table)
+#                   Pathogenic Benign
+# Destabilizing          14001   3177
+# Non-Destabilizing       6764   6513
+```
+
+```{r}
+# Calculate the Odds Ratio using Fisher's Test
+result <- fisher.test(contingency_table)
+result
+# 	Fisher's Exact Test for Count Data
+# 
+# data:  contingency_table
+# p-value < 2.2e-16
+# alternative hypothesis: true odds ratio is not equal to 1
+# 95 percent confidence interval:
+#  4.029904 4.469339
+# sample estimates:
+# odds ratio 
+#   4.242931
+```
+```{r}
+# #                   Pathogenic Benign
+# #Destabilizing          14001   3177
+# #Non-Destabilizing       6764   6513
+# # Create expanded binary vectors
+# y_true <- c(
+#   rep(1, 14001),  # pathogenic destabilizing
+#   rep(1, 6764),  # pathogenic non-destabilizing
+#   rep(0, 3177),   # benign destabilizing
+#   rep(0, 6513)   # benign non-destabilizing
+# )
+# 
+# # Predicted labels or scores: 1 for destabilizing, 0 for not
+# y_pred <- c(
+#   rep(1, 14001),  # pathogenic destabilizing
+#   rep(0, 6764),  # pathogenic non-destabilizing
+#   rep(1, 3177),   # benign destabilizing
+#   rep(0, 6513)   # benign non-destabilizing
+# )
+# 
+# # ROC AUC
+# roc_obj <- roc(y_true, y_pred)
+# roc_auc <- auc(roc_obj)
+# 
+# # PR AUC
+# pr_obj <- pr.curve(scores.class0 = y_pred[y_true == 1],
+#                    scores.class1 = y_pred[y_true == 0],
+#                    curve = TRUE)
+# pr_auc <- pr_obj$auc.integral
+# 
+# # Print results
+# cat("ROC-AUC:", round(roc_auc, 4), "\n")
+# #ROC-AUC: 0.6732
+# cat("PR-AUC:", round(pr_auc, 4), "\n")
+# #PR-AUC: 0.7893
+```
+
+
+```{r, fig.width=4, fig.height=4}
+summary_df$stability <- factor(summary_df$stability, levels = c("WT-like", "destabilizing", "stabilizing"))
+summary_df$clinvar_clinical_significance <- factor(summary_df$clinvar_clinical_significance, levels = c("benign", "pathogenic"))
+
+nrow(clinvar_core_fil) #30455
+length(unique(clinvar_core_fil$uniprot)) #5286
+
+ggplot(summary_df, aes(x = clinvar_clinical_significance, y = percent, fill = stability)) +
+  geom_bar(stat = "identity", position = "stack", width = 0.7) +  # Stacked bars
+  geom_text(aes(label = paste0(round(percent, 1), "% (", count, ")")), 
+            position = position_stack(vjust = 0.5), size = 4) +  # Center labels in stacks
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "30,455 ClinVar Variants", subtitle = "5,286 proteins",
+       x = NULL, y = "Variant percentage (%)", fill = NULL) +
+  theme_classic() + ylim(0, 101) +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 16, hjust = 0, face = "bold"),
+        plot.subtitle = element_text(size = 14, hjust = 0),
+        axis.text.y = element_text(size = 12) ,
+        axis.text.x = element_text(size = 12) ,
+        axis.title.y = element_text(size = 14))            
+```
+
+```{r}
+# ALL SITES
+#                  Pathogenic Benign
+#Destabilizing          20549   6292
+#Non-Destabilizing      22027  65126
+
+# CORE
+#                   Pathogenic Benign
+#Destabilizing          14001   3177
+#Non-Destabilizing       6764   6513
+
+# EXPOSED
+#                   Pathogenic Benign
+#Destabilizing          6548   3115
+#Non-Destabilizing      15263  58,613
+
+# # Replace these with real values
+# A <- 14001  # buried & destabilizing
+# B <- 6764  # buried & not destabilizing
+# C <- 6548  # exposed & destabilizing
+# D <- 15263  # exposed & not destabilizing
+# 
+# # Create vectors
+# y_true <- c(rep(1, A), rep(0, B), rep(1, C), rep(0, D))  # destabilizing = 1
+# y_pred <- c(rep(1, A + B), rep(0, C + D))                # buried = 1
+# 
+# # ROC AUC
+# roc_obj <- roc(y_true, y_pred)
+# roc_auc <- auc(roc_obj)
+# pr_obj <- pr.curve(scores.class0 = y_pred[y_true == 1],
+#                    scores.class1 = y_pred[y_true == 0],
+#                    curve = TRUE)
+# pr_auc <- pr_obj$auc.integral
+# # Print results
+# cat("ROC-AUC:", round(roc_auc, 4), "\n")
+# #ROC-AUC: 0.6871
+# cat("PR-AUC:", round(pr_auc, 4), "\n")
+# #PR-AUC: 0.6365
+```
+
+```{r}
+# Create matrix
+exposed_mat <- matrix(c(
+  6548,   # Pathogenic & Destabilizing
+  3115,   # Benign & Destabilizing
+  15263,  # Pathogenic & Non-Destabilizing
+  58613   # Benign & Non-Destabilizing
+), nrow = 2, byrow = TRUE)
+
+# Label rows and columns (optional for clarity)
+colnames(exposed_mat) <- c("Pathogenic", "Benign")
+rownames(exposed_mat) <- c("Destabilizing", "Non-Destabilizing")
+
+# Run Fisher's Exact Test
+fisher.test(exposed_mat)
+# 	Fisher's Exact Test for Count Data
+# 
+# data:  exposed_mat
+# p-value < 2.2e-16
+# alternative hypothesis: true odds ratio is not equal to 1
+# 95 percent confidence interval:
+#  7.706033 8.456029
+# sample estimates:
+# odds ratio 
+#   8.071745
+```
+```{r}
+head(clinvar_core_fil)
+```
+
+
+```{r}
+clinvar_core_fil_anno <- merge(clinvar_core_fil, protein_atlas_anno, by="uniprot", all.x = TRUE )
+nrow(clinvar_core_fil_anno) #90662<- same protein can be part of multiple groups 
+length(unique(clinvar_core_fil_anno$uniprot)) #5286
+clinvar_core_fil_anno <- clinvar_core_fil_anno %>% filter(!is.na(source_file))
+nrow(clinvar_core_fil_anno) #90626
+
+clinvar_core_fil_anno$source_file <- gsub("_", " ", clinvar_core_fil_anno$source_file)
+
+clinvar_core_fil_anno_patho <- clinvar_core_fil_anno %>% filter(clinvar_clinical_significance %in% c("pathogenic", "likely_pathogenic"))
+nrow(clinvar_core_fil_anno_patho) #65952
+
+variant_counts_patho <- clinvar_core_fil_anno_patho %>%
+  group_by(source_file) %>%
+  summarise(
+    total_variants = n(),
+    non_wt_like = sum(stability %in% c("destabilizing", "stabilizing")),
+    fraction_non_wt_like = non_wt_like / total_variants
+  )
+
+variant_counts_patho
+```
+
+```{r, fig.width=10, fig.height=5}
+p4 <- ggplot(variant_counts_patho, aes(x = reorder(source_file, -fraction_non_wt_like),  # Order by fraction
+                           y = fraction_non_wt_like, 
+                           fill = source_file)) +
+  geom_bar(stat = "identity", alpha = 0.7, fill = "#0072B2") +  # Bar plot
+  geom_text(aes(label = round(fraction_non_wt_like, 2)), 
+            vjust = -0.5, size = 5, color = "black") +  # Labels on bars
+  labs(
+    title = "65,952 Pathogenic & Likely Pathogenic ClinVar Variants",
+    subtitle = "Core variants",
+    x = "",
+    y = "% of Stability-related Variants"
+  ) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, color = "#333333"),  # Bold title for emphasis
+    plot.subtitle = element_text(size = 14, color = "#666666"),  # Lighter subtitle
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none"
+  ) + ylim(0, 1)
+
+ggsave("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/git_allostery_pathogenicity/figs/panels/fig1_clinvar_patho_core_protein_type.pdf", plot = p4, width = 10, height = 5, dpi = 300)
+p4
+```
+
+```{r}
+clinvar_core_fil_anno_benign <- clinvar_core_fil_anno %>% filter(clinvar_clinical_significance %in% c("benign", "likely_benign"))
+nrow(clinvar_core_fil_anno_benign) #24674
+
+variant_counts_benign <- clinvar_core_fil_anno_benign %>%
+  group_by(source_file) %>%
+  summarise(
+    total_variants = n(),
+    non_wt_like = sum(stability %in% c("destabilizing", "stabilizing")),
+    fraction_non_wt_like = non_wt_like / total_variants
+  )
+
+variant_counts_benign
+```
+
+```{r, fig.width=10, fig.height=5}
+p5 <- ggplot(variant_counts_benign, aes(x = reorder(source_file, -fraction_non_wt_like),  # Order by fraction
+                           y = fraction_non_wt_like, 
+                           fill = source_file)) +
+  geom_bar(stat = "identity", alpha = 0.7, fill = "#0072B2") +  # Bar plot
+  geom_text(aes(label = round(fraction_non_wt_like, 2)), 
+            vjust = -0.5, size = 5, color = "black") +  # Labels on bars
+  labs(
+    title = "24,674 Benign & Likely Benign ClinVar Variants",
+    subtitle = "Core variants",
+    x = "",
+    y = "% of Stability-related Variants"
+  ) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, color = "#333333"),  # Bold title for emphasis
+    plot.subtitle = element_text(size = 14, color = "#666666"),  # Lighter subtitle
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none"
+  ) + ylim(0, 1)
+
+ggsave("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/git_allostery_pathogenicity/figs/panels/fig1_clinvar_benign_core_protein_type.pdf", plot = p5, width = 10, height = 5, dpi = 300)
+p5
+```
+
+```{r}
+clinvar_all_var_anno <- merge(clinvar_all_var, protein_atlas_anno, by="uniprot", all.x = TRUE )
+nrow(clinvar_all_var_anno) #294935<- same protein can be part of multiple groups 
+length(unique(clinvar_all_var_anno$uniprot)) #12336
+clinvar_all_var_anno <- clinvar_all_var_anno %>% filter(!is.na(source_file))
+nrow(clinvar_all_var_anno) #294729
+
+clinvar_all_var_anno$source_file <- gsub("_", " ", clinvar_all_var_anno$source_file)
+
+clinvar_all_var_anno_patho <- clinvar_all_var_anno %>% filter(clinvar_clinical_significance %in% c("pathogenic", "likely_pathogenic"))
+nrow(clinvar_all_var_anno_patho) #128512
+
+variant_counts_patho <- clinvar_all_var_anno_patho %>%
+  group_by(source_file) %>%
+  summarise(
+    total_variants = n(),
+    non_wt_like = sum(stability %in% c("destabilizing", "stabilizing")),
+    fraction_non_wt_like = non_wt_like / total_variants
+  )
+
+variant_counts_patho
+```
+
+```{r, fig.width=10, fig.height=5}
+p2 <- ggplot(variant_counts_patho, aes(x = reorder(source_file, -fraction_non_wt_like),  # Order by fraction
+                           y = fraction_non_wt_like, 
+                           fill = source_file)) +
+  geom_bar(stat = "identity", alpha = 0.7, fill = "#0072B2") +  # Bar plot
+  geom_text(aes(label = round(fraction_non_wt_like, 2)), 
+            vjust = -0.5, size = 5, color = "black") +  # Labels on bars
+  labs(
+    title = "128,512 Pathogenic & Likely Pathogenic ClinVar Variants",
+    subtitle = "All variants",
+    x = "",
+    y = "% of Stability-related Variants"
+  ) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, color = "#333333"),  # Bold title for emphasis
+    plot.subtitle = element_text(size = 14, color = "#666666"),  # Lighter subtitle
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none"
+  ) + ylim(0, 1)
+
+ggsave("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/git_allostery_pathogenicity/figs/panels/fig1_clinvar_patho_all_protein_type.pdf", plot = p2, width = 10, height = 5, dpi = 300)
+p2
+```
+```{r}
+clinvar_all_var_anno_benign <- clinvar_all_var_anno %>% filter(clinvar_clinical_significance %in% c("benign", "likely_benign"))
+nrow(clinvar_all_var_anno_benign) #166217
+
+variant_counts_benign <- clinvar_all_var_anno_benign %>%
+  group_by(source_file) %>%
+  summarise(
+    total_variants = n(),
+    non_wt_like = sum(stability %in% c("destabilizing", "stabilizing")),
+    fraction_non_wt_like = non_wt_like / total_variants
+  )
+
+variant_counts_benign
+```
+```{r, fig.width=10, fig.height=5}
+p3 <- ggplot(variant_counts_benign, aes(x = reorder(source_file, -fraction_non_wt_like),  # Order by fraction
+                           y = fraction_non_wt_like, 
+                           fill = source_file)) +
+  geom_bar(stat = "identity", alpha = 0.7, fill = "#0072B2") +  # Bar plot
+  geom_text(aes(label = round(fraction_non_wt_like, 2)), 
+            vjust = -0.5, size = 5, color = "black") +  # Labels on bars
+  labs(
+    title = "166,217 Benign & Likely Benign ClinVar Variants",
+    subtitle = "All variants",
+    x = "",
+    y = "% of Stability-related Variants"
+  ) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, color = "#333333"),  # Bold title for emphasis
+    plot.subtitle = element_text(size = 14, color = "#666666"),  # Lighter subtitle
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none"
+  ) + ylim(0, 1)
+
+ggsave("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/git_allostery_pathogenicity/figs/panels/fig1_clinvar_benign_all_protein_type.pdf", plot = p3, width = 10, height = 5, dpi = 300)
+p3
+```
+
+```{r}
+
+```
+
+
+
+
+```{r}
+
+```
+
+
+
+
+
+

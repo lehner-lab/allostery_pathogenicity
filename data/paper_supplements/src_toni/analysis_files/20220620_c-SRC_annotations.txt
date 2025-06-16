@@ -1,0 +1,659 @@
+position	WT_AA	block1	domains_Pfam	KD_lobe	secondary_structure_uniprot	secondary_structure_KD_refs1,2	secondary_structure_stride	ActivationLoop_inactive_structure_2SRC	ActivationLoop_active_structure_3DQW	R-spine	C-spine	other important sites	important contacts	regulatory_surfaces_Ahler2019	ActiveSite_ProSite	smallMolecule_ion_substrate_binding	Community	Core	Surface	PTMs	PhosphositeplusPTM_lowthr_hithr_papersSupporting	known_mutations
+1	M		disorder, removed post-translationally																	removed		
+2	G		disorder, SH4																	N-myristoylation		
+3	S		disorder, SH4																			
+4	N		disorder, SH4																			
+5	K		disorder, SH4																			
+6	S		disorder, SH4																			
+7	K		disorder, SH4																			
+8	P		disorder, SH4																			
+9	K		disorder, SH4																			
+10	D		disorder, SH4																			
+11	A		disorder, SH4																			
+12	S		disorder, SH4																		P_5_2	
+13	Q		disorder, SH4																			
+14	R		disorder, SH4																			
+15	R		disorder, SH4																			
+16	R		disorder, SH4																			
+17	S		disorder, UD																	P	P_10_58	
+18	L		disorder, UD																			
+19	E		disorder, UD																			
+20	P		disorder, UD																			
+21	A		disorder, UD																			
+22	E		disorder, UD																			
+23	N		disorder, UD																			
+24	V		disorder, UD																			
+25	H		disorder, UD																			
+26	G		disorder, UD																			
+27	A		disorder, UD																			
+28	G		disorder, UD																			
+29	G		disorder, UD																			
+30	G		disorder, UD																			
+31	A		disorder, UD																			
+32	F		disorder, UD																			
+33	P		disorder, UD																			
+34	A		disorder, UD																			
+35	S		disorder, UD																		P_1_2	
+36	Q		disorder, UD																			
+37	T		disorder, UD																		P_3_1	
+38	P		disorder, UD																			
+39	S		disorder, UD																		P_1_1	
+40	K		disorder, UD																			
+41	P		disorder, UD																			
+42	A		disorder, UD																			
+43	S		disorder, UD																		P_2_1	
+44	A		disorder, UD																			
+45	D		disorder, UD																		caspaseCleavageSite_0_1	
+46	G		disorder, UD																			
+47	H		disorder, UD																			
+48	R		disorder, UD																			
+49	G		disorder, UD																			
+50	P		disorder, UD																			
+51	S		disorder, UD																		P_3_2	
+52	A		disorder, UD																			
+53	A		disorder, UD																			
+54	F		disorder, UD																			
+55	A		disorder, UD																			
+56	P		disorder, UD																			
+57	A		disorder, UD																			
+58	A		disorder, UD																			
+59	A		disorder, UD																			
+60	E		disorder, UD																			
+61	P		disorder, UD																			
+62	K		disorder, UD																		ac_0_1	
+63	L		disorder, UD																			
+64	F		disorder, UD																			
+65	G		disorder, UD																			
+66	G		disorder, UD																			
+67	F		disorder, UD																			
+68	N		disorder, UD																			
+69	S		disorder, UD																		P_0_4	
+70	S		disorder, UD																		P_1_2	
+71	D		disorder, UD																		P_0_2	
+72	T		disorder, UD																			
+73	V		disorder, UD																		P_0_2	
+74	T		disorder, UD																			
+75	S		disorder, UD																	P	P_8_27	
+76	P		disorder, UD																			
+77	Q		disorder, UD																			
+78	R		disorder, UD																			
+79	A		disorder, UD																			
+80	G		disorder, UD																			
+81	P		disorder, UD																			
+82	L		disorder, UD																			
+83	A		disorder, UD																			
+84	G		disorder, UD																			
+85	G		disorder, UD																			
+86	V		disorder, UD																			
+87	T				beta strand																	
+88	T				beta strand																	
+89	F				beta strand																	
+90	V		SH3		beta strand																	
+91	A		SH3		beta strand																	
+92	L		SH3		beta strand																	
+93	Y		SH3		beta strand																P_0_2	
+94	D		SH3																			
+95	Y		SH3																			
+96	E		SH3																			
+97	S		SH3																		P_1_0	
+98	R		SH3																			
+99	T		SH3		beta strand																	
+100	E		SH3		beta strand																	
+101	T		SH3		beta strand																	
+102	D		SH3		beta strand																	
+103	L		SH3																			
+104	S		SH3																		P_1_5	
+105	F		SH3																			
+106	K		SH3																			
+107	K		SH3																			
+108	G		SH3																			
+109	E		SH3																			
+110	R		SH3		beta strand																	
+111	L		SH3		beta strand																	
+112	Q		SH3		beta strand																	
+113	I		SH3		beta strand																	
+114	V		SH3		beta strand																	
+115	N		SH3																			
+116	N		SH3																			
+117	T		SH3																			
+118	E		SH3		beta strand																	
+119	G		SH3		beta strand																	
+120	D		SH3		beta strand																	
+121	W		SH3		beta strand																	
+122	W		SH3		beta strand																	
+123	L		SH3		beta strand																	
+124	A		SH3		beta strand																	
+125	H		SH3		beta strand																	
+126	S		SH3		beta strand																	
+127	L		SH3		turn																	
+128	S		SH3		turn																	
+129	T		SH3		turn																	
+130	G		SH3																			
+131	Q		SH3																			
+132	T		SH3		beta strand																	
+133	G		SH3		beta strand																	
+134	Y		SH3		beta strand																	
+135	I		SH3		beta strand																	
+136	P		SH3		beta strand																	
+137	S		SH3		helix																	
+138	N		SH3		helix																	
+139	Y		SH3		helix																	
+140	V		SH3		beta strand																	
+141	A		SH3		beta strand																	
+142	P		SH3		beta strand																	
+143	S		SH3																			
+144	D		SH3																			
+145	S		SH3																			
+146	I				helix																	
+147	Q				helix																	
+148	A				helix																	
+149	E		SH2																			
+150	E		SH2																			
+151	W		SH2																			
+152	Y		SH2		beta strand																	
+153	F		SH2		beta strand																	
+154	G		SH2		beta strand																	
+155	K		SH2																			
+156	I		SH2																			
+157	T		SH2																			
+158	R		SH2		helix																	
+159	R		SH2		helix																	
+160	E		SH2		helix																	
+161	S		SH2		helix																	
+162	E		SH2		helix																	
+163	R		SH2		helix																	
+164	L		SH2		helix																	
+165	L		SH2		helix																	
+166	L		SH2																			
+167	N		SH2		beta strand																	
+168	A		SH2		beta strand																	
+169	E		SH2		beta strand																	
+170	N		SH2		beta strand																	
+171	P		SH2																			
+172	R		SH2																			
+173	G		SH2																			
+174	T		SH2		beta strand																	
+175	F		SH2		beta strand																	
+176	L		SH2		beta strand																	
+177	V		SH2		beta strand																	
+178	R		SH2		beta strand																	
+179	E		SH2		beta strand																	
+180	S		SH2																			
+181	E		SH2		beta strand																	
+182	T		SH2		beta strand																P_0_4	
+183	T		SH2		beta strand																P_0_15	
+184	K		SH2																			
+185	G		SH2																			
+186	A		SH2																			
+187	Y		SH2		beta strand															P	P_0_59	
+188	C		SH2		beta strand																	
+189	L		SH2		beta strand																	
+190	S		SH2		beta strand																	
+191	V		SH2		beta strand																	
+192	S		SH2		beta strand																	
+193	D		SH2		beta strand																	
+194	F		SH2		beta strand																	
+195	D		SH2		beta strand																	
+196	N		SH2		turn																	
+197	A		SH2		turn																	
+198	K		SH2		turn																	
+199	G		SH2		beta strand																	
+200	L		SH2		beta strand																	
+201	N		SH2		beta strand																	
+202	V		SH2		beta strand																	
+203	K		SH2		beta strand																	
+204	H		SH2		beta strand																	
+205	Y		SH2		beta strand																	
+206	K		SH2		beta strand																	
+207	I		SH2		beta strand																	
+208	R		SH2		beta strand																	
+209	K		SH2		beta strand																	
+210	L		SH2																			
+211	D		SH2		beta strand																	
+212	S		SH2		beta strand																	
+213	G		SH2		beta strand																	
+214	G		SH2																			
+215	F		SH2		beta strand																	
+216	Y		SH2		beta strand															P	P_7_24	
+217	I		SH2		beta strand																	
+218	T		SH2		beta strand																	
+219	S		SH2																			
+220	R		SH2																			
+221	T		SH2		beta strand																	
+222	Q		SH2		beta strand																	
+223	F		SH2		beta strand																	
+224	N		SH2		beta strand																	
+225	S		SH2		beta strand																	
+226	L		SH2		helix																	
+227	Q		SH2		helix																	
+228	Q		SH2		helix																	
+229	L		SH2		helix																	
+230	V		SH2		helix																	
+231	A		SH2		helix																	
+232	Y		SH2		helix																	
+233	Y		SH2		helix																	
+234	S		SH2																			
+235	K		SH2																			
+236	H		SH2																			
+237	A		SH2																			
+238	D		SH2																			
+239	G		SH2																			
+240	L		SH2		beta strand																	
+241	C		SH2		beta strand																	
+242	H		SH2		beta strand																	
+243	R		SH2																			
+244	L		SH2																			
+245	T		SH2																			
+246	T		SH2																		p_0_1	
+247	V		SH2																			
+248	C		SH2																			
+249	P																					
+250	T																				P_0_1	
+251	S																					
+252	K																					
+253	P																					
+254	Q																					
+255	T																					
+256	Q				beta strand																	
+257	G				beta strand																	
+258	L				beta strand																	
+259	A				beta strand																	
+260	K																					
+261	D																					
+262	A																					
+263	W																					
+264	E																					
+265	I																					
+266	P																					
+267	R				helix																	
+268	E	TRUE		N-lobe	helix		3-10 helix															
+269	S	TRUE		N-lobe	helix		3-10 helix															
+270	L	TRUE	KD	N-lobe	beta strand		beta1															
+271	R	TRUE	KD	N-lobe	beta strand		beta1															
+272	L	TRUE	KD	N-lobe	beta strand		beta1															
+273	E	TRUE	KD	N-lobe	beta strand		beta1															
+274	V	TRUE	KD	N-lobe	beta strand		beta1															
+275	K	TRUE	KD	N-lobe	beta strand	beta1	beta1															
+276	L	TRUE	KD	N-lobe	beta strand	beta1	beta1									ATP						
+277	G	TRUE	KD	N-lobe	beta strand	beta1	beta1					G-Loop				ATP						
+278	Q	TRUE	KD	N-lobe	beta strand	beta1	beta1					G-Loop				ATP						
+279	G	TRUE	KD	N-lobe		beta1	beta1-beta2 turn					G-Loop				ATP						
+280	C	TRUE	KD	N-lobe	beta strand	beta1-beta2 turn	beta1-beta2 turn					G-Loop				ATP						
+281	F	TRUE	KD	N-lobe	beta strand	beta1-beta2 turn	beta1-beta2 turn					G-Loop				ATP						
+282	G	TRUE	KD	N-lobe	beta strand	beta1-beta2 turn	beta2					G-Loop				ATP						
+283	E	TRUE	KD	N-lobe	beta strand	beta2	beta2									ATP						
+284	V	TRUE	KD	N-lobe	beta strand	beta2	beta2				TRUE	C-spine				ATP						
+285	W	TRUE	KD	N-lobe	beta strand	beta2	beta2									ATP						
+286	M	TRUE	KD	N-lobe	beta strand	beta2	beta2									atp						
+287	G	TRUE	KD	N-lobe	beta strand	beta2	beta2									ATP						
+288	T	TRUE	KD	N-lobe	beta strand	beta2	beta2									atp						
+289	W	TRUE	KD	N-lobe	beta strand	beta2	beta2							SH3-linker-KD interface		atp						
+290	N	TRUE	KD	N-lobe	turn	beta2-beta3 turn	beta2-beta3 turn							SH3-linker-KD interface		atp						
+291	G	TRUE	KD	N-lobe	turn	beta2-beta3 turn	beta2-beta3 turn							SH3-linker-KD interface		atp						
+292	T	TRUE	KD	N-lobe	turn	beta2-beta3 turn	beta2-beta3 turn									atp						
+293	T	TRUE	KD	N-lobe	beta strand	beta3	beta3							SH3-linker-KD interface		atp						
+294	R	TRUE	KD	N-lobe	beta strand	beta3	beta3									atp						
+295	V	TRUE	KD	N-lobe	beta strand	beta3	beta3									ATP						
+296	A	TRUE	KD	N-lobe	beta strand	beta3	beta3				TRUE	C-spine				ATP						
+297	I	TRUE	KD	N-lobe	beta strand	beta3	beta3									ATP						
+298	K	TRUE	KD	N-lobe	beta strand	beta3	beta3						E313-K298 salt bridge, coordinates alpha and beta P of ATP			ATP						
+299	T	TRUE	KD	N-lobe	beta strand	beta3	beta3															
+300	L	TRUE	KD	N-lobe		beta3	beta3						stabilizes alphaC helix									
+301	K	TRUE	KD	N-lobe		beta3-alphaC loop	beta3-alphaC_1_turn-coil															
+302	P	TRUE	KD	N-lobe	turn	beta3-alphaC loop	beta3-alphaC_1_turn-coil															
+303	G	TRUE	KD	N-lobe	turn	beta3-alphaC loop	beta3-alphaC_1_turn-coil															
+304	T	TRUE	KD	N-lobe	turn	beta3-alphaC loop	beta3-alphaC_1_turn-coil														P_0_2	
+305	M	TRUE	KD	N-lobe		beta3-alphaC loop	beta3-alphaC_1_turn-coil															
+306	S	TRUE	KD	N-lobe		beta3-alphaC loop	beta3-alphaC_1_turn-coil														P_0_2	
+307	P	TRUE	KD	N-lobe	helix	alphaC	alphaC															
+308	E	TRUE	KD	N-lobe	helix	alphaC	alphaC															
+309	A	TRUE	KD	N-lobe	helix	alphaC	alphaC															
+310	F	TRUE	KD	N-lobe	helix	alphaC	alphaC															
+311	L	TRUE	KD	N-lobe	helix	alphaC	alphaC						L311-I339 HF contact									
+312	Q	TRUE	KD	N-lobe	helix	alphaC	alphaC															
+313	E	TRUE	KD	N-lobe	helix	alphaC	alphaC						E313-K298 salt bridge in active conformation, E313-R412 salt bridge in inactive conformation									
+314	A	TRUE	KD	N-lobe	helix	alphaC	alphaC															
+315	Q	TRUE	KD	N-lobe	helix	alphaC	alphaC															
+316	V	TRUE	KD	N-lobe	helix	alphaC	alphaC															
+317	M	TRUE	KD	N-lobe	helix	alphaC	alphaC			TRUE		R-spine										
+318	K	TRUE	KD	N-lobe	helix	alphaC	alphaC															
+319	K	TRUE	KD	N-lobe	helix	alphaC	alphaC															
+320	L	TRUE	KD	N-lobe		alphaC-beta4 loop	alphaC-beta4_1_turn-coil															
+321	R	TRUE	KD	N-lobe		alphaC-beta4 loop	alphaC-beta4_1_turn-coil															
+322	H	TRUE	KD	N-lobe		alphaC-beta4 loop	alphaC-beta4_1_turn-coil															
+323	E	TRUE	KD	N-lobe		alphaC-beta4 loop	alphaC-beta4_1_turn-coil															
+324	K	TRUE	KD	N-lobe		alphaC-beta4 loop	alphaC-beta4_1_turn-coil															
+325	L	TRUE	KD	N-lobe		alphaC-beta4 loop	alphaC-beta4_1_turn-coil						L325-Y379 HF contact	SH2-KD interface								
+326	V	TRUE	KD	N-lobe		alphaC-beta4 loop	alphaC-beta4_1_turn-coil					R-shell										
+327	Q		KD	N-lobe		alphaC-beta4 loop																
+328	L		KD	N-lobe	beta strand	beta4				TRUE		R-spine										
+329	Y		KD	N-lobe	beta strand	beta4																
+330	A		KD	N-lobe	beta strand	beta4								SH3-linker-KD interface								
+331	V		KD	N-lobe	beta strand	beta4																
+332	V		KD	N-lobe	beta strand	beta4																
+333	S		KD	N-lobe		beta4-beta5 loop																
+334	E		KD	N-lobe	beta strand	beta4-beta5 loop																
+335	E		KD	N-lobe	beta strand	beta4-beta5 loop																
+336	P		KD	N-lobe	beta strand	beta4-beta5 loop																
+337	I		KD	N-lobe		beta4-beta5 loop																
+338	Y		KD	N-lobe	beta strand	beta5															P_1_2	
+339	I		KD	N-lobe	beta strand	beta5						R-shell										
+340	V		KD	N-lobe	beta strand	beta5																
+341	T		KD	N-lobe	beta strand	beta5						R-shell										
+342	E		KD	hinge region		beta5						hinge region										
+343	Y		KD	hinge region		beta5-alphaD loop						hinge region										
+344	M		KD	hinge region		beta5-alphaD loop						hinge region										
+345	S		KD	hinge region	beta strand	beta5-alphaD loop						hinge region										
+346	K		KD	hinge region	beta strand	beta5-alphaD loop						hinge region										
+347	G		KD	C-lobe	beta strand	beta5-alphaD loop																
+348	S		KD	C-lobe	beta strand	beta5-alphaD loop																
+349	L		KD	C-lobe	helix	alphaD																
+350	L		KD	C-lobe	helix	alphaD																
+351	D		KD	C-lobe	helix	alphaD																
+352	F		KD	C-lobe	helix	alphaD																
+353	L		KD	C-lobe	helix	alphaD																
+354	K		KD	C-lobe		alphaD-alphaE loop					TRUE	C-spine										
+355	G		KD	C-lobe	helix	alphaD-alphaE loop																
+356	E		KD	C-lobe	helix	alphaD-alphaE loop																
+357	T		KD	C-lobe	helix	alphaD-alphaE loop																
+358	G		KD	C-lobe	helix	alphaD-alphaE loop																
+359	K		KD	C-lobe		alphaD-alphaE loop																
+360	Y		KD	C-lobe		alphaD-alphaE loop																
+361	L		KD	C-lobe		alphaD-alphaE loop																
+362	R		KD	C-lobe		alphaD-alphaE loop																
+363	L		KD	C-lobe	helix	alphaE																
+364	P		KD	C-lobe	helix	alphaE																
+365	Q		KD	C-lobe	helix	alphaE																
+366	L		KD	C-lobe	helix	alphaE																
+367	V		KD	C-lobe	helix	alphaE																
+368	D		KD	C-lobe	helix	alphaE								SH2-KD interface								
+369	M		KD	C-lobe	helix	alphaE																
+370	A		KD	C-lobe	helix	alphaE																
+371	A		KD	C-lobe	helix	alphaE																
+372	Q		KD	C-lobe	helix	alphaE																
+373	I		KD	C-lobe	helix	alphaE																
+374	A		KD	C-lobe	helix	alphaE																
+375	S		KD	C-lobe	helix	alphaE								SH2-KD interface								
+376	G		KD	C-lobe	helix	alphaE																
+377	M		KD	C-lobe	helix	alphaE																
+378	A		KD	C-lobe	helix	alphaE								alphaF pocket								
+379	Y		KD	C-lobe	helix	alphaE																
+380	V		KD	C-lobe	helix	alphaE																
+381	E		KD	C-lobe	helix	alphaE								alphaF pocket								
+382	R		KD	C-lobe	helix	alphaE-beta7 loop																
+383	M		KD	C-lobe		alphaE-beta7 loop																
+384	N		KD	C-lobe		alphaE-beta7 loop																
+385	Y		KD	C-lobe		alphaE-beta7 loop							Y385-L413 HF contact		CatLoop							
+386	V		KD	C-lobe		alphaE-beta7 loop									CatLoop							
+387	H		KD	C-lobe		alphaE-beta7 loop				TRUE		R-spine			CatLoop HRD							
+388	R		KD	C-lobe		alphaE-beta7 loop							R388-pY419 CatLoop-ActivationSegment hydrogen bond		CatLoop HRD							
+389	D		KD	C-lobe		alphaE-beta7 loop									CatLoop HRD - proton acceptor							
+390	L		KD	C-lobe		alphaE-beta7 loop									CatLoop							
+391	R		KD	C-lobe		alphaE-beta7 loop							R391-N394 intracatalytic loop hydrogen bond		CatLoop							
+392	A		KD	C-lobe	helix	beta7 prehelix									CatLoop							
+393	A		KD	C-lobe	helix	beta7 prehelix									CatLoop							
+394	N		KD	C-lobe	helix	beta7 prehelix							N394ÐD407 CatLoop-ActivationSegment hydrogen bond		CatLoop							
+395	I		KD	C-lobe	beta strand	beta7					TRUE	C-spine			CatLoop							
+396	L		KD	C-lobe	beta strand	beta7					TRUE	C-spine			CatLoop							
+397	V		KD	C-lobe	beta strand	beta7					TRUE	C-spine			CatLoop							
+398	G		KD	C-lobe	beta strand	beta7																
+399	E		KD	C-lobe	turn	beta7-beta8 turn																
+400	N		KD	C-lobe	turn	beta7-beta8 turn																
+401	L		KD	C-lobe	turn	beta7-beta8 turn																
+402	V		KD	C-lobe	beta strand	beta8																
+403	C		KD	C-lobe	beta strand	beta8																
+404	K		KD	C-lobe	beta strand	beta8																
+405	V		KD	C-lobe	beta strand	beta8																
+406	A		KD	C-lobe		activation loop		loop	loop													
+407	D		KD	C-lobe		activation loop		loop	loop				N394ÐD407 CatLoop-ActivationSegment hydrogen bond		ActivationSegment DFG	Mg2+ positioning loop						
+408	F		KD	C-lobe		activation loop		loop	loop						ActivationSegment DFG	Mg2+ positioning loop						
+409	G		KD	C-lobe		activation loop		loop	loop						ActivationSegment DFG	Mg2+ positioning loop						
+410	L		KD	C-lobe	helix	activation loop		helix	loop						ActivationSegment	Mg2+ positioning loop						
+411	A		KD	C-lobe	helix	activation loop		helix	loop						ActivationSegment	Mg2+ positioning loop						
+412	R		KD	C-lobe	helix	activation loop		helix	beta strand				E313-R412 salt bridge in inactive conformation		ActivationSegment							
+413	L		KD	C-lobe	helix	activation loop		helix	beta strand						ActivationSegment							
+414	I		KD	C-lobe		activation loop		loop	loop						ActivationSegment							
+415	E		KD	C-lobe		activation loop		loop	loop						ActivationSegment							
+416	D		KD	C-lobe		activation loop		loop	loop						ActivationSegment							
+417	N		KD	C-lobe	helix	activation loop		helix	loop						ActivationSegment							
+418	E		KD	C-lobe	helix	activation loop		helix	loop						ActivationSegment							
+419	Y		KD	C-lobe	helix	activation loop		helix	beta strand				R388-pY419 CatLoop-ActivationSegment hydrogen bond		ActivationSegment					P, activating	P_357_3131	Y419F, inactive
+420	T		KD	C-lobe	helix	activation loop		helix	beta strand						ActivationSegment						P_0_24	
+421	A		KD	C-lobe		activation loop		helix	loop						ActivationSegment							
+422	R		KD	C-lobe		activation loop		loop	loop						ActivationSegment							
+423	Q		KD	C-lobe	turn	activation loop		loop	loop						ActivationSegment							
+424	G		KD	C-lobe	turn	activation loop		loop	loop						ActivationSegment							
+425	A		KD	C-lobe	turn	activation loop		loop	loop						ActivationSegment							
+426	K		KD	C-lobe	turn	activation loop		loop	loop						ActivationSegment						ac_1_2	
+427	F		KD	C-lobe		activation loop		loop	loop						ActivationSegment	protein_substrate_positioningLoop						
+428	P		KD	C-lobe		activation loop		loop	messed-up helix beta strand thingy						ActivationSegment	protein_substrate_positioningLoop						
+429	I		KD	C-lobe	helix	alphaEF		helix	messed-up helix beta strand thingy						ActivationSegment	protein_substrate_positioningLoop						
+430	K		KD	C-lobe	helix	alphaEF		helix	messed-up helix beta strand thingy						ActivationSegment	protein_substrate_positioningLoop					ac_1_1	
+431	W		KD	C-lobe	helix	alphaEF		helix	messed-up helix beta strand thingy						ActivationSegment	protein_substrate_positioningLoop						
+432	T		KD	C-lobe		alphaEF		loop	messed-up helix beta strand thingy						ActivationSegment	protein_substrate_positioningLoop						
+433	A		KD	C-lobe		alphaEF		loop	messed-up helix beta strand thingy						ActivationSegment	protein_substrate_positioningLoop						
+434	P		KD	C-lobe	helix	alphaEF		helix	helix						ActivationSegment	protein_substrate_positioningLoop						
+435	E		KD	C-lobe	helix	alphaEF		helix	helix				E435ÐR509 APE-E and alphaH-alphaI loop salt bridge		ActivationSegment	protein_substrate_positioningLoop						
+436	A		KD	C-lobe	helix	alphaEF		helix	helix													
+437	A		KD	C-lobe	helix	alphaEF		helix	helix													
+438	L		KD	C-lobe	helix	alphaEF		helix	helix													
+439	Y		KD	C-lobe	helix	alphaEF-alphaF loop		helix	helix												P_1_544	
+440	G		KD	C-lobe		alphaEF-alphaF loop		loop	beta strand													
+441	R		KD	C-lobe		alphaEF-alphaF loop		loop	beta strand													
+442	F		KD	C-lobe		alphaEF-alphaF loop		loop	beta strand													
+443	T		KD	C-lobe		alphaEF-alphaF loop		loop	beta strand					alphaF pocket								
+444	I		KD	C-lobe	helix	alphaF								alphaF pocket								
+445	K		KD	C-lobe	helix	alphaF																
+446	S		KD	C-lobe	helix	alphaF																
+447	D		KD	C-lobe	helix	alphaF																
+448	V		KD	C-lobe	helix	alphaF																
+449	W		KD	C-lobe	helix	alphaF																
+450	S		KD	C-lobe	helix	alphaF																
+451	F		KD	C-lobe	helix	alphaF																
+452	G		KD	C-lobe	helix	alphaF																
+453	I		KD	C-lobe	helix	alphaF																
+454	L		KD	C-lobe	helix	alphaF					TRUE	C-spine										
+455	L		KD	C-lobe	helix	alphaF																
+456	T		KD	C-lobe	helix	alphaF																
+457	E		KD	C-lobe	helix	alphaF																
+458	L		KD	C-lobe	helix	alphaF					TRUE	C-spine										
+459	T		KD	C-lobe	helix	alphaF-alphaG loop																
+460	T		KD	C-lobe	turn	alphaF-alphaG loop																
+461	K		KD	C-lobe	turn	alphaF-alphaG loop																
+462	G		KD	C-lobe	turn	alphaF-alphaG loop																
+463	R		KD	C-lobe		alphaF-alphaG loop																
+464	V		KD	C-lobe		alphaF-alphaG loop																
+465	P		KD	C-lobe		alphaF-alphaG loop																
+466	Y		KD	C-lobe		alphaF-alphaG loop																
+467	P		KD	C-lobe		alphaF-alphaG loop																
+468	G		KD	C-lobe		alphaF-alphaG loop																
+469	M		KD	C-lobe		alphaF-alphaG loop																
+470	V		KD	C-lobe		alphaG																
+471	N		KD	C-lobe	helix	alphaG																
+472	R		KD	C-lobe	helix	alphaG																
+473	E		KD	C-lobe	helix	alphaG																
+474	V		KD	C-lobe	helix	alphaG																
+475	L		KD	C-lobe	helix	alphaG																
+476	D		KD	C-lobe	helix	alphaG																
+477	Q		KD	C-lobe	helix	alphaG																
+478	V		KD	C-lobe	helix	alphaG																
+479	E		KD	C-lobe	helix	alphaG																
+480	R		KD	C-lobe		alphaG-alphaH loop																
+481	G		KD	C-lobe		alphaG-alphaH loop																
+482	Y		KD	C-lobe		alphaG-alphaH loop																
+483	R		KD	C-lobe		alphaG-alphaH loop																
+484	M		KD	C-lobe		alphaG-alphaH loop																
+485	P		KD	C-lobe		alphaG-alphaH loop																
+486	C		KD	C-lobe		alphaG-alphaH loop																
+487	P		KD	C-lobe		alphaG-alphaH loop																
+488	P		KD	C-lobe		alphaG-alphaH loop																
+489	E		KD	C-lobe		alphaG-alphaH loop																
+490	C		KD	C-lobe		alphaH																
+491	P		KD	C-lobe		alphaH																
+492	E		KD	C-lobe	helix	alphaH																
+493	S		KD	C-lobe	helix	alphaH															P_1_0	
+494	L		KD	C-lobe	helix	alphaH																
+495	H		KD	C-lobe	helix	alphaH																
+496	D		KD	C-lobe	helix	alphaH																
+497	L		KD	C-lobe	helix	alphaH																
+498	M		KD	C-lobe	helix	alphaH																
+499	C		KD	C-lobe	helix	alphaH																
+500	Q		KD	C-lobe	helix	alphaH																
+501	C		KD	C-lobe	helix	alphaH																
+502	W		KD	C-lobe		alphaH-alphaI loop																
+503	R		KD	C-lobe		alphaH-alphaI loop																
+504	K		KD	C-lobe		alphaH-alphaI loop																
+505	E		KD	C-lobe		alphaH-alphaI loop																
+506	P		KD	C-lobe	helix	alphaH-alphaI loop								alphaF pocket								
+507	E		KD	C-lobe	helix	alphaH-alphaI loop																
+508	E		KD	C-lobe	helix	alphaH-alphaI loop								alphaF pocket								
+509	R		KD	C-lobe		alphaH-alphaI loop																
+510	P		KD	C-lobe		alphaH-alphaI loop																
+511	T		KD	C-lobe		alphaH-alphaI loop								alphaF pocket								
+512	F		KD	C-lobe	helix	alphaI								alphaF pocket								
+513	E		KD	C-lobe	helix	alphaI																
+514	Y		KD	C-lobe	helix	alphaI																
+515	L		KD	C-lobe	helix	alphaI																
+516	Q		KD	C-lobe	helix	alphaI																
+517	A		KD	C-lobe	helix	alphaI																
+518	F		KD	C-lobe	helix	alphaI																
+519	L		KD	C-lobe	helix	alphaI																
+520	E		KD	C-lobe	helix	alphaI																
+521	D		KD	C-lobe	turn	alphaI																
+522	Y		KD	C-lobe	turn	C-terminal tail															P_8_0	
+523	F		KD	C-lobe	turn	C-terminal tail																
+524	T			C-terminal tail		C-terminal tail																
+525	S			C-terminal tail		C-terminal tail															P_0_1	
+526	T			C-terminal tail		C-terminal tail															P_0_2	
+527	E			C-terminal tail		C-terminal tail																E527K, hyperactivating, defective megakaryopoiesis
+528	P			C-terminal tail		C-terminal tail																
+529	Q			C-terminal tail		C-terminal tail																
+530	Y			C-terminal tail		C-terminal tail														P, inhibitory	P_129_988	C-terminal tail
+531	Q			C-terminal tail		C-terminal tail																
+532	P			C-terminal tail		C-terminal tail																
+533	G		disorder	C-terminal tail		C-terminal tail																
+534	E		disorder	C-terminal tail		C-terminal tail																
+535	N		disorder	C-terminal tail		C-terminal tail																
+536	L		disorder	C-terminal tail		C-terminal tail																
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						
+																						

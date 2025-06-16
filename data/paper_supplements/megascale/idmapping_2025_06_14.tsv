@@ -1,0 +1,66 @@
+From	Entry	Reviewed	Entry Name	Protein names	Gene Names	Organism	Length
+4G3O	Q9UKV5	reviewed	AMFR_HUMAN	E3 ubiquitin-protein ligase AMFR (EC 2.3.2.36) (Autocrine motility factor receptor) (AMF receptor) (RING finger protein 45) (gp78)	AMFR RNF45	Homo sapiens (Human)	643
+1AOY	P0A6D0	reviewed	ARGR_ECOLI	Arginine repressor	argR xerA b3237 JW3206	Escherichia coli (strain K12)	156
+1TG0	P47068	reviewed	BBC1_YEAST	Myosin tail region-interacting protein MTI1 (Protein BBC1)	BBC1 MTI1 YJL020C J1286 J1305 YJL021C	Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast)	1157
+2KRU	Q9F715	reviewed	BCHB_CHLTE	Light-independent protochlorophyllide reductase subunit B (DPOR subunit B) (LI-POR subunit B) (EC 1.3.7.7)	bchB CT2151	Chlorobaculum tepidum (strain ATCC 49652 / DSM 12025 / NBRC 103806 / TLS) (Chlorobium tepidum)	537
+2AMI	P05434	reviewed	CATR_CHLRE	Caltractin (20 kDa calcium-binding protein) (Centrin)		Chlamydomonas reinhardtii (Chlamydomonas smithii)	169
+1O6X	P48052	reviewed	CBPA2_HUMAN	Carboxypeptidase A2 (EC 3.4.17.15)	CPA2	Homo sapiens (Human)	419
+2K28	O00257	reviewed	CBX4_HUMAN	E3 SUMO-protein ligase CBX4 (EC 2.3.2.-) (Chromobox protein homolog 4) (Polycomb 2 homolog) (Pc2) (hPc2)	CBX4	Homo sapiens (Human)	560
+1UFM	O88544	reviewed	CSN4_MOUSE	COP9 signalosome complex subunit 4 (SGN4) (Signalosome subunit 4) (JAB1-containing signalosome subunit 4)	Cops4 Csn4	Mus musculus (Mouse)	406
+2MYX	P38428	reviewed	CUE1_YEAST	Coupling of ubiquitin conjugation to ER degradation protein 1 (Kinetochore-defect suppressor 4)	CUE1 KIS4 YMR264W YM8156.06	Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast)	203
+1JIC	P39476	reviewed	DN7D_SACS2	DNA-binding protein 7d (7 kDa DNA-binding protein d) (Sso7d)	sso7d sso7d-1 SSO10610	Saccharolobus solfataricus (strain ATCC 35092 / DSM 1617 / JCM 11322 / P2) (Sulfolobus solfataricus)	64
+1JIC	P61991	reviewed	DN7A_SACS2	DNA-binding protein 7a (7 kDa DNA-binding protein a) (Endoribonuclease P2) (EC 3.1.27.-) (p7ss)	sso7a1 sso7d-2 SSO9180; sso7a2 sso7d-3 SSO9535	Saccharolobus solfataricus (strain ATCC 35092 / DSM 1617 / JCM 11322 / P2) (Sulfolobus solfataricus)	64
+2LO1	P31689	reviewed	DNJA1_HUMAN	DnaJ homolog subfamily A member 1 (DnaJ protein homolog 2) (HSDJ) (Heat shock 40 kDa protein 4) (Heat shock protein J2) (HSJ-2) (Human DnaJ protein 2) (hDj-2)	DNAJA1 DNAJ2 HDJ2 HSJ2 HSPF4	Homo sapiens (Human)	397
+2M0Y	Q8BUR4	reviewed	DOCK1_MOUSE	Dedicator of cytokinesis protein 1 (180 kDa protein downstream of CRK) (DOCK180)	Dock1	Mus musculus (Mouse)	1865
+1F0M	P29323	reviewed	EPHB2_HUMAN	Ephrin type-B receptor 2 (EC 2.7.10.1) (Developmentally-regulated Eph-related tyrosine kinase) (ELK-related tyrosine kinase) (EPH tyrosine kinase 3) (EPH-like kinase 5) (EK5) (hEK5) (Renal carcinoma antigen NY-REN-47) (Tyrosine-protein kinase TYRO5) (Tyrosine-protein kinase receptor EPH-3) [Cleaved into: EphB2/CTF1; EphB2/CTF2]	EPHB2 DRT EPHT3 EPTH3 ERK HEK5 TYRO5	Homo sapiens (Human)	1055
+2D1U	P13036	reviewed	FECA_ECOLI	Fe(3+) dicitrate transport protein FecA (Iron(III) dicitrate transport protein FecA)	fecA b4291 JW4251	Escherichia coli (strain K12)	774
+2KFV	Q00688	reviewed	FKBP3_HUMAN	Peptidyl-prolyl cis-trans isomerase FKBP3 (PPIase FKBP3) (EC 5.2.1.8) (25 kDa FK506-binding protein) (25 kDa FKBP) (FKBP-25) (FK506-binding protein 3) (FKBP-3) (Immunophilin FKBP25) (Rapamycin-selective 25 kDa immunophilin) (Rotamase)	FKBP3 FKBP25	Homo sapiens (Human)	224
+2L6Q	P68660	reviewed	HCP_LAMBD	Head completion protein (HCP) (Head-tail joining protein W) (gpW)	W lambdap03	Escherichia phage lambda (Bacteriophage lambda)	68
+3DKM	Q9ULT8	reviewed	HECD1_HUMAN	E3 ubiquitin-protein ligase HECTD1 (EC 2.3.2.26) (E3 ligase for inhibin receptor) (EULIR) (HECT domain-containing protein 1)	HECTD1 KIAA1131	Homo sapiens (Human)	2610
+2L33	Q12906	reviewed	ILF3_HUMAN	Interleukin enhancer-binding factor 3 (Double-stranded RNA-binding protein 76) (DRBP76) (M-phase phosphoprotein 4) (MPP4) (Nuclear factor associated with dsRNA) (NFAR) (Nuclear factor of activated T-cells 90 kDa) (NF-AT-90) (Translational control protein 80) (TCP80)	ILF3 DRBF MPHOSPH4 NF90	Homo sapiens (Human)	894
+2LHR	Q8NW39	reviewed	ISDH_STAAW	Iron-regulated surface determinant protein H (Haptoglobin receptor A) (Staphylococcus aureus surface protein I)	isdH harA sasI MW1674	Staphylococcus aureus (strain MW2)	895
+1K1V	O54790	reviewed	MAFG_MOUSE	Transcription factor MafG (V-maf musculoaponeurotic fibrosarcoma oncogene homolog G)	Mafg	Mus musculus (Mouse)	162
+6ACV	Q9LW00	reviewed	MBD11_ARATH	Methyl-CpG-binding domain-containing protein 11 (AtMBD11) (MBD11) (Methyl-CpG-binding protein MBD11)	MBD11 At3g15790 MSJ11.19	Arabidopsis thaliana (Mouse-ear cress)	254
+2BTT	P36006	reviewed	MYO3_YEAST	Myosin-3 (Actin-dependent myosin-I MYO3) (Class I unconventional myosin MYO3) (Type I myosin MYO3)	MYO3 YKL129C	Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast)	1272
+2L9R	Q99801	reviewed	NKX31_HUMAN	Homeobox protein Nkx-3.1 (Homeobox protein NK-3 homolog A)	NKX3-1 NKX3.1 NKX3A	Homo sapiens (Human)	234
+1WCL	P0AFF6	reviewed	NUSA_ECOLI	Transcription termination/antitermination protein NusA (N utilization substance protein A) (Transcription termination/antitermination L factor)	nusA b3169 JW3138	Escherichia coli (strain K12)	495
+2MI6	P9WIU9	reviewed	NUSG_MYCTU	Transcription termination/antitermination protein NusG	nusG Rv0639 MTCY20H10.20	Mycobacterium tuberculosis (strain ATCC 25618 / H37Rv)	238
+1V1C	Q5VST9	reviewed	OBSCN_HUMAN	Obscurin (EC 2.7.11.1) (Obscurin-RhoGEF) (Obscurin-myosin light chain kinase) (Obscurin-MLCK)	OBSCN KIAA1556 KIAA1639	Homo sapiens (Human)	7968
+1W4G	P11961	reviewed	ODP2_GEOSE	Dihydrolipoyllysine-residue acetyltransferase component of pyruvate dehydrogenase complex (EC 2.3.1.12) (Dihydrolipoamide acetyltransferase component of pyruvate dehydrogenase complex) (E2)	pdhC	Geobacillus stearothermophilus (Bacillus stearothermophilus)	428
+2L2D	Q8TE49	reviewed	OTU7A_HUMAN	OTU domain-containing protein 7A (EC 3.4.19.12) (Zinc finger protein Cezanne 2)	OTUD7A C15orf16 CEZANNE2 OTUD7	Homo sapiens (Human)	926
+1I6C	Q13526	reviewed	PIN1_HUMAN	Peptidyl-prolyl cis-trans isomerase NIMA-interacting 1 (EC 5.2.1.8) (Peptidyl-prolyl cis-trans isomerase Pin1) (PPIase Pin1) (Rotamase Pin1)	PIN1	Homo sapiens (Human)	163
+2L7M	Q99697	reviewed	PITX2_HUMAN	Pituitary homeobox 2 (ALL1-responsive protein ARP1) (Homeobox protein PITX2) (Paired-like homeodomain transcription factor 2) (RIEG bicoid-related homeobox transcription factor) (Solurshin)	PITX2 ARP1 RGS RIEG RIEG1	Homo sapiens (Human)	317
+1URF	Q16512	reviewed	PKN1_HUMAN	Serine/threonine-protein kinase N1 (EC 2.7.11.13) (Protease-activated kinase 1) (PAK-1) (Protein kinase C-like 1) (Protein kinase C-like PKN) (Protein kinase PKN-alpha) (Protein-kinase C-related kinase 1) (Serine-threonine protein kinase N)	PKN1 PAK1 PKN PRK1 PRKCL1	Homo sapiens (Human)	942
+2MXD	Q9QEJ5	reviewed	POLG_PESV	Genome polyprotein [Cleaved into: NS1 (Protein p11); NS2 (Protein p28); NTPase (EC 3.6.1.15) (NS3) (p35); NS4 (Protein p32); Viral genome-linked protein (VPg) (NS5) (p14); Protease-polymerase p70 (Pro-Pol) (EC 2.7.7.48) (EC 3.4.22.66) (NS6-7); Capsid protein (CP) (VP1) (p60)]	ORF1	Porcine enteric sapovirus (isolate Swine/United States/Cowden/1980) (Sw/SV/Cowden/1980/US)	2254
+1UZC	O75400	reviewed	PR40A_HUMAN	Pre-mRNA-processing factor 40 homolog A (Fas ligand-associated factor 1) (Formin-binding protein 11) (Formin-binding protein 3) (Huntingtin yeast partner A) (Huntingtin-interacting protein 10) (HIP-10) (Huntingtin-interacting protein A) (Renal carcinoma antigen NY-REN-6)	PRPF40A FBP11 FLAF1 FNBP3 HIP10 HYPA HSPC225	Homo sapiens (Human)	957
+1PSE	P31969	reviewed	PSAE_PICP2	Photosystem I reaction center subunit IV	psaE SYNPCC7002_A1393	Picosynechococcus sp. (strain ATCC 27264 / PCC 7002 / PR-6) (Agmenellum quadruplicatum)	70
+2CJJ	Q58FS3	reviewed	RAD_ANTMA	Transcription factor RADIALIS	RAD	Antirrhinum majus (Garden snapdragon)	93
+2KWH	Q15311	reviewed	RBP1_HUMAN	RalA-binding protein 1 (RalBP1) (76 kDa Ral-interacting protein) (Dinitrophenyl S-glutathione ATPase) (DNP-SG ATPase) (EC 7.6.2.2, EC 7.6.2.3) (Ral-interacting protein 1)	RALBP1 RLIP RLIP1 RLIP76	Homo sapiens (Human)	655
+5OAO	Q8RY59	reviewed	RCD1_ARATH	Inactive poly [ADP-ribose] polymerase RCD1 (Protein RADICAL-INDUCED CELL DEATH 1)	RCD1 ATP8 CEO1 At1g32230 F3C3.1	Arabidopsis thaliana (Mouse-ear cress)	589
+1ORC	P03040	reviewed	RCRO_LAMBD	Regulatory protein cro	cro lambdap57	Escherichia phage lambda (Bacteriophage lambda)	66
+1IFY	P54725	reviewed	RD23A_HUMAN	UV excision repair protein RAD23 homolog A (HR23A) (hHR23A)	RAD23A	Homo sapiens (Human)	363
+2LCL	P0AFW0	reviewed	RFAH_ECOLI	Transcription antitermination protein RfaH	rfaH hlyT sfrB b3842 JW3818	Escherichia coli (strain K12)	162
+1GYZ	O67086	reviewed	RL20_AQUAE	Large ribosomal subunit protein bL20 (50S ribosomal protein L20)	rplT aq_952	Aquifex aeolicus (strain VF5)	118
+1R69	P16117	reviewed	RPC1_BP434	Repressor protein CI	CI	Enterobacteria phage 434 (Bacteriophage 434)	95
+1A32	P05766	reviewed	RS15_GEOSE	Small ribosomal subunit protein uS15 (30S ribosomal protein S15) (BS18)	rpsO	Geobacillus stearothermophilus (Bacillus stearothermophilus)	89
+2YSB	Q8VEB2	reviewed	SAV1_MOUSE	Protein salvador homolog 1 (45 kDa WW domain protein) (mWW45)	Sav1 Ww45 Wwp3	Mus musculus (Mouse)	386
+2JVG	Q931F4	reviewed	SBI_STAAM	Immunoglobulin-binding protein Sbi	sbi SAV2418	Staphylococcus aureus (strain Mu50 / ATCC 700699)	426
+2QFF	Q6GFB4	reviewed	SCIN_STAAR	Staphylococcal complement inhibitor (SCIN)	scn SAR2035	Staphylococcus aureus (strain MRSA252)	116
+1PV0	Q7WY62	reviewed	SDA_BACSU	Sporulation inhibitor sda (Histidine kinase KinA inhibitor)	sda BSU25690	Bacillus subtilis (strain 168)	52
+7JJK	O94993	reviewed	SOX30_HUMAN	Transcription factor SOX-30	SOX30	Homo sapiens (Human)	753
+1LP1	P38507	reviewed	SPA_STAAU	Immunoglobulin G-binding protein A (IgG-binding protein A) (Staphylococcal protein A) (SpA)	spa	Staphylococcus aureus	508
+5UBS	P19909	reviewed	SPG2_STRSG	Immunoglobulin G-binding protein G (IgG-binding protein G)	spg	Streptococcus sp. group G	593
+1TUD	P07751	reviewed	SPTN1_CHICK	Spectrin alpha chain, non-erythrocytic 1 (Alpha-II spectrin) (Fodrin alpha chain)	SPTAN1 SPTA2	Gallus gallus (Chicken)	2477
+2RRU	Q64337	reviewed	SQSTM_MOUSE	Sequestosome-1 (STONE14) (Ubiquitin-binding protein p62)	Sqstm1 A170 STAP	Mus musculus (Mouse)	442
+2N88	O22265	reviewed	SR43C_ARATH	Signal recognition particle 43 kDa protein, chloroplastic (Chromo protein SRP43) (CpSRP43)	CAO CPSRP43 At2g47450 T30B22.25	Arabidopsis thaliana (Mouse-ear cress)	373
+2O2W	Q9BX66	reviewed	SRBS1_HUMAN	Sorbin and SH3 domain-containing protein 1 (Ponsin) (SH3 domain protein 5) (SH3P12) (c-Cbl-associated protein) (CAP)	SORBS1 KIAA0894 KIAA1296 SH3D5	Homo sapiens (Human)	1292
+1E0L	Q8CGF7	reviewed	TCRG1_MOUSE	Transcription elongation regulator 1 (Formin-binding protein 28) (FBP 28) (TATA box-binding protein-associated factor 2S) (Transcription factor CA150) (p144)	Tcerg1 Taf2s	Mus musculus (Mouse)	1100
+2WQG	P40040	reviewed	THO1_YEAST	Protein THO1	THO1 YER063W	Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast)	218
+5JRT	Q9H2K2	reviewed	TNKS2_HUMAN	Poly [ADP-ribose] polymerase tankyrase-2 (EC 2.4.2.30) (ADP-ribosyltransferase diphtheria toxin-like 6) (ARTD6) (Poly [ADP-ribose] polymerase 5B) (Protein poly-ADP-ribosyltransferase tankyrase-2) (EC 2.4.2.-) (TNKS-2) (TRF1-interacting ankyrin-related ADP-ribose polymerase 2) (Tankyrase II) (Tankyrase-2) (TANK2) (Tankyrase-like protein) (Tankyrase-related protein)	TNKS2 PARP5B TANK2 TNKL	Homo sapiens (Human)	1166
+3L1X	O95155	reviewed	UBE4B_HUMAN	Ubiquitin conjugation factor E4 B (EC 2.3.2.27) (Homozygously deleted in neuroblastoma 1) (RING-type E3 ubiquitin transferase E4 B) (Ubiquitin fusion degradation protein 2)	UBE4B HDNB1 KIAA0684 UFD2	Homo sapiens (Human)	1302
+1I2T	O95071	reviewed	UBR5_HUMAN	E3 ubiquitin-protein ligase UBR5 (EC 2.3.2.26) (E3 ubiquitin-protein ligase, HECT domain-containing 1) (Hyperplastic discs protein homolog) (hHYD) (Progestin-induced protein)	UBR5 EDD EDD1 HYD KIAA0896	Homo sapiens (Human)	2799
+2GP8	P26748	reviewed	VG08_BPP22	Scaffolding protein (Protein gp8)	8	Salmonella phage P22 (Bacteriophage P22)	303
+1YU5	P02640	reviewed	VILI_CHICK	Villin-1	VIL1 VIL	Gallus gallus (Chicken)	826
+2WNM	P03704	reviewed	VRPI_BPT7	Bacterial RNA polymerase inhibitor (Gene product 2) (Gp2)	2	Escherichia phage T7 (Bacteriophage T7)	64
+2KVT	P0AAN5	reviewed	YAIA_ECOLI	Uncharacterized protein YaiA	yaiA b0389 JW0380	Escherichia coli (strain K12)	63
+2JVD	O31818	reviewed	YNZC_BACSU	UPF0291 protein YnzC	ynzC BSU17880	Bacillus subtilis (strain 168)	77

@@ -1,0 +1,60 @@
+Loading fitness data
+Error: Invalid fitness data: WT variant missing or ambiguous.
+Error: Failed to create MochiTask.
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@node-11-2-3>
+Subject: Job 550877: <grb2-rerun> in cluster <farm22> Done
+
+Job <grb2-rerun> was submitted from host <farm22-head1> by user <xl7> in cluster <farm22> at Fri May  9 16:01:46 2025
+Job was executed on host(s) <10*node-11-2-3>, in queue <normal>, as user <xl7> in cluster <farm22> at Fri May  9 16:13:54 2025
+</nfs/users/nfs_x/xl7> was used as the home directory.
+</lustre/scratch126/gengen/projects/alpha-allostery-global/git-p1-allo-seq-evo/data/paper_supplements/domains_andre/Data/fitness/GRB2-SH3/Abundance> was used as the working directory.
+Started at Fri May  9 16:13:54 2025
+Terminated at Fri May  9 16:14:13 2025
+Results reported at Fri May  9 16:14:13 2025
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+#BSUB -cwd /lustre/scratch126/gengen/projects/alpha-allostery-global/git-p1-allo-seq-evo/data/paper_supplements/domains_andre/Data/fitness/GRB2-SH3/Abundance
+#BSUB -o ./mochiRun.%J.out
+#BSUB -e ./mochiRun.%J.err
+#BSUB -J grb2-rerun
+#BSUB -G team354
+#BSUB -n 10 	# number of CPUs. Default: 1 # it doesn't require a lot of resources
+#BSUB -q "normal"
+#BSUB -R "select[mem>200000] rusage[mem=200000] span[hosts=1]" 	# RAM memory part 1. Default: 100MB
+#BSUB -M200000 # # RAM memory part 2. Default: 100MB
+#BSUB -W720 # time for the job HH:MM. 500 min
+
+module load HGI/softpack/groups/team354/mochi/0.9
+
+run_mochi.py  --model_design=model_design.txt 
+
+------------------------------------------------------------
+
+Successfully completed.
+
+Resource usage summary:
+
+    CPU time :                                   9.49 sec.
+    Max Memory :                                 206 MB
+    Average Memory :                             142.00 MB
+    Total Requested Memory :                     200000.00 MB
+    Delta Memory :                               199794.00 MB
+    Max Swap :                                   -
+    Max Processes :                              6
+    Max Threads :                                22
+    Run time :                                   17 sec.
+    Turnaround time :                            747 sec.
+
+The output (if any) is above this job summary.
+
+
+
+PS:
+
+Read file <./mochiRun.550877.err> for stderr output of this job.
+

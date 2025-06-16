@@ -1,3 +1,0 @@
-trait	transformation	phenotype	file
-Folding,Binding	ThreeStateFractionBound	Binding	/lustre/scratch126/gengen/projects/alpha-allostery-global/git-p1-allo-seq-evo/data/paper_supplements/domains_andre/Data/fitness/GRB2-SH3/Binding/sh3_binding_all_variants.txt
-Folding	TwoStateFractionFolded	Abundance	/lustre/scratch126/gengen/projects/alpha-allostery-global/git-p1-allo-seq-evo/data/paper_supplements/domains_andre/Data/fitness/GRB2-SH3/Abundance/sh3_abundance_all_variants.txt

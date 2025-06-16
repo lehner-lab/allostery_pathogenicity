@@ -1,0 +1,21 @@
+pocket0
+Volume:1161.857
+SASA:610.119
+Druggability Score:0.291
+logitProb:0.666
+nmaScore:0.998
+hitScore:0.733
+pocket1
+Volume:377.163
+SASA:245.324
+Druggability Score:0.385
+logitProb:0.512
+nmaScore:0.787
+hitScore:0.567
+pocket2
+Volume:368.743
+SASA:195.292
+Druggability Score:0.852
+logitProb:0.603
+nmaScore:0.152
+hitScore:0.513

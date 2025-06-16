@@ -1,0 +1,2421 @@
+---
+title: "fig3"
+output: pdf_document
+date: "2025-05-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+library('ProjectTemplate')
+library(Metrics)
+library(broom)
+load.project()
+```
+
+
+```{r}
+################################# Stability Definition #########################################
+pdz3_final_df_ddg <- read_csv('../data/cleaned_ddg/pdz3_ddg_cleaned_mochi_refit.csv')
+
+nrow(pdz3_final_df_ddg)
+pdz3_final_df_ddgf <- pdz3_final_df_ddg %>% filter(trait_name == "Folding") %>% 
+  dplyr::rename(f_ddg_pred = ddg,
+                f_ddg_pred_sd = std_ddg)
+nrow(pdz3_final_df_ddgf)
+pdz3_final_df_ddgb <- pdz3_final_df_ddg %>% filter(trait_name == "Binding") %>% 
+  dplyr::rename(b_ddg_pred = ddg,
+                b_ddg_pred_sd = std_ddg)
+nrow(pdz3_final_df_ddgb)
+
+pdz3_final_df_ddg_2plot <- merge(pdz3_final_df_ddgf, pdz3_final_df_ddgb, by = "id_eve", all.x = TRUE)
+dim(pdz3_final_df_ddg_2plot)
+
+# Step 1: Calculate z-scores and p-values for stabilizing mutations
+pdz3_final_df_ddg_2plot <- pdz3_final_df_ddg_2plot %>%
+  mutate(z_stab = (f_ddg_pred - 0) / f_ddg_pred_sd)
+
+pdz3_final_df_ddg_2plot <- pdz3_final_df_ddg_2plot %>%
+  mutate(p_stab = pnorm(z_stab))
+
+# Step 2: Calculate z-scores and p-values for destabilizing mutations
+pdz3_final_df_ddg_2plot <- pdz3_final_df_ddg_2plot %>%
+  mutate(z_destab = (f_ddg_pred - 0.5) / f_ddg_pred_sd,
+         p_destab = 1 - pnorm(z_destab))
+
+# Step 3: Classify mutations based on p-values
+pdz3_final_df_ddg_2plot <- pdz3_final_df_ddg_2plot %>%
+  mutate(class = case_when(
+    p_stab < 0.05 ~ "stabilizing",
+    p_destab < 0.05 ~ "destabilizing",
+    TRUE ~ "no change"
+  ))
+
+# Print summary of classification counts
+class_summary <- table(pdz3_final_df_ddg_2plot$class)
+print(class_summary)
+#destabilizing     no change   stabilizing 
+#514          1042            31 
+
+paper_anno <- read.csv("../data/cleaned_ddg/pdz3_ddg_cleaned.csv")
+head(paper_anno)
+table(paper_anno$orthosteric)
+ortho_list <- unique(paper_anno %>% filter(orthosteric == TRUE) %>% pull(pos_am))
+##setdiff(unique(pdz3_out %>% filter(scHAmin_ligand < 4.3) %>% pull(Pos)), unique(merged_df_pdz3 %>% filter(orthosteric == TRUE) %>% pull (Pos_ref.x)))
+ortho_list <- append(ortho_list, c(322, 323, 324 ,325, 326, 327, 328, 331, 339, 372, 376, 379, 380))
+
+head(pdz3_final_df_ddg_2plot)
+pdz3_final_df_ddg_2plot$orthosteric <- FALSE
+pdz3_final_df_ddg_2plot$orthosteric[pdz3_final_df_ddg_2plot$Pos_ref.x %in% ortho_list] <- TRUE
+
+table(pdz3_final_df_ddg_2plot$orthosteric)
+#FALSE  TRUE 
+# 1341   246 
+pdz3_final_df_ddg_2plot_all <- pdz3_final_df_ddg_2plot
+nrow(pdz3_final_df_ddg_2plot_all)
+pdz3_final_df_ddg_2plot <- pdz3_final_df_ddg_2plot[!is.na(pdz3_final_df_ddg_2plot$b_ddg_pred), ]
+nrow(pdz3_final_df_ddg_2plot) #1567
+head(pdz3_final_df_ddg_2plot)
+
+pdz3_final_df_ddg_2plot <- pdz3_final_df_ddg_2plot %>% dplyr::select(id_eve, f_ddg_pred, f_ddg_pred_sd,
+                                                                     ESM1v.x, b_ddg_pred, b_ddg_pred_sd,
+                                                                     orthosteric,class) %>%
+  dplyr::rename(ESM1v = ESM1v.x)
+
+pdz3_final_df_ddg_2plot_active <- pdz3_final_df_ddg_2plot %>% filter(orthosteric == TRUE)
+mean(pdz3_final_df_ddg_2plot_active$b_ddg_pred) #0.837005
+
+pdz3_final_df_ddg_2plot$allosteric <- FALSE
+pdz3_final_df_ddg_2plot$allosteric[pdz3_final_df_ddg_2plot$b_ddg_pred >= mean(pdz3_final_df_ddg_2plot_active$b_ddg_pred)] <- TRUE
+pdz3_final_df_ddg_2plot$allosteric[pdz3_final_df_ddg_2plot$orthosteric == TRUE] <- FALSE
+table(pdz3_final_df_ddg_2plot$allosteric)
+head(pdz3_final_df_ddg_2plot)
+```
+
+
+```{r}
+##########
+# Function to bootstrap adjusted R-squared
+bootstrap_adjusted_r_squared <- function(input_data, model_id, n_bootstrap = 1000) {
+  
+  # Initialize a vector to store the adjusted R-squared values from each bootstrap
+  adjusted_r_squared_values <- numeric(n_bootstrap)
+  
+  # Define the number of rows (n)
+  n <- nrow(input_data)
+  
+  # Number of predictors (p) - In your case, there are two predictors: f_ddg_pred and sos1_ddg
+  p <- 2
+  
+  # Total sum of squares (SST) for the original data
+  ss_total <- sum((input_data$ESM1v - mean(input_data$ESM1v))^2)
+  
+  # Perform the bootstrapping
+  for (k in 1:n_bootstrap) {
+    # Sample indices with replacement
+    indices <- sample(1:n, size = n, replace = TRUE)
+    
+    # Create bootstrap samples for actual and predicted values using the sampled indices
+    y_bootstrap <- input_data$ESM1v[indices]
+    y_hat_bootstrap <- input_data[[paste0("predicted_", model_id)]][indices]
+    
+    # Residual sum of squares (SSR) for the bootstrap sample
+    ss_residual <- sum((y_bootstrap - y_hat_bootstrap)^2)
+    
+    # Calculate regular R-squared for this bootstrap sample
+    r_squared <- 1 - (ss_residual / ss_total)
+    
+    # Calculate adjusted R-squared for this bootstrap sample
+    adjusted_r_squared_values[k] <- 1 - ((1 - r_squared) * (n - 1) / (n - p - 1))
+  }
+  
+  # Sort the adjusted R-squared values
+  adjusted_r_squared_sorted <- sort(adjusted_r_squared_values)
+  
+  # Get the 95% confidence intervals
+  lower_ci <- adjusted_r_squared_sorted[round(n_bootstrap * 0.025)]
+  upper_ci <- adjusted_r_squared_sorted[round(n_bootstrap * 0.975)]
+  
+  # Return the confidence intervals and the adjusted R-squared values
+  return(list(lower_ci = lower_ci, upper_ci = upper_ci, adjusted_r_squared_values = adjusted_r_squared_values))
+}
+
+fit_model_and_diagnostics_ddgf <- function(input_data, model_id) {
+  
+  # Fit the linear regression model
+  fit <- lm(ESM1v ~ f_ddg_pred, data = input_data)
+  
+  # Calculate predictions and residuals
+  input_data[[paste0("predicted_", model_id)]] <- predict(fit, newdata = input_data)
+  input_data[[paste0("residuals_", model_id)]] <- input_data$ESM1v - input_data[[paste0("predicted_", model_id)]]
+  
+  # R-squared and Adjusted R-squared Calculation
+  r_squared <- summary(fit)$r.squared
+  adjusted_r_squared <- summary(fit)$adj.r.squared
+  
+  # Bootstrapping for adjusted R-squared, RMSE, and AIC
+  bootstrap_adj_r2 <- bootstrap_adjusted_r_squared(input_data, model_id, n_bootstrap = 1000)
+  
+  # Print results
+  print(paste("Adjusted R-squared:", round(adjusted_r_squared, 4)))
+  print(paste("Adjusted R-squared 95% CI:", round(bootstrap_adj_r2$lower_ci, 4), "-", round(bootstrap_adj_r2$upper_ci, 4)))
+  
+  # Return fit object, AIC, RMSE, and adjusted R-squared confidence intervals
+  return(list(
+    fit = fit, 
+    adj_r2_values = bootstrap_adj_r2$adjusted_r_squared_values,  
+    adjusted_r_squared = adjusted_r_squared,
+    adjusted_r_squared_ci = c(bootstrap_adj_r2$lower_ci, bootstrap_adj_r2$upper_ci),
+    input_data = input_data
+  ))
+}
+
+fit_model_and_diagnostics_ddga <- function(input_data, model_id) {
+  
+  # Fit the linear regression model
+  fit <- lm(ESM1v ~ b_ddg_pred, data = input_data)
+  
+  # Calculate predictions and residuals
+  input_data[[paste0("predicted_", model_id)]] <- predict(fit, newdata = input_data)
+  input_data[[paste0("residuals_", model_id)]] <- input_data$ESM1v - input_data[[paste0("predicted_", model_id)]]
+  
+  # R-squared and Adjusted R-squared Calculation
+  r_squared <- summary(fit)$r.squared
+  adjusted_r_squared <- summary(fit)$adj.r.squared
+  
+  # Bootstrapping for adjusted R-squared, RMSE, and AIC
+  bootstrap_adj_r2 <- bootstrap_adjusted_r_squared(input_data, model_id, n_bootstrap = 1000)
+  
+  # Print results
+  print(paste("Adjusted R-squared:", round(adjusted_r_squared, 4)))
+  print(paste("Adjusted R-squared 95% CI:", round(bootstrap_adj_r2$lower_ci, 4), "-", round(bootstrap_adj_r2$upper_ci, 4)))
+  
+  # Return fit object, AIC, RMSE, and adjusted R-squared confidence intervals
+  return(list(
+    fit = fit, 
+    adj_r2_values = bootstrap_adj_r2$adjusted_r_squared_values,  
+    adjusted_r_squared = adjusted_r_squared,
+    adjusted_r_squared_ci = c(bootstrap_adj_r2$lower_ci, bootstrap_adj_r2$upper_ci),
+    input_data = input_data
+  ))
+}
+
+fit_model_and_diagnostics_both <- function(input_data, model_id) {
+  
+  # Fit the linear regression model
+  fit <- lm(ESM1v ~ f_ddg_pred + b_ddg_pred, data = input_data)
+  
+  # Calculate predictions and residuals
+  input_data[[paste0("predicted_", model_id)]] <- predict(fit, newdata = input_data)
+  input_data[[paste0("residuals_", model_id)]] <- input_data$ESM1v - input_data[[paste0("predicted_", model_id)]]
+  
+  # R-squared and Adjusted R-squared Calculation
+  r_squared <- summary(fit)$r.squared
+  adjusted_r_squared <- summary(fit)$adj.r.squared
+  
+  # Bootstrapping for adjusted R-squared, RMSE, and AIC
+  bootstrap_adj_r2 <- bootstrap_adjusted_r_squared(input_data, model_id, n_bootstrap = 1000)
+  
+  # Print results
+  print(paste("Adjusted R-squared:", round(adjusted_r_squared, 4)))
+  print(paste("Adjusted R-squared 95% CI:", round(bootstrap_adj_r2$lower_ci, 4), "-", round(bootstrap_adj_r2$upper_ci, 4)))
+  
+  # Return fit object, AIC, RMSE, and adjusted R-squared confidence intervals
+  return(list(
+    fit = fit, 
+    adj_r2_values = bootstrap_adj_r2$adjusted_r_squared_values,  
+    adjusted_r_squared = adjusted_r_squared,
+    adjusted_r_squared_ci = c(bootstrap_adj_r2$lower_ci, bootstrap_adj_r2$upper_ci),
+    input_data = input_data
+  ))
+}
+```
+
+```{r}
+############################# MODEL 0: all mutations, ddGf + ddGa #############################
+set.seed(11)
+# Usage example
+m0_results <- fit_model_and_diagnostics_both(input_data = pdz3_final_df_ddg_2plot, model_id = "m0")
+m1_results <- fit_model_and_diagnostics_ddgf(input_data = pdz3_final_df_ddg_2plot, model_id = "m1")
+m2_results <- fit_model_and_diagnostics_ddga(input_data = pdz3_final_df_ddg_2plot, model_id = "m2")
+############################# MODEL 3: non-active mutations, ddGf + ddGa #############################
+pdz3_final_df_ddg_2plot_non_active <- pdz3_final_df_ddg_2plot %>% filter(orthosteric == FALSE)
+
+m3_results <- fit_model_and_diagnostics_both(input_data = pdz3_final_df_ddg_2plot_non_active, model_id = "m3")
+m4_results <- fit_model_and_diagnostics_ddgf(input_data = pdz3_final_df_ddg_2plot_non_active, model_id = "m4")
+m5_results <- fit_model_and_diagnostics_ddga(input_data = pdz3_final_df_ddg_2plot_non_active, model_id = "m5")
+
+############################# MODEL 6: active mutations, ddGf + ddGa #############################
+pdz3_final_df_ddg_2plot_active <- pdz3_final_df_ddg_2plot %>% filter(orthosteric == TRUE)
+
+m6_results <- fit_model_and_diagnostics_ddgf(input_data = pdz3_final_df_ddg_2plot_active, model_id = "m6")
+m7_results <- fit_model_and_diagnostics_ddga(input_data = pdz3_final_df_ddg_2plot_active, model_id = "m7")
+m8_results <- fit_model_and_diagnostics_both(input_data = pdz3_final_df_ddg_2plot_active, model_id = "m8")
+```
+```{r}
+anova(m0_results$fit, m1_results$fit)
+# Model 1: ESM1v ~ f_ddg_pred + b_ddg_pred
+# Model 2: ESM1v ~ f_ddg_pred
+#   Res.Df   RSS Df Sum of Sq      F    Pr(>F)    
+# 1   1564 18199                                  
+# 2   1565 21260 -1   -3061.2 263.07 < 2.2e-16 ***
+anova(m4_results$fit, m3_results$fit)
+# Model 1: ESM1v ~ f_ddg_pred
+# Model 2: ESM1v ~ f_ddg_pred + b_ddg_pred
+#   Res.Df   RSS Df Sum of Sq      F    Pr(>F)    
+# 1   1323 15721                                  
+# 2   1322 13441  1    2279.3 224.18 < 2.2e-16 ***
+anova(m6_results$fit, m8_results$fit)
+# Model 1: ESM1v ~ f_ddg_pred
+# Model 2: ESM1v ~ f_ddg_pred + b_ddg_pred
+#   Res.Df    RSS Df Sum of Sq      F    Pr(>F)    
+# 1    240 1845.0                                  
+# 2    239 1704.8  1    140.21 19.657 1.413e-05 ***
+```
+```{r}
+m1_results
+```
+
+
+```{r}
+# Step 1: Build raw data (same as before)
+plot_data <- data.frame(
+  category = rep(c("whole protein", "non-orthosteric", "orthosteric"), each = 3000),
+  type = rep(c("abundance", "activity", "both"), times = 3, each = 1000),
+  adj_r2_values = c(
+    m1_results$adj_r2_values, m2_results$adj_r2_values, m0_results$adj_r2_values,
+    m4_results$adj_r2_values, m5_results$adj_r2_values, m3_results$adj_r2_values,
+    m6_results$adj_r2_values, m7_results$adj_r2_values, m8_results$adj_r2_values
+  )
+)
+
+# Step 2: Build CI summary table
+ci_summary <- data.frame(
+  category = rep(c("whole protein", "non-orthosteric", "orthosteric"), each = 3),
+  type = rep(c("abundance", "activity", "both"), times = 3),
+  mean_adj_r2 = c(
+    mean(m1_results$adj_r2_values), mean(m2_results$adj_r2_values), m0_results$adjusted_r_squared,
+    mean(m4_results$adj_r2_values), mean(m5_results$adj_r2_values), mean(m3_results$adj_r2_values),
+    mean(m6_results$adj_r2_values), mean(m7_results$adj_r2_values), mean(m8_results$adj_r2_values)
+  ),
+  ci_lower = c(
+    quantile(m1_results$adj_r2_values, 0.025), quantile(m2_results$adj_r2_values, 0.025), m0_results$adjusted_r_squared_ci[1],
+    quantile(m4_results$adj_r2_values, 0.025), quantile(m5_results$adj_r2_values, 0.025), quantile(m3_results$adj_r2_values, 0.025),
+    quantile(m6_results$adj_r2_values, 0.025), quantile(m7_results$adj_r2_values, 0.025), quantile(m8_results$adj_r2_values, 0.025)
+  ),
+  ci_upper = c(
+    quantile(m1_results$adj_r2_values, 0.975), quantile(m2_results$adj_r2_values, 0.975), m0_results$adjusted_r_squared_ci[2],
+    quantile(m4_results$adj_r2_values, 0.975), quantile(m5_results$adj_r2_values, 0.975), quantile(m3_results$adj_r2_values, 0.975),
+    quantile(m6_results$adj_r2_values, 0.975), quantile(m7_results$adj_r2_values, 0.975), quantile(m8_results$adj_r2_values, 0.975)
+  )
+)
+
+# Factor levels for consistency
+plot_data$category <- factor(plot_data$category, levels = c("whole protein", "non-orthosteric", "orthosteric"))
+plot_data$type <- factor(plot_data$type, levels = c("abundance", "activity", "both"))
+ci_summary$category <- factor(ci_summary$category, levels = levels(plot_data$category))
+ci_summary$type <- factor(ci_summary$type, levels = levels(plot_data$type))
+
+# Step 3: Plot using CI summary for bars
+fig3E <- ggplot(ci_summary, aes(x = type, y = mean_adj_r2, fill = type)) +
+  geom_col(width = 0.6, alpha = 0.85) +
+  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.2, color = "black") +
+  geom_text(aes(label = sprintf("%.3f", mean_adj_r2)), vjust = -1.5, size = 5, color = "black") +
+  facet_wrap(~category) +
+  scale_fill_brewer(palette = "Set2") +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    axis.line = element_line(linewidth = 0.6),
+    strip.text = element_text(size = 16, face = "bold"),
+    axis.text.x = element_text(size = 16, face = "bold", angle = 45, hjust = 1),
+    axis.text.y = element_text(size = 12),
+    axis.title.y = element_text(size = 18),
+    plot.title = element_text(size = 18, face = "bold"),
+    plot.subtitle = element_text(size = 16, face = "italic")
+  ) +
+  labs(
+    title = "PSD-95-PDZ3", 
+    subtitle = "Linear regression against ESM1v", 
+    x = "", 
+    y = "Adjusted R²"
+  ) +
+  # Significance comparisons using full plot_data
+  geom_signif(data = subset(plot_data, category == "whole protein"),
+              aes(x = type, y = adj_r2_values),
+              comparisons = list( c("abundance", "both")),
+              annotations = "p < 2.2e-16",
+              y_position = c( 0.65),
+              tip_length = 0.02,
+              step_increase = 0.05,
+              test = "wilcox.test",
+              textsize = 5) +
+  geom_signif(data = subset(plot_data, category == "non-orthosteric"),
+              aes(x = type, y = adj_r2_values),
+              comparisons = list( c("abundance", "both")),
+              annotations = "p < 2.2e-16",
+              y_position = c(0.65),
+              tip_length = 0.02,
+              step_increase = 0.05,
+              test = "wilcox.test",
+              textsize = 5) +
+  geom_signif(data = subset(plot_data, category == "orthosteric"),
+              aes(x = type, y = adj_r2_values),
+              comparisons = list( c("abundance", "both")),
+              annotations = "p = 1.413e-05",
+              y_position = c(0.65),
+              step_increase = 0.05,
+              test = "wilcox.test",
+              textsize = 5) +
+  ylim(-0.1, 1)
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig3E_1.pdf", 
+       plot = fig3E, width = 8, height = 4, dpi = 300)
+fig3E
+```
+
+```{r}
+doubledeepms__minimum_interchain_distances_from_PDB_perres <- function(
+	input_file,
+  chain_query = "A",
+  chain_target = "B"
+  ){
+  
+  #load PDB structure
+#	sink(file = "/dev/null")
+  pdb <- bio3d::read.pdb(input_file, rm.alt = TRUE)
+#	sink()
+
+  ### Atom selections
+  ###########################
+
+	#Protein atoms
+  sele_protein <- bio3d::atom.select(pdb, "protein", verbose=FALSE)
+	#Hydrogen atoms
+  sele_H <-bio3d::atom.select(pdb, "h", verbose=FALSE)
+	#Water atoms
+  sele_water <- bio3d::atom.select(pdb, "water", verbose=FALSE)
+	#Side chain atoms
+  sele_sc <- bio3d::atom.select(pdb, "sidechain", verbose=FALSE)
+	#C-alpha atoms
+  sele_ca <- bio3d::atom.select(pdb, "calpha", verbose=FALSE)
+	#Glycine c-alpha atoms
+  sele_glyca <- bio3d::atom.select(pdb, resid = "GLY", string = "calpha", verbose=FALSE)
+
+  ### Combine atom selections
+  ###########################
+
+  #Heavy atoms
+	sele_HA <- bio3d::combine.select(sele_protein, sele_H, sele_water, operator = "-", verbose=FALSE)
+
+  #Side chain heavy atoms + c-alpha for glycine
+	sele_prot_sc <- bio3d::combine.select(sele_protein, sele_sc, operator = "AND", verbose=FALSE)
+	sele_prot_sc_glyca <- bio3d::combine.select(sele_prot_sc, sele_glyca, operator = "OR", verbose=FALSE)
+	sele_scHA <- bio3d::combine.select(sele_prot_sc_glyca, sele_H, sele_water, operator = "-", verbose=FALSE)
+
+	#List
+	sele_list <- list(
+		"HA" = sele_HA,
+		"scHA" = sele_scHA)
+
+  ### Calculate minimum target chain distances
+  ###########################
+
+ 	result_dt <- data.table()
+  for(metric in names(sele_list)){
+	  #Distance matrix
+		pdb_sub <- bio3d::trim.pdb(pdb, sele_list[[metric]])
+	  dist_mat <- bio3d::dm.xyz(pdb_sub$xyz, grpby=apply(pdb_sub$atom[,c("resno", "chain")], 1, paste, collapse = "_"), scut=0, mask.lower = FALSE)
+	  resno_sub <- unique(pdb_sub$atom[,c("resno", "chain")])
+	  #Ligand distance matrix
+	  ligand_dist <- dist_mat[resno_sub[,"chain"]==chain_query,resno_sub[,"chain"]==chain_target]
+	  ligand_dist_df <- ligand_dist
+	  colnames(ligand_dist_df) <- resno_sub[resno_sub[,"chain"]==chain_target,"resno"]
+	  rownames(ligand_dist_df) <- resno_sub[resno_sub[,"chain"]==chain_query,"resno"]
+	  #chain target names
+	  #Absolute residue number
+	  ligand_dist_dt <- data.table(Pos = resno_sub[resno_sub[,"chain"]==chain_query,"resno"])
+	  #Minimum ligand distance
+	  ligand_dist_dt[, min_dist := apply(ligand_dist, 1, min)]
+	  names(ligand_dist_dt)[2] <- paste0(metric, "min_ligand")
+	  if(nrow(result_dt)==0){
+	  	result_dt <- ligand_dist_dt
+	  }else{
+	  	result_dt <- merge(result_dt, ligand_dist_dt, by = "Pos", all = T)
+	  }
+	 result_dt_with_ligand_matrix <- cbind(result_dt, ligand_dist_df)
+  }
+
+  #Return
+	return(result_dt_with_ligand_matrix)
+
+}
+
+pdz3_out <- doubledeepms__minimum_interchain_distances_from_PDB_perres(
+  input_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/structures/raw_pdb/1be9.pdb",
+  chain_query = "A",
+  chain_target = "B"
+)
+
+pdz3_out
+```
+
+
+```{r}
+pdz3_final_df_ddg_2plot_out <- pdz3_final_df_ddg_2plot %>% filter(orthosteric == FALSE)
+
+# Fit a loess model using the filtered data
+loess_fit <- loess(ESM1v ~ f_ddg_pred, data = pdz3_final_df_ddg_2plot_out, span = 0.7, family = "symmetric")
+
+# Predict fitted values for ALL data points using the loess model 
+pdz3_final_df_ddg_2plot_all$fitted <- predict(loess_fit, newdata = pdz3_final_df_ddg_2plot_all)
+
+# Calculate residuals for ALL points
+pdz3_final_df_ddg_2plot_all$residuals <- pdz3_final_df_ddg_2plot_all$ESM1v.x - pdz3_final_df_ddg_2plot_all$fitted
+
+head(pdz3_final_df_ddg_2plot_all)
+```
+
+
+```{r}
+median_residuals <- pdz3_final_df_ddg_2plot_all %>%
+  dplyr::group_by(Pos_ref.x) %>%
+  summarise(median_residuals = median(residuals, na.rm = TRUE))
+
+min(median_residuals$median_residuals) #-7.508073
+max(median_residuals$median_residuals) #7.583395
+
+#color byattribute a:bfactor #10 & sel target csab palette -8,red:0,white:8,blue
+
+library(bio3d)
+pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/structures/raw_pdb/1be9.pdb")
+data <- median_residuals
+head(data)
+
+# Create a new B-factor vector initialized with the current B-factors from the PDB
+new_b_factors <- pdb$atom$b
+
+# Loop through each position in the correlation data and update the B-factors
+for (i in 1:nrow(data)) {
+  position <- data$Pos_ref.x[i]
+  correlation_value <- data$median_residuals[i]
+
+  # Find indices in the PDB that match the current position
+  indices <- which(pdb$atom$resno == position)
+
+  # Print the indices and current B-factors before updating
+  #cat("Updating residue number:", position, "\n")
+  #cat("Indices in PDB:", indices, "\n")
+  #cat("Current B-factors:", new_b_factors[indices], "\n")
+
+  # Update B-factors for all atoms in the current residue
+  new_b_factors[indices] <- correlation_value
+
+  # Print the new B-factors after updating
+  #cat("Updated B-factors:", new_b_factors[indices], "\n")
+  #cat("\n")  # Add an extra line for readability
+}
+# Replace non-matching B-factors with outlier value so we can filter it out in ChimeraX
+non_matching_indices <- setdiff(seq_along(new_b_factors), which(pdb$atom$resno %in% data$Pos_ref.x))
+non_matching_indices
+new_b_factors[non_matching_indices] <- 999
+
+# Assign the new B-factors back to the pdb structure
+# Write the modified PDB structure to a new file
+pdb$atom$b <- new_b_factors
+write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/domains/1be9_median_residual_loess.pdb")
+```
+
+
+```{r, fig.width=12, fig.height=3}
+library(ggExtra)
+head(pdz3_final_df_ddg_2plot)
+pdz3_final_df_ddg_2plot_out <- pdz3_final_df_ddg_2plot %>% filter(orthosteric == FALSE)
+
+# Fit a loess model using the filtered data
+loess_fit <- loess(ESM1v ~ f_ddg_pred, data = pdz3_final_df_ddg_2plot_out, span = 0.7, family = "symmetric")
+
+# Predict fitted values for ALL data points using the loess model 
+pdz3_final_df_ddg_2plot$fitted <- predict(loess_fit, newdata = pdz3_final_df_ddg_2plot)
+
+# Calculate residuals for ALL points
+pdz3_final_df_ddg_2plot$residuals <- pdz3_final_df_ddg_2plot$ESM1v - pdz3_final_df_ddg_2plot$fitted
+
+sum(is.na(pdz3_final_df_ddg_2plot$residuals))
+sum(is.na(pdz3_final_df_ddg_2plot$fitted))
+
+range(pdz3_final_df_ddg_2plot$residuals, na.rm = TRUE) #-11.29141  14.24574
+range(pdz3_final_df_ddg_2plot$ESM1v) #-20.381   6.127
+range(pdz3_final_df_ddg_2plot$f_ddg_pred) #-1.754627  3.682299
+
+fit_line_df <- data.frame(
+  f_ddg_pred = seq(min(0, na.rm = TRUE),
+                            max(pdz3_final_df_ddg_2plot_out$f_ddg_pred, na.rm = TRUE),
+                            length.out = 200)
+)
+
+fit_line_df$ESM1v <- predict(loess_fit, newdata = fit_line_df)
+
+cor.test(pdz3_final_df_ddg_2plot$f_ddg_pred, pdz3_final_df_ddg_2plot$ESM1v, method = "spearman") #-0.4588265 
+nrow(pdz3_final_df_ddg_2plot)
+
+p1 <- ggplot(pdz3_final_df_ddg_2plot, aes(x = f_ddg_pred, y = ESM1v, color = residuals)) +
+  geom_point(size = 2, alpha = 0.35) +
+  #geom_vline(xintercept = 0.71, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  #geom_hline(yintercept = -1.11, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_line(data = fit_line_df, aes(x = f_ddg_pred, y = ESM1v),
+            inherit.aes = FALSE, color = "black", linewidth = 0.8) +
+  labs(
+    title = "PSD-95-PDZ3: All 1,567 Mutations",
+    subtitle = "Spearman's rho = -0.46",
+    x = "Measured ddGf",
+    y = "ESM1v pathogenicity",
+    color = "Residuals"
+  ) +
+  theme_classic() +
+  ylim(-20.4, 6.2) + xlim(-1.8, 3.7) +
+  scale_color_gradient2(low = "red", mid = "grey", high = "blue", midpoint = 0, name = "Residuals",
+                        limits = c(-11.3, 15)) +
+  theme(legend.position = "none")
+
+p1
+
+pdz3_final_df_ddg_2plot_int <- pdz3_final_df_ddg_2plot %>% filter(orthosteric == TRUE)
+nrow(pdz3_final_df_ddg_2plot_int)
+
+cor.test(pdz3_final_df_ddg_2plot_int$f_ddg_pred, pdz3_final_df_ddg_2plot_int$ESM1v, method = "spearman") #-0.31
+
+p2 <- ggplot(pdz3_final_df_ddg_2plot_int, aes(x = f_ddg_pred, y = ESM1v, color = residuals)) +
+  geom_point(size = 2, alpha = 0.35) +
+  #geom_vline(xintercept = 0.71, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  #geom_hline(yintercept = -1.11, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  #geom_line(data = fit_line_df, aes(x = f_ddg_pred, y = ESM1v),
+  #          inherit.aes = FALSE, color = "black", linewidth = 0.8) +
+  labs(
+    title = "242 Orthosteric Mutations",
+    subtitle = "Spearman's rho = -0.31",
+    x = "Measured ddGf",
+    y = "",
+    color = "Residuals"
+  ) +
+  theme_classic() +
+  ylim(-20.4, 6.2) + xlim(-1.8, 3.7) +
+  scale_color_gradient2(low = "red", mid = "grey", high = "blue", midpoint = 0, name = "Residuals",
+                         limits = c(-11.3, 15)) +
+  theme(legend.position = "none")
+
+p2
+
+pdz3_final_df_ddg_2plot_allo <- pdz3_final_df_ddg_2plot %>% filter(allosteric == TRUE)
+nrow(pdz3_final_df_ddg_2plot_allo)
+
+cor.test(pdz3_final_df_ddg_2plot_allo$f_ddg_pred, pdz3_final_df_ddg_2plot_allo$ESM1v, method = "spearman") #-0.26
+
+p3 <- ggplot(pdz3_final_df_ddg_2plot_allo, aes(x = f_ddg_pred, y = ESM1v, color = residuals)) +
+  geom_point(size = 2, alpha = 0.35) +
+  #geom_vline(xintercept = 0.71, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  #geom_hline(yintercept = -1.11, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  #geom_line(data = fit_line_df, aes(x = f_ddg_pred, y = ESM1v),
+  #          inherit.aes = FALSE, color = "black", linewidth = 0.8) +
+  labs(
+    title = "365 Allosteric Mutations",
+    subtitle = "Spearman's rho = -0.26",
+    x = "Measured ddGf",
+    y = "",
+    color = "Residuals"
+  ) +
+  theme_classic() +
+  ylim(-20.4, 6.2) + xlim(-1.8, 3.7) +
+  scale_color_gradient2(low = "red", mid = "grey", high = "blue", midpoint = 0, name = "Residuals",
+                       limits = c(-11.3, 15)) +
+  theme(legend.position = "none")
+
+p3
+
+pdz3_final_df_ddg_2plot_other <- pdz3_final_df_ddg_2plot %>% filter(allosteric == FALSE) %>% filter(orthosteric == FALSE)
+nrow(pdz3_final_df_ddg_2plot_other)
+
+cor.test(pdz3_final_df_ddg_2plot_other$f_ddg_pred, pdz3_final_df_ddg_2plot_other$ESM1v, method = "spearman") #-0.36
+
+p4 <- ggplot(pdz3_final_df_ddg_2plot_other, aes(x = f_ddg_pred, y = ESM1v, color = residuals)) +
+  geom_point(size = 2, alpha = 0.35) +
+  #geom_vline(xintercept = 0.71, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  #geom_hline(yintercept = -1.11, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  #geom_line(data = fit_line_df, aes(x = f_ddg_pred, y = ESM1v),
+  #          inherit.aes = FALSE, color = "black", linewidth = 0.8) +
+  labs(
+    title = "960 Other Mutations",
+    subtitle = "Spearman's rho = -0.36",
+    x = "Measured ddGf",
+    y = "",
+    color = "Residuals"
+  ) +
+  theme_classic() +
+  ylim(-20.4, 6.2) + xlim(-1.8, 3.7) +
+  scale_color_gradient2(low = "red", mid = "grey", high = "blue", midpoint = 0, name = "Residuals",
+                         limits = c(-11.3, 15)) +
+  theme(legend.position = "none")
+
+p4
+
+fig3C <- plot_grid(p1,p2,p3, p4, ncol = 4, nrow=1)
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig3B_1.pdf", 
+       plot = fig3C, width = 12, height = 3, dpi = 300)
+fig3C
+```
+```{r}
+pdz3_final_df_ddg_2plot <- pdz3_final_df_ddg_2plot %>%
+  mutate(pos_eve = as.numeric(str_extract(id_eve, "(?<=\\D)(\\d+)(?=\\D)")))
+
+
+pdz3_final_df_ddg_2plot <- pdz3_final_df_ddg_2plot %>%
+  mutate(site_class = case_when(
+    orthosteric == TRUE ~ "orthosteric",
+    allosteric == TRUE ~ "allosteric",
+    TRUE ~ "other"
+  ))
+
+label_df <- pdz3_final_df_ddg_2plot %>%
+  group_by(site_class) %>%
+  summarise(
+    n = n(),
+    median_val = median(residuals, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+pdz3_final_df_ddg_2plot$site_class <- factor(pdz3_final_df_ddg_2plot$site_class, levels = c("orthosteric", "allosteric", "other"))
+
+fig3C <- ggplot(pdz3_final_df_ddg_2plot, aes(x = site_class, y = residuals, fill = site_class)) +
+  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA)+
+  stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
+  stat_summary(fun = median, geom = "point", shape = 23, size = 2, fill = "black", color = "black", stroke = 0.7) +
+    geom_text(
+    data = label_df,
+    aes(x = site_class, y = max(pdz3_final_df_ddg_2plot$residuals) * 1.1,
+        label = paste0("n = ", n)),
+    inherit.aes = FALSE,
+    size = 4
+  ) +
+  geom_text(
+    data = label_df,
+    aes(x = site_class, y = 10,
+        label = paste0("n = ", n)),
+    inherit.aes = FALSE,
+    size = 4
+  ) +
+    geom_text(
+  data = label_df,
+  aes(x = site_class, y = median_val + 1.9, label = sprintf("%.2f", median_val)),
+  inherit.aes = FALSE,
+  size = 6
+) +
+    geom_signif(
+    comparisons = list(
+      c("orthosteric", "allosteric"),
+      c("orthosteric", "other"),
+      c("allosteric", "other")
+    ),
+    map_signif_level = FALSE,
+    test = "wilcox.test",
+    step_increase = 0.1,
+    tip_length = 0.01
+  ) +
+  
+  # Labels and theme
+  labs(
+    title = "PSD-95-PDZ3",
+    subtitle = "",
+    x = "",
+    y = "ESM1v - ddGf residual"
+  ) +
+  scale_fill_manual(values = c(
+    "orthosteric" = "orange",
+    "allosteric" = "cyan3",
+    "other" = "darkgreen"
+  )) +
+  theme_classic() +
+  theme(legend.position = "none")
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig3C.pdf", 
+       plot = fig3C, width = 3, height = 3, dpi = 300)
+fig3C
+```
+
+
+```{r}
+legend <-  ggplot(pdz3_final_df_ddg_2plot_other, aes(x = f_ddg_pred, y = ESM1v, color = residuals)) +
+  geom_point(size = 2, alpha = 0.35) +
+  #geom_vline(xintercept = 0.71, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  #geom_hline(yintercept = -1.11, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_line(data = fit_line_df, aes(x = f_ddg_pred, y = ESM1v),
+            inherit.aes = FALSE, color = "black", linewidth = 0.8) +
+  labs(
+    title = "1,243 Other Mutations",
+    subtitle = "Spearman's rho = -0.40",
+    x = "Measured ddGf",
+    y = "ESM1v",
+    color = "Residuals"
+  ) +
+  theme_classic() +
+  ylim(-20.4, 6.2) + xlim(-1.8, 3.7) +
+  scale_color_gradient2(low = "red", mid = "grey", high = "blue", midpoint = 0, name = "Residuals",
+                        limits = c(-11.3, 15)) +
+  theme(legend.position = "top")
+legend
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig3B_legend.pdf", 
+       plot = legend, width = 5, height = 4, dpi = 300)
+```
+
+```{r}
+bootstrap_r_squared <- function(input_data, fit, n_bootstrap = 1000) {
+  marginal_r_squared_values <- numeric(n_bootstrap)
+  conditional_r_squared_values <- numeric(n_bootstrap)
+  
+  for (k in 1:n_bootstrap) {
+    indices <- sample(1:nrow(input_data), size = nrow(input_data), replace = TRUE)
+    bootstrap_data <- input_data[indices, ]
+    
+    bootstrap_fit <- tryCatch({
+      update(fit, data = bootstrap_data)
+    }, error = function(e) {
+      NULL
+    })
+    
+    if (!is.null(bootstrap_fit)) {
+      r2_values <- r2(bootstrap_fit)
+      marginal_r_squared_values[k] <- r2_values$R2_marginal
+      conditional_r_squared_values[k] <- r2_values$R2_conditional
+    }
+  }
+  
+  marginal_r_squared_sorted <- sort(marginal_r_squared_values, na.last = NA)
+  conditional_r_squared_sorted <- sort(conditional_r_squared_values, na.last = NA)
+  
+  list(
+    marginal_r_squared_ci = c(
+      lower = marginal_r_squared_sorted[round(n_bootstrap * 0.025)],
+      upper = marginal_r_squared_sorted[round(n_bootstrap * 0.975)]
+    ),
+    conditional_r_squared_ci = c(
+      lower = conditional_r_squared_sorted[round(n_bootstrap * 0.025)],
+      upper = conditional_r_squared_sorted[round(n_bootstrap * 0.975)]
+    ),
+    marginal_r_squared_values = marginal_r_squared_values,
+    conditional_r_squared_values = conditional_r_squared_values
+  )
+}
+
+fit_model_and_diagnostics_both_lmm <- function(input_data, model_id) {
+  fit <- lmer(ESM1v ~ f_ddg_pred + b_ddg_pred + (1 | pos_eve), data = input_data)
+  #control = lmerControl(check.conv.singular = "ignore"))
+  
+  input_data[[paste0("predicted_", model_id)]] <- predict(fit, newdata = input_data, re.form = NULL)
+  
+  marginal_r_squared <- r2(fit)$R2_marginal
+  conditional_r_squared <- r2(fit)$R2_conditional
+  
+  bootstrap_r2 <- bootstrap_r_squared(input_data, fit, n_bootstrap = 1000)
+  
+  print(paste("Marginal R-squared:", round(marginal_r_squared, 4)))
+  print(paste("Conditional R-squared:", round(conditional_r_squared, 4)))
+  
+  return(list(
+    fit = fit,
+    marginal_r_squared = bootstrap_r2$marginal_r_squared_values,
+    conditional_r_squared = bootstrap_r2$conditional_r_squared_values,
+    marginal_r_squared_ci = c(bootstrap_r2$marginal_r_squared_ci["lower"], 
+                              bootstrap_r2$marginal_r_squared_ci["upper"]),
+    conditional_squared_ci = c(bootstrap_r2$conditional_r_squared_ci["lower"], 
+                               bootstrap_r2$conditional_r_squared_ci["upper"]),
+    input_data = input_data
+  ))
+}
+
+
+fit_model_and_diagnostics_ddgf_lmm <- function(input_data, model_id) {
+  fit <- lmer(ESM1v ~  f_ddg_pred  + (1 | pos_eve), data = input_data)
+  
+  input_data[[paste0("predicted_", model_id)]] <- predict(fit, newdata = input_data, re.form = NULL)
+  
+  marginal_r_squared <- r2(fit)$R2_marginal
+  conditional_r_squared <- r2(fit)$R2_conditional
+  
+  bootstrap_r2 <- bootstrap_r_squared(input_data, fit, n_bootstrap = 1000)
+  
+  print(paste("Marginal R-squared:", round(marginal_r_squared, 4)))
+  print(paste("Conditional R-squared:", round(conditional_r_squared, 4)))
+  
+  return(list(
+    fit = fit,
+    marginal_r_squared = bootstrap_r2$marginal_r_squared_values,
+    conditional_r_squared = bootstrap_r2$conditional_r_squared_values,
+    marginal_r_squared_ci = c(bootstrap_r2$marginal_r_squared_ci["lower"], 
+                              bootstrap_r2$marginal_r_squared_ci["upper"]),
+    conditional_squared_ci = c(bootstrap_r2$conditional_r_squared_ci["lower"], 
+                               bootstrap_r2$conditional_r_squared_ci["upper"]),
+    input_data = input_data
+  ))
+}
+```
+
+
+```{r}
+library(modeest)
+library(Metrics)
+library(broom)
+library(lme4)
+library(performance)
+
+
+m0_results <- fit_model_and_diagnostics_both_lmm(input_data = pdz3_final_df_ddg_2plot, model_id = "m0")
+# [1] "Marginal R-squared: 0.3104"
+# [1] "Conditional R-squared: 0.676"
+m1_results <- fit_model_and_diagnostics_ddgf_lmm(input_data = pdz3_final_df_ddg_2plot, model_id = "m1")
+# [1] "Marginal R-squared: 0.2031"
+# [1] "Conditional R-squared: 0.6399"
+pdz3_final_df_ddg_2plot_non_active <- pdz3_final_df_ddg_2plot_non_active %>%
+  mutate(pos_eve = as.numeric(str_extract(id_eve, "(?<=\\D)(\\d+)(?=\\D)")))
+
+m3_results <- fit_model_and_diagnostics_both_lmm(input_data = pdz3_final_df_ddg_2plot_non_active, model_id = "m3")
+# [1] "Marginal R-squared: 0.3545"
+# [1] "Conditional R-squared: 0.6627"
+m4_results <- fit_model_and_diagnostics_ddgf_lmm(input_data = pdz3_final_df_ddg_2plot_non_active, model_id = "m4")
+# [1] "Marginal R-squared: 0.2441"
+# [1] "Conditional R-squared: 0.6211"
+pdz3_final_df_ddg_2plot_active <- pdz3_final_df_ddg_2plot_active %>%
+  mutate(pos_eve = as.numeric(str_extract(id_eve, "(?<=\\D)(\\d+)(?=\\D)")))
+
+m6_results <- fit_model_and_diagnostics_both_lmm(input_data = pdz3_final_df_ddg_2plot_active, model_id = "m6")
+# [1] "Marginal R-squared: 0.266"
+# [1] "Conditional R-squared: 0.3795"
+m7_results <- fit_model_and_diagnostics_ddgf_lmm(input_data = pdz3_final_df_ddg_2plot_active, model_id = "m7")
+#[1] "Marginal R-squared: 0.1598"
+#[1] "Conditional R-squared: 0.2618"
+anova(m1_results$fit, m0_results$fit)
+# m1_results$fit: ESM1v ~ f_ddg_pred + (1 | pos_eve)
+# m0_results$fit: ESM1v ~ f_ddg_pred + b_ddg_pred + (1 | pos_eve)
+#                npar    AIC    BIC  logLik -2*log(L)  Chisq Df Pr(>Chisq)    
+# m1_results$fit    4 7575.2 7596.6 -3783.6    7567.2                         
+# m0_results$fit    5 7409.7 7436.5 -3699.9    7399.7 167.48  1  < 2.2e-16 ***
+
+anova(m4_results$fit, m3_results$fit)
+# m4_results$fit: ESM1v ~ f_ddg_pred + (1 | pos_eve)
+# m3_results$fit: ESM1v ~ f_ddg_pred + b_ddg_pred + (1 | pos_eve)
+#                npar    AIC    BIC  logLik -2*log(L)  Chisq Df Pr(>Chisq)    
+# m4_results$fit    4 6354.3 6375.1 -3173.2    6346.3                         
+# m3_results$fit    5 6215.8 6241.7 -3102.9    6205.8 140.57  1  < 2.2e-16 ***
+
+anova(m7_results$fit, m6_results$fit)
+# m7_results$fit: ESM1v ~ f_ddg_pred + (1 | pos_eve)
+# m6_results$fit: ESM1v ~ f_ddg_pred + b_ddg_pred + (1 | pos_eve)
+#                npar    AIC    BIC  logLik -2*log(L)  Chisq Df Pr(>Chisq)    
+# m7_results$fit    4 1175.3 1189.2 -583.64    1167.3                         
+# m6_results$fit    5 1155.6 1173.0 -572.78    1145.6 21.705  1  3.179e-06 ***
+```
+
+
+```{r, fig.width=5, fig.height=5}
+merged_df <- merge(pdz3_final_df_ddg_2plot_all, pdz3_out, by.x="Pos_ref.x", by.y = "Pos")
+nrow(merged_df) #1587
+
+merged_df_pos <- merged_df %>% filter(b_ddg_pred >= 0)
+nrow(merged_df_pos)
+merged_df_residue <- merged_df_pos %>%
+  group_by(Pos_ref.x) %>%
+  reframe(
+    median_ddgb = median(b_ddg_pred, na.rm = TRUE),
+    median_residual = median(residuals, na.rm = TRUE),
+    scHAmin_ligand = first(scHAmin_ligand),
+    orthosteric = first(orthosteric),
+    Pos = first(Pos_ref.x))
+
+nrow(merged_df_residue) #84
+
+# Fit exponential decay: y = a * exp(-b * x) + c
+exp_model_pdz3_ddgb <- nls(abs(median_ddgb) ~ a * exp(-b * scHAmin_ligand),
+                 data = merged_df_residue,
+                 start = list(a = 1, b = 0.1))
+exp_model_pdz3_ddgb
+# Nonlinear regression model
+#   model: abs(median_ddgb) ~ a * exp(-b * scHAmin_ligand)
+#    data: merged_df_residue
+#       a       b 
+# 1.40410 0.07758 
+#  residual sum-of-squares: 12.64
+# 
+# Number of iterations to convergence: 5 
+# Achieved convergence tolerance: 7.005e-06
+
+a <- 1.40410
+b <-  0.07758 
+half_d <- log(2) / b  # ≈ 8.934612
+half_d
+
+y_cutoff <- mean(merged_df %>% filter(orthosteric == TRUE) %>% pull(b_ddg_pred), na.rm=TRUE)
+
+merged_df_residue$site_type <- "Non-orthosteric site"
+merged_df_residue$site_type[abs(merged_df_residue$median_ddgb) <= y_cutoff] <- "Null"
+merged_df_residue$site_type[merged_df_residue$orthosteric == TRUE] <- "Binding site"
+
+
+x_vals <- seq(min(merged_df_residue$scHAmin_ligand, na.rm = TRUE),
+              max(merged_df_residue$scHAmin_ligand, na.rm = TRUE), length.out = 200)
+
+# --- Bootstrapping for confidence intervals ---
+set.seed(11)
+boot_params <- replicate(1000, {
+  samp <- merged_df_residue[sample(nrow(merged_df_residue), replace = TRUE), ]
+  fit <- try(nlsLM(abs(median_ddgb) ~ a * exp(-b * scHAmin_ligand),
+                   data = samp, start = list(a = 1, b = 0.1)), silent = TRUE)
+  if (inherits(fit, "try-error")) c(NA, NA) else coef(fit)
+})
+boot_params <- t(boot_params)[complete.cases(t(boot_params)), ]
+
+boot_preds <- apply(boot_params, 1, function(p) p[1] * exp(-p[2] * x_vals))
+
+fit_df_residue <- data.frame(
+  scHAmin_ligand = x_vals,
+  median_ddgb = predict(exp_model_pdz3_ddgb, newdata = data.frame(scHAmin_ligand = x_vals)),
+  lower = apply(boot_preds, 1, quantile, probs = 0.025),
+  upper = apply(boot_preds, 1, quantile, probs = 0.975)
+)
+
+# Plot
+p1 <- ggplot(merged_df_residue, aes(x = scHAmin_ligand, y = abs(median_ddgb))) +
+  # Base layer: all points
+  geom_point(aes(color = site_type, alpha = 0.4), size = 2) +
+   # Fit line with confidence ribbon
+  geom_ribbon(data = fit_df_residue,
+            aes(x = scHAmin_ligand, ymin = lower, ymax = upper),
+            fill = "grey70", alpha = 0.3, inherit.aes = FALSE) +
+  geom_line(data = fit_df_residue, aes(x = scHAmin_ligand, y = abs(median_ddgb)),
+          inherit.aes = FALSE, color = "black", size = 1) +
+  geom_text_repel(data = merged_df_residue %>% filter(site_type != "Null"), aes(label=Pos))+
+  
+  # Manual color palette for site type
+  scale_color_manual(values = c(
+    "Null" = "darkgreen",
+    "Non-orthosteric site" = "darkgreen",
+    "Binding site" = "orange"
+  )) +
+  # Reference lines
+  geom_vline(xintercept = 5, linetype = "dashed", color = "slategrey") +
+  geom_hline(yintercept = y_cutoff, linetype = "dashed", color = "slategrey") +
+  theme_classic() +
+  labs(
+    title = "PSD-95-PDZ3: allosteric decay",
+    subtitle = "1335 mutations with ddGb >=0",
+    x = "Minimal distance to ligand",
+    y = "Median ddGb",
+    color = ""
+  )  + theme(legend.position = "bottom") +
+    annotate("text",  x = Inf, y = Inf,
+             hjust = 1, vjust = 1,
+           label = "y = a * exp (b * x)\na = 1.40410  \nb = -0.07758",
+           size = 4, color = "black", hjust = 0) + theme(legend.position = "none")
+
+p1 <- ggMarginal(
+  p1,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/figS3B_1.pdf", 
+       plot = p1, width = 4, height = 4, dpi = 300)
+p1
+```
+
+```{r}
+lm_model <- lm(log(abs(median_ddgb)) ~ scHAmin_ligand, data = merged_df_residue)
+summary(lm_model)
+
+# Call:
+# lm(formula = log(abs(median_ddgb)) ~ scHAmin_ligand, data = merged_df_residue)
+# 
+# Residuals:
+#      Min       1Q   Median       3Q      Max 
+# -1.89470 -0.50236  0.09722  0.49863  1.26543 
+# 
+# Coefficients:
+#                Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)     0.35171    0.19914   1.766   0.0811 .  
+# scHAmin_ligand -0.10112    0.01821  -5.554 3.37e-07 ***
+# ---
+# Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Residual standard error: 0.6744 on 82 degrees of freedom
+# Multiple R-squared:  0.2733,	Adjusted R-squared:  0.2645 
+# F-statistic: 30.84 on 1 and 82 DF,  p-value: 3.37e-07
+```
+
+
+```{r, fig.width=5, fig.height=5}
+merged_df <- merge(pdz3_final_df_ddg_2plot_all, pdz3_out, by.x="Pos_ref.x", by.y = "Pos")
+nrow(merged_df) #1587
+
+merged_df_neg <- merged_df %>% filter(residuals <= 0)
+nrow(merged_df_neg)
+
+merged_df_residue <- merged_df_neg %>%
+  group_by(Pos_ref.x) %>%
+  reframe(
+    median_ddgb = median(b_ddg_pred, na.rm = TRUE),
+    median_residual = median(residuals, na.rm = TRUE),
+    scHAmin_ligand = first(scHAmin_ligand),
+    orthosteric = first(orthosteric),
+    Pos = first(Pos_ref.x))
+
+nrow(merged_df_residue) #82
+
+# Fit exponential decay: y = a * exp(-b * x) + c
+exp_model_pdz3_res <- nls(abs(median_residual) ~ a * exp(-b * scHAmin_ligand),
+                 data = merged_df_residue,
+                 start = list(a = 1, b = 0.1))
+exp_model_pdz3_res
+# Nonlinear regression model
+#   model: abs(median_residual) ~ a * exp(-b * scHAmin_ligand)
+#    data: merged_df_residue
+#      a      b 
+# 7.3547 0.1291 
+#  residual sum-of-squares: 121
+# 
+# Number of iterations to convergence: 6 
+# Achieved convergence tolerance: 8.824e-07
+
+a <- 7.3547
+b <-  0.1291
+half_d <- log(2) / b  # ≈ 5.369072
+half_d
+
+y_cutoff <- mean(merged_df %>% filter(orthosteric == TRUE) %>% pull(residuals), na.rm = TRUE)
+
+merged_df_residue$site_type <- "Non-orthosteric site"
+merged_df_residue$site_type[abs(merged_df_residue$median_residual) <= abs(y_cutoff)] <- "Null"
+merged_df_residue$site_type[merged_df_residue$orthosteric == TRUE] <- "Binding site"
+table(merged_df_residue$site_type)
+
+x_vals <- seq(min(merged_df_residue$scHAmin_ligand, na.rm = TRUE),
+              max(merged_df_residue$scHAmin_ligand, na.rm = TRUE), length.out = 200)
+
+# --- Bootstrapping for confidence intervals ---
+set.seed(11)
+boot_params <- replicate(1000, {
+  samp <- merged_df_residue[sample(nrow(merged_df_residue), replace = TRUE), ]
+  fit <- try(nlsLM(abs(median_residual) ~ a * exp(-b * scHAmin_ligand),
+                   data = samp, start = list(a = 1, b = 0.1)), silent = TRUE)
+  if (inherits(fit, "try-error")) c(NA, NA) else coef(fit)
+})
+boot_params <- t(boot_params)[complete.cases(t(boot_params)), ]
+
+boot_preds <- apply(boot_params, 1, function(p) p[1] * exp(-p[2] * x_vals))
+
+fit_df_residue <- data.frame(
+  scHAmin_ligand = x_vals,
+  median_ddgb = predict(exp_model_pdz3_res, newdata = data.frame(scHAmin_ligand = x_vals)),
+  lower = apply(boot_preds, 1, quantile, probs = 0.025),
+  upper = apply(boot_preds, 1, quantile, probs = 0.975)
+)
+# Plot
+p2 <- ggplot(merged_df_residue, aes(x = scHAmin_ligand, y = abs(median_residual))) +
+  # Base layer: all points
+  geom_point(aes(color = site_type, alpha = 0.4), size = 2) +
+  geom_ribbon(data = fit_df_residue,
+            aes(x = scHAmin_ligand, ymin = lower, ymax = upper),
+            fill = "grey70", alpha = 0.3, inherit.aes = FALSE) +
+  geom_line(data = fit_df_residue, aes(x = scHAmin_ligand, y = abs(median_ddgb)),
+          inherit.aes = FALSE, color = "black", size = 1) +
+  geom_text_repel(data = merged_df_residue %>% filter(site_type != "Null"), aes(label=Pos))+
+  
+  # Manual color palette for site type
+  scale_color_manual(values = c(
+    "Null" = "darkgreen",
+    "Non-orthosteric site" = "darkgreen",
+    "Binding site" = "orange"
+  )) +
+  # Reference lines
+  geom_vline(xintercept = 5, linetype = "dashed", color = "slategrey") +
+  geom_hline(yintercept = abs(y_cutoff), linetype = "dashed", color = "slategrey") +
+  theme_classic() +
+  labs(
+    title = "PSD-95-PDZ3: allosteric decay",
+    subtitle = "898 mutations with residuals <= 0",
+    x = "Minimal distance to ligand",
+    y = "|Median ESM1v-ddGf residual|",
+    color = ""
+  )  + theme(legend.position = "bottom") +
+    annotate("text",  x = Inf, y = Inf,
+             hjust = 1, vjust = 1,
+           label = "y = a * exp (b * x)\na = 7.3547  \nb = -0.1291",
+           size = 4, color = "black", hjust = 0) + theme(legend.position = "none")
+
+p2 <- ggMarginal(
+  p2,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig3D.pdf", 
+       plot = p2, width = 4, height = 4, dpi = 300)
+p2
+```
+
+```{r}
+lm_model <- lm(log(abs(median_residual)) ~ scHAmin_ligand, data = merged_df_residue)
+summary(lm_model)
+# Call:
+# lm(formula = log(abs(median_residual)) ~ scHAmin_ligand, data = merged_df_residue)
+# 
+# Residuals:
+#     Min      1Q  Median      3Q     Max 
+# -3.6808 -0.4011  0.2040  0.5331  1.4222 
+# 
+# Coefficients:
+#                Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)     1.87648    0.27421   6.843 1.42e-09 ***
+# scHAmin_ligand -0.14203    0.02518  -5.642 2.46e-07 ***
+# ---
+# Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Residual standard error: 0.9201 on 80 degrees of freedom
+# Multiple R-squared:  0.2846,	Adjusted R-squared:  0.2757 
+# F-statistic: 31.83 on 1 and 80 DF,  p-value: 2.461e-07
+```
+
+
+
+```{r, fig.width=5, fig.height=5}
+nrow(merged_df) #1587
+cor.test(merged_df$residuals, merged_df$b_ddg_pred) #-0.2958665
+head(merged_df)
+
+merged_df_residue <- merged_df %>%
+  group_by(Pos_ref.x) %>%
+  reframe(
+    median_ddgb = median(b_ddg_pred, na.rm = TRUE),
+    median_residual = median(residuals, na.rm = TRUE),
+    scHAmin_ligand = first(scHAmin_ligand),
+    orthosteric = first(orthosteric),
+    Pos = first(Pos_ref.x))
+
+nrow(merged_df_residue) #84
+cor.test(merged_df_residue$median_residual, merged_df_residue$median_ddgb, method = "spearman")
+# 	Spearman's rank correlation rho
+# 
+# data:  merged_df_residue$median_residual and merged_df_residue$median_ddgb
+# S = 129482, p-value = 0.004137
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.3109446
+
+merged_df_residue$site_type <- "Non-orthosteric site"
+merged_df_residue$site_type[merged_df_residue$orthosteric == TRUE] <- "Binding site"
+
+figS3E <- ggplot(merged_df_residue, aes(x = median_ddgb, y =  median_residual, color = site_type)) +
+  geom_point(size = 2, alpha = 0.5) +
+  labs(
+    title = "PSD-95-PDZ3: 84 residues (all 1587 mutations)",
+    subtitle = "Spearman's rho = -0.31",
+    x = "Median ddGb",
+    y = "Median ESM1v-ddGf residual",
+    color = "") +
+  theme_classic() +
+    scale_color_manual(values = c(
+    "Non-orthosteric site" = "darkgreen",
+    "Binding site" = "orange"
+  )) + theme(legend.position = "bottom") +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+  #xlim(-3,2) + ylim(-5,5)
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/figS3C.pdf", 
+       plot = figS3E, width = 4, height = 5, dpi = 300)
+figS3E
+
+```
+
+
+```{r, fig.width=5, fig.height=5}
+merged_df_neg_ddgb <- merged_df %>% filter(b_ddg_pred < 0)
+nrow(merged_df_neg_ddgb) #232
+
+merged_df_residue <- merged_df_neg_ddgb %>%
+  group_by(Pos_ref.x) %>%
+  reframe(
+    median_ddgb = median(b_ddg_pred, na.rm = TRUE),
+    median_residual = median(residuals, na.rm = TRUE),
+    scHAmin_ligand = first(scHAmin_ligand),
+    orthosteric = first(orthosteric),
+    Pos = first(Pos_ref.x))
+
+nrow(merged_df_residue) #
+
+merged_df_residue_nonfunc <- merged_df_residue %>% filter(orthosteric == FALSE)
+
+# Fit exponential decay: y = a * exp(-b * x) + c
+exp_model_pdz3_ddgb <- nls(abs(median_ddgb) ~ a * exp(-b * scHAmin_ligand),
+                 data = merged_df_residue,
+                 start = list(a = 1, b = 0.1))
+exp_model_pdz3_ddgb
+# Nonlinear regression model
+#   model: abs(median_ddgb) ~ a * exp(-b * scHAmin_ligand)
+#    data: merged_df_residue
+#      a      b 
+# 0.9770 0.1554 
+#  residual sum-of-squares: 3.51
+# 
+# Number of iterations to convergence: 8 
+# Achieved convergence tolerance: 2.666e-06
+
+a <- 0.9770
+b <-  0.1554 
+half_d <- log(2) / b  
+half_d
+
+
+merged_df_residue$site_type <- "Non-orthosteric site"
+merged_df_residue$site_type[merged_df_residue$orthosteric == TRUE] <- "Binding site"
+
+x_vals <- seq(min(merged_df_residue$scHAmin_ligand, na.rm = TRUE),
+              max(merged_df_residue$scHAmin_ligand, na.rm = TRUE), length.out = 200)
+
+predicted_y <- predict(exp_model_pdz3_ddgb, newdata = data.frame(scHAmin_ligand = x_vals))
+
+fit_df <- data.frame(scHAmin_ligand = x_vals, b_ddg_pred = predicted_y)
+
+nrow(merged_df_residue)
+
+p3<- ggplot(merged_df_residue, aes(x = scHAmin_ligand, y = abs(median_ddgb))) +
+  # Base layer: all points
+  geom_point(aes(color = site_type, alpha = 0.4), size = 2) +
+  
+  # Loess fit line
+  geom_line(data = fit_df, aes(x = scHAmin_ligand, y = b_ddg_pred),
+            inherit.aes = FALSE, color = "black", size = 1) +
+  geom_text_repel(data = merged_df_residue %>% filter(site_type != "Non-orthosteric site"),aes(label=Pos))+
+  
+  # Manual color palette for site type
+  scale_color_manual(values = c(
+    "Null" = "grey",
+    "Non-orthosteric site" = "darkgreen",
+    "Binding site" = "orange"
+  )) +
+  # Reference lines
+  geom_vline(xintercept = 5, linetype = "dashed", color = "slategrey") +
+  theme_classic() +
+  labs(
+    title = "PSD-95-PDZ3: allosteric decay",
+    subtitle = "232 mutations with ddGb < 0",
+    x = "Minimal distance to ligand",
+    y = "Median ddGb",
+    color = ""
+  )  + theme(legend.position = "bottom") +
+    annotate("text",  x = Inf, y = Inf,
+             hjust = 1, vjust = 1,
+           label = "y = a * exp (b * x)\na =  0.9770\nb = -0.1554 ",
+           size = 4, color = "black", hjust = 0) + theme(legend.position = "none")
+
+p3 <- ggMarginal(
+  p3,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+p3
+
+```
+```{r, fig.width=10, fig.height=5}
+merged_df_neg_residual <- merged_df %>% filter(residuals > 0)
+nrow(merged_df_neg_residual) #688
+
+merged_df_residue <- merged_df_neg_residual %>%
+  group_by(Pos_ref.x) %>%
+  reframe(
+    median_ddgb = median(b_ddg_pred, na.rm = TRUE),
+    median_residual = median(residuals, na.rm = TRUE),
+    scHAmin_ligand = first(scHAmin_ligand),
+    orthosteric = first(orthosteric),
+    Pos = first(Pos_ref.x))
+
+nrow(merged_df_residue) #81
+
+# Fit exponential decay: y = a * exp(-b * x) + c
+exp_model_pdz3_residual <- nls(abs(median_residual) ~ a * exp(-b * scHAmin_ligand),
+                 data = merged_df_residue,
+                 start = list(a = 1, b = 0.1))
+
+exp_model_pdz3_residual 
+# Nonlinear regression model
+#   model: abs(median_residual) ~ a * exp(-b * scHAmin_ligand)
+#    data: merged_df_residue
+#        a        b 
+#  1.43905 -0.02959 
+#  residual sum-of-squares: 118.8
+# 
+# Number of iterations to convergence: 12 
+# Achieved convergence tolerance: 3.042e-06
+
+a <- 1.43905
+b <-  0.02959 
+half_d <- log(2) / b  # ≈  
+half_d
+
+merged_df_residue$site_type <- "Non-orthosteric site"
+merged_df_residue$site_type[merged_df_residue$orthosteric == TRUE] <- "Binding site"
+
+x_vals <- seq(min(merged_df_residue$scHAmin_ligand, na.rm = TRUE),
+              max(merged_df_residue$scHAmin_ligand, na.rm = TRUE), length.out = 200)
+
+predicted_y <- predict(exp_model_pdz3_residual, newdata = data.frame(scHAmin_ligand = x_vals))
+
+fit_df <- data.frame(scHAmin_ligand = x_vals, residual = predicted_y)
+
+# Plot
+p4 <- ggplot(merged_df_residue, aes(x = scHAmin_ligand, y = abs(median_residual))) +
+  # Base layer: all points
+  geom_point(aes(color = site_type, alpha = 0.4), size = 2) +
+  
+  # Loess fit line
+  geom_line(data = fit_df , aes(x = scHAmin_ligand, y = residual),
+            inherit.aes = FALSE, color = "black", size = 1) +
+
+  
+  # Manual color palette for site type
+  scale_color_manual(values = c(
+    "Non-orthosteric site" = "darkgreen",
+    "Binding site" = "orange"
+  )) +
+  # Reference lines
+  geom_vline(xintercept = 4.315068, linetype = "dashed", color = "slategrey") +
+  geom_hline(yintercept = y_cutoff, linetype = "dashed", color = "slategrey") +
+  theme_classic() +
+  geom_text_repel(data = merged_df_residue %>% filter(site_type == "Binding site"), aes(label=Pos))+
+  labs(
+    title = "PSD-95-PDZ3: allosteric decay",
+    subtitle = "688 mutations with residual > 0",
+    x = "Minimal distance to ligand",
+    y = "|Median ESM1v-ddGf residual|",
+    color = ""
+  )  + theme(legend.position = "bottom") +
+    annotate("text",  x = Inf, y = Inf,
+             hjust = 1, vjust = 1,
+           label = "y = a * exp (b * x)\na =  1.43905\nb = -0.02959",
+           size = 4, color = "black", hjust = 0) + theme(legend.position = "none")
+
+p4 <- ggMarginal(
+  p4,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+
+p4
+figS3F <- plot_grid(p3,p4, ncol = 2, nrow=1)
+figS3F
+
+```
+
+
+```{r}
+sh3_final_df_ddgf <- read_tsv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domains_andre/Data/fitness/GRB2-SH3/Abundance/mochi_project/task_1/weights/weights_Folding.txt')
+sh3_final_df_ddgf <- sh3_final_df_ddgf %>% dplyr::select(id_ref, Pos_ref, `mean_kcal/mol`, `std_kcal/mol`)
+dim(sh3_final_df_ddgf) #1057    4
+
+sh3_final_df_ddgb <- read_tsv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domains_andre/Data/fitness/GRB2-SH3/Abundance/mochi_project/task_1/weights/weights_Binding.txt')
+sh3_final_df_ddgb <- sh3_final_df_ddgb %>% dplyr::select(id_ref, Pos_ref, `mean_kcal/mol`, `std_kcal/mol`)
+dim(sh3_final_df_ddgb) #757   4
+
+sh3_data <- process_protein_data(
+  consurf_file = '/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/scores/3_consurf/grb2_consurf/new_cleaned_file.txt',
+  am_file = '/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/scores/0_am/alphamissense_grb2.tsv',
+  esm1b_file = '/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/scores/1_esm1b/GRB2_P62993_esm1b.csv',
+  popeve_file = '/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/scores/2_popeve/GRB2_NP_002077.1.csv'
+)
+
+process_and_merge_protein_data <- function(protein_data, merged_df) {
+
+  # Merge with popEVE and ESM1v data
+  merged_df_ddg <- merged_df %>%
+    merge(protein_data$popeve, by.x = "id_ref", by.y = "id",all.x = FALSE) %>%
+    merge(protein_data$esm1v, by.x = "id_ref", by.y = "id", all.x = FALSE)
+
+  return(merged_df_ddg)
+}
+
+sh3_final_df_ddgf <- sh3_final_df_ddgf %>%
+  mutate(wt_aa = str_extract(id_ref, '^[A-Za-z]+'),
+         mt_aa = str_extract(id_ref, '[A-Za-z]+$')) %>%
+  rename(old_id = id_ref) %>%
+  rename(old_Pos = Pos_ref) %>%
+  rename(f_ddg_pred = `mean_kcal/mol`) %>%
+  rename(f_ddg_pred_sd = `std_kcal/mol`) %>%
+  mutate(Pos_ref = as.numeric(old_Pos) + 158) %>%
+  mutate(id_ref = paste0(wt_aa, Pos_ref, mt_aa))
+
+sh3_final_df_ddgf <-process_and_merge_protein_data(sh3_data, sh3_final_df_ddgf)
+dim(sh3_final_df_ddgf) # 1056   10
+
+sh3_final_df_ddgb <- sh3_final_df_ddgb %>%
+  mutate(wt_aa = str_extract(id_ref, '^[A-Za-z]+'),
+         mt_aa = str_extract(id_ref, '[A-Za-z]+$')) %>%
+  rename(old_id = id_ref) %>%
+  rename(old_Pos = Pos_ref) %>%
+    rename(b_ddg_pred = `mean_kcal/mol`) %>%
+  rename(b_ddg_pred_sd = `std_kcal/mol`) %>%
+  mutate(Pos_ref = as.numeric(old_Pos) + 158) %>%
+  mutate(id_ref = paste0(wt_aa, Pos_ref, mt_aa))
+
+sh3_final_df_ddgb <-process_and_merge_protein_data(sh3_data, sh3_final_df_ddgb)
+dim(sh3_final_df_ddgb) # 756  10
+
+################################# Stability Definition #########################################
+sh3_final_df_ddg_2plot <- merge(sh3_final_df_ddgf, sh3_final_df_ddgb, by = "id_ref", all.x = TRUE)
+dim(sh3_final_df_ddg_2plot) #1056   19
+
+# Step 1: Calculate z-scores and p-values for stabilizing mutations
+sh3_final_df_ddg_2plot <- sh3_final_df_ddg_2plot %>%
+  mutate(z_stab = (f_ddg_pred - 0) / f_ddg_pred_sd)
+
+sh3_final_df_ddg_2plot <- sh3_final_df_ddg_2plot %>%
+  mutate(p_stab = pnorm(z_stab))
+
+# Step 2: Calculate z-scores and p-values for destabilizing mutations
+sh3_final_df_ddg_2plot <- sh3_final_df_ddg_2plot %>%
+  mutate(z_destab = (f_ddg_pred - 0.5) / f_ddg_pred_sd,
+         p_destab = 1 - pnorm(z_destab))
+
+# Step 3: Classify mutations based on p-values
+sh3_final_df_ddg_2plot <- sh3_final_df_ddg_2plot %>%
+  mutate(class = case_when(
+    p_stab < 0.05 ~ "stabilizing",
+    p_destab < 0.05 ~ "destabilizing",
+    TRUE ~ "no change"
+  ))
+
+# Print summary of classification counts
+class_summary <- table(sh3_final_df_ddg_2plot$class)
+print(class_summary)
+#destabilizing     no change   stabilizing 
+#          585           411            60 
+```
+
+
+```{r}
+paper_anno <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/sh3_ddg_cleaned.csv")
+table(paper_anno$orthosteric)
+head(paper_anno)
+ortho_list <- unique(paper_anno %>% filter(orthosteric == TRUE) %>% pull(Pos_real))
+
+ortho_list<- append(ortho_list, c(170 ,192 ,195 ,204 ,209))
+
+sh3_final_df_ddg_2plot$orthosteric <- FALSE
+sh3_final_df_ddg_2plot$orthosteric[sh3_final_df_ddg_2plot$Pos_ref.x %in% ortho_list] <- TRUE
+
+table(sh3_final_df_ddg_2plot$orthosteric)
+#FALSE  TRUE 
+#  809   247 
+
+sh3_final_df_ddg_2plot_all <- sh3_final_df_ddg_2plot
+nrow(sh3_final_df_ddg_2plot_all) #1056
+sh3_final_df_ddg_2plot <- sh3_final_df_ddg_2plot[!is.na(sh3_final_df_ddg_2plot$b_ddg_pred), ]
+nrow(sh3_final_df_ddg_2plot) #756
+head(sh3_final_df_ddg_2plot)
+
+sh3_final_df_ddg_2plot <- sh3_final_df_ddg_2plot %>% dplyr::select(id_ref, f_ddg_pred, f_ddg_pred_sd,
+                                                                     ESM1v.x, b_ddg_pred, b_ddg_pred_sd,
+                                                                     orthosteric,class) %>%
+  dplyr::rename(ESM1v = ESM1v.x)
+
+sh3_final_df_ddg_2plot_active <- sh3_final_df_ddg_2plot %>% filter(orthosteric == TRUE)
+mean(sh3_final_df_ddg_2plot_active$b_ddg_pred) #0.7443709
+
+sh3_final_df_ddg_2plot$allosteric <- FALSE
+sh3_final_df_ddg_2plot$allosteric[sh3_final_df_ddg_2plot$b_ddg_pred >= mean(sh3_final_df_ddg_2plot_active$b_ddg_pred)] <- TRUE
+sh3_final_df_ddg_2plot$allosteric[sh3_final_df_ddg_2plot$orthosteric == TRUE] <- FALSE
+table(sh3_final_df_ddg_2plot$allosteric)
+#FALSE  TRUE 
+#  703    53 
+```
+
+```{r}
+sh3_final_df_ddg_2plot_out <- sh3_final_df_ddg_2plot %>% filter(orthosteric == FALSE)
+
+# Fit a loess model using the filtered data
+loess_fit <- loess(ESM1v ~ f_ddg_pred, data = sh3_final_df_ddg_2plot_out, span = 0.7, family = "symmetric")
+
+# Predict fitted values for ALL data points using the loess model 
+nrow(sh3_final_df_ddg_2plot_all)
+sh3_final_df_ddg_2plot_all$fitted <- predict(loess_fit, newdata = sh3_final_df_ddg_2plot_all)
+
+# Calculate residuals for ALL points
+sh3_final_df_ddg_2plot_all$residuals <- sh3_final_df_ddg_2plot_all$ESM1v.x - sh3_final_df_ddg_2plot_all$fitted
+
+range(sh3_final_df_ddg_2plot_all$residuals, na.rm = TRUE) #-13.251857   5.372929
+```
+
+
+
+```{r}
+sh3_final_df_ddg_2plot_all <- sh3_final_df_ddg_2plot_all %>%
+  mutate(mutation_position = as.numeric(str_extract(old_id.x, "(?<=\\D)(\\d+)(?=\\D)")))
+
+median_residuals <- sh3_final_df_ddg_2plot_all %>%
+  dplyr::group_by(mutation_position) %>%
+  summarise(median_residuals = median(residuals, na.rm = TRUE))
+
+min(median_residuals$median_residuals) #-8.978788
+max(median_residuals$median_residuals) #2.738424
+
+pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/structures/raw_pdb/2vwf.pdb")
+data <- median_residuals
+head(data)
+
+# Create a new B-factor vector initialized with the current B-factors from the PDB
+new_b_factors <- pdb$atom$b
+
+# Loop through each position in the correlation data and update the B-factors
+for (i in 1:nrow(data)) {
+  position <- data$mutation_position[i]
+  correlation_value <- data$median_residuals[i]
+  
+  # Find indices in the PDB that match the current position
+  indices <- which(pdb$atom$resno == position)
+  
+  # Print the indices and current B-factors before updating
+  #cat("Updating residue number:", position, "\n")
+  #cat("Indices in PDB:", indices, "\n")
+  #cat("Current B-factors:", new_b_factors[indices], "\n")
+  
+  # Update B-factors for all atoms in the current residue
+  new_b_factors[indices] <- correlation_value
+  
+  # Print the new B-factors after updating
+  #cat("Updated B-factors:", new_b_factors[indices], "\n")
+  #cat("\n")  # Add an extra line for readability
+}
+# Replace non-matching B-factors with outlier value so we can filter it out in ChimeraX
+non_matching_indices <- setdiff(seq_along(new_b_factors), which(pdb$atom$resno %in% data$mutation_position))
+new_b_factors[non_matching_indices] <- 999
+
+# Assign the new B-factors back to the pdb structure
+# Write the modified PDB structure to a new file
+pdb$atom$b <- new_b_factors
+write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/domains/2vwf_median_residual_loess.pdb")
+```
+
+```{r, fig.width=12, fig.height=3}
+sh3_final_df_ddg_2plot_out <- sh3_final_df_ddg_2plot %>% filter(orthosteric == FALSE)
+
+# Fit a loess model using the filtered data
+loess_fit <- loess(ESM1v ~ f_ddg_pred, data = sh3_final_df_ddg_2plot_out, span = 0.7, family = "symmetric")
+
+# Predict fitted values for ALL data points using the loess model 
+sh3_final_df_ddg_2plot$fitted <- predict(loess_fit, newdata = sh3_final_df_ddg_2plot)
+
+# Calculate residuals for ALL points
+sh3_final_df_ddg_2plot$residuals <- sh3_final_df_ddg_2plot$ESM1v - sh3_final_df_ddg_2plot$fitted
+
+sum(is.na(sh3_final_df_ddg_2plot$residuals))
+sum(is.na(sh3_final_df_ddg_2plot$fitted))
+
+range(sh3_final_df_ddg_2plot$residuals, na.rm = TRUE) #-13.251857   5.372929
+range(sh3_final_df_ddg_2plot$ESM1v) #-17.80   2.73
+range(sh3_final_df_ddg_2plot$f_ddg_pred) #-0.8155064  3.0465777
+
+fit_line_df <- data.frame(
+  f_ddg_pred = seq(min(0, na.rm = TRUE),
+                   max(sh3_final_df_ddg_2plot_out$f_ddg_pred, na.rm = TRUE),
+                   length.out = 200)
+)
+
+fit_line_df$ESM1v <- predict(loess_fit, newdata = fit_line_df)
+cor.test(sh3_final_df_ddg_2plot$f_ddg_pred, sh3_final_df_ddg_2plot$ESM1v, method = "spearman") #--0.5766367 
+
+nrow(sh3_final_df_ddg_2plot)
+
+p1 <- ggplot(sh3_final_df_ddg_2plot, aes(x = f_ddg_pred, y = ESM1v, color = residuals)) +
+  geom_point(size = 2, alpha = 0.35) +
+  #geom_vline(xintercept = 0.71, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  #geom_hline(yintercept = -1.11, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_line(data = fit_line_df, aes(x = f_ddg_pred, y = ESM1v),
+            inherit.aes = FALSE, color = "black", linewidth = 0.8) +
+  labs(
+    title = "GRB2-SH3: All 756 Mutations",
+    subtitle = "Spearman's rho = -0.58",
+    x = "Measured ddGf",
+    y = "ESM1v",
+    color = "Residuals"
+  ) +
+  theme_classic() +
+  ylim(-18, 2.8) + xlim(-0.9, 3.1) +
+  scale_color_gradient2(low = "red", mid = "grey", high = "blue", midpoint = 0, name = "Residuals",
+                        limits = c(-13.3, 5.4)) +
+  theme(legend.position = "none")
+
+p1
+
+sh3_final_df_ddg_2plot_int <- sh3_final_df_ddg_2plot %>% filter(orthosteric == TRUE)
+nrow(sh3_final_df_ddg_2plot_int)
+
+cor.test(sh3_final_df_ddg_2plot_int$f_ddg_pred, sh3_final_df_ddg_2plot_int$ESM1v, method = "spearman") #-0.40
+
+p2 <- ggplot(sh3_final_df_ddg_2plot_int, aes(x = f_ddg_pred, y = ESM1v, color = residuals)) +
+  geom_point(size = 2, alpha = 0.35) +
+  #geom_vline(xintercept = 0.71, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  #geom_hline(yintercept = -1.11, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  labs(
+    title = "171 Orthosteric Mutations",
+    subtitle = "Spearman's rho = -0.40",
+    x = "Measured ddGf",
+    y = "ESM1v",
+    color = "Residuals"
+  ) +
+  theme_classic() +
+  ylim(-18, 2.8) + xlim(-0.9, 3.1) +
+  scale_color_gradient2(low = "red", mid = "grey", high = "blue", midpoint = 0, name = "Residuals",
+                        limits = c(-13.3, 5.4)) +
+  theme(legend.position = "none")
+
+p2
+
+sh3_final_df_ddg_2plot_allo <- sh3_final_df_ddg_2plot %>% filter(allosteric == TRUE)
+nrow(sh3_final_df_ddg_2plot_allo)
+
+cor.test(sh3_final_df_ddg_2plot_allo$f_ddg_pred, sh3_final_df_ddg_2plot_allo$ESM1v, method = "spearman") #-0.55
+unique(sh3_final_df_ddg_2plot_allo$id_ref)
+p3 <- ggplot(sh3_final_df_ddg_2plot_allo, aes(x = f_ddg_pred, y = ESM1v, color = residuals)) +
+  geom_point(size = 2, alpha = 0.35) +
+  #geom_vline(xintercept = 0.71, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  #geom_hline(yintercept = -1.11, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_text_repel(data = sh3_final_df_ddg_2plot_allo %>% filter(residuals < -0.5),
+                  aes(label = id_ref), size = 3) +
+  labs(
+    title = "53 Allosteric Mutations",
+    subtitle = "Spearman's rho = -0.55",
+    x = "Measured ddGf",
+    y = "ESM1v",
+    color = "Residuals"
+  ) +
+  theme_classic() +
+  ylim(-18, 2.8) + xlim(-0.9, 3.1) +
+  scale_color_gradient2(low = "red", mid = "grey", high = "blue", midpoint = 0, name = "Residuals",
+                       limits = c(-13.3, 5.4)) +
+  theme(legend.position = "none")
+
+
+p3
+
+sh3_final_df_ddg_2plot_other <- sh3_final_df_ddg_2plot %>% filter(allosteric == FALSE) %>% filter(orthosteric == FALSE)
+nrow(sh3_final_df_ddg_2plot_other)
+
+cor.test(sh3_final_df_ddg_2plot_other$f_ddg_pred, sh3_final_df_ddg_2plot_other$ESM1v, method = "spearman") #-0.768915 
+
+p4 <- ggplot(sh3_final_df_ddg_2plot_other, aes(x = f_ddg_pred, y = ESM1v, color = residuals)) +
+  geom_point(size = 2, alpha = 0.35) +
+  #geom_vline(xintercept = 0.71, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  #geom_hline(yintercept = -1.11, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  labs(
+    title = "532 Other Mutations",
+    subtitle = "Spearman's rho = -0.77",
+    x = "Measured ddGf",
+    y = "ESM1v",
+    color = "Residuals"
+  ) +
+  theme_classic() +
+  ylim(-18, 2.8) + xlim(-0.9, 3.1) +
+  scale_color_gradient2(low = "red", mid = "grey", high = "blue", midpoint = 0, name = "Residuals",
+                         limits = c(-13.3, 5.4)) +
+  theme(legend.position = "none")
+
+p4
+
+figS3A <- plot_grid(p1,p2,p3, p4, ncol = 4, nrow=1)
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig3B_2.pdf", 
+       plot = figS3A, width = 12, height = 3, dpi = 300)
+figS3A
+```
+
+```{r}
+figS3A <- ggplot(sh3_final_df_ddg_2plot_other, aes(x = f_ddg_pred, y = ESM1v, color = residuals)) +
+  geom_point(size = 2, alpha = 0.35) +
+  #geom_vline(xintercept = 0.71, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  #geom_hline(yintercept = -1.11, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  labs(
+    title = "532 Other Mutations",
+    subtitle = "Spearman's rho = -0.77",
+    x = "Measured ddGf",
+    y = "ESM1v",
+    color = "Residuals"
+  ) +
+  theme_classic() +
+  ylim(-18, 2.8) + xlim(-0.9, 3.1) +
+  scale_color_gradient2(low = "red", mid = "grey", high = "blue", midpoint = 0, name = "Residuals",
+                         limits = c(-13.3, 5.4)) +
+  theme(legend.position = "bottom")
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig3B_2_legend.pdf", 
+       plot = figS3A, width = 12, height = 3, dpi = 300)
+```
+
+
+```{r}
+legend2 <- ggplot(sh3_final_df_ddg_2plot_other, aes(x = f_ddg_pred, y = ESM1v, color = residuals)) +
+  geom_point(size = 2, alpha = 0.35) +
+  #geom_vline(xintercept = 0.71, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  #geom_hline(yintercept = -1.11, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_line(data = fit_line_df, aes(x = f_ddg_pred, y = ESM1v),
+            inherit.aes = FALSE, color = "black", linewidth = 0.8) +
+  labs(
+    title = "612 Other Mutations",
+    subtitle = "Spearman's rho = -0.72",
+    x = "Measured ddGf",
+    y = "ESM1v",
+    color = "Residuals"
+  ) +
+  theme_classic() +
+  ylim(-18, 2.8) + xlim(-0.9, 3.1) +
+  scale_color_gradient2(low = "red", mid = "grey", high = "blue", midpoint = 0, name = "Residuals",
+                         limits = c(-13.3, 5.4)) +
+  theme(legend.position = "top")
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig3_scatter2_legend_loess.pdf", 
+       plot = legend2, width = 5, height = 4, dpi = 300)
+```
+
+
+```{r}
+sh3_final_df_ddg_2plot <- sh3_final_df_ddg_2plot %>%
+  mutate(pos_eve = as.numeric(str_extract(id_ref, "(?<=\\D)(\\d+)(?=\\D)")))
+
+sh3_final_df_ddg_2plot <- sh3_final_df_ddg_2plot %>%
+  mutate(site_class = case_when(
+    orthosteric == TRUE ~ "orthosteric",
+    allosteric == TRUE ~ "allosteric",
+    TRUE ~ "other"
+  ))
+
+label_df <- sh3_final_df_ddg_2plot %>%
+  group_by(site_class) %>%
+  summarise(
+    n = n(),
+    median_val = median(residuals, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+sh3_final_df_ddg_2plot$site_class <- factor(sh3_final_df_ddg_2plot$site_class, levels = c("orthosteric", "allosteric", "other"))
+
+fig3C <- ggplot(sh3_final_df_ddg_2plot, aes(x = site_class, y = residuals, fill = site_class)) +
+  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA)+
+  stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
+  stat_summary(fun = median, geom = "point", shape = 23, size = 2, fill = "black", color = "black", stroke = 0.7) +
+  geom_text(
+    data = label_df,
+    aes(x = site_class, y = max(sh3_final_df_ddg_2plot$residuals) * 1.1,
+        label = paste0("n = ", n)),
+    inherit.aes = FALSE,
+    size = 4
+  ) +
+  geom_text(
+    data = label_df,
+    aes(x = site_class, y = 10,
+        label = paste0("n = ", n)),
+    inherit.aes = FALSE,
+    size = 4
+  ) +
+  geom_text(
+    data = label_df,
+    aes(x = site_class, y = median_val + 1.9, label = sprintf("%.2f", median_val)),
+    inherit.aes = FALSE,
+    size = 6
+  ) +
+  geom_signif(
+    comparisons = list(
+      c("orthosteric", "allosteric"),
+      c("orthosteric", "other"),
+      c("allosteric", "other")
+    ),
+    map_signif_level = FALSE,
+    test = "wilcox.test",
+    step_increase = 0.1,
+    tip_length = 0.01
+  ) +
+  
+  # Labels and theme
+  labs(
+    title = "GRB2-SH3",
+    subtitle = "",
+    x = "",
+    y = "ESM1v - ddGf residual"
+  ) +
+  scale_fill_manual(values = c(
+    "orthosteric" = "orange",
+    "allosteric" = "cyan3",
+    "other" = "darkgreen"
+  )) +
+  theme_classic() +
+  theme(legend.position = "none")
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig3C_2.pdf", 
+       plot = fig3C, width = 3, height = 3, dpi = 300)
+fig3C
+```
+
+
+```{r}
+############################# MODEL 0: all mutations, ddGf + ddGa #############################
+set.seed(11)
+# Usage example
+m0_results <- fit_model_and_diagnostics_both(input_data = sh3_final_df_ddg_2plot, model_id = "m0")
+m1_results <- fit_model_and_diagnostics_ddgf(input_data = sh3_final_df_ddg_2plot, model_id = "m1")
+m2_results <- fit_model_and_diagnostics_ddga(input_data = sh3_final_df_ddg_2plot, model_id = "m2")
+############################# MODEL 3: non-active mutations, ddGf + ddGa #############################
+table(sh3_final_df_ddg_2plot$orthosteric)
+sh3_final_df_ddg_2plot_non_active <- sh3_final_df_ddg_2plot %>% filter(orthosteric == FALSE)
+nrow(sh3_final_df_ddg_2plot_non_active) #585
+
+m3_results <- fit_model_and_diagnostics_both(input_data = sh3_final_df_ddg_2plot_non_active, model_id = "m3")
+m4_results <- fit_model_and_diagnostics_ddgf(input_data = sh3_final_df_ddg_2plot_non_active, model_id = "m4")
+m5_results <- fit_model_and_diagnostics_ddga(input_data = sh3_final_df_ddg_2plot_non_active, model_id = "m5")
+
+############################# MODEL 6: active mutations, ddGf + ddGa #############################
+sh3_final_df_ddg_2plot_active <- sh3_final_df_ddg_2plot %>% filter(orthosteric == TRUE)
+nrow(sh3_final_df_ddg_2plot_active) #171
+
+m6_results <- fit_model_and_diagnostics_ddgf(input_data = sh3_final_df_ddg_2plot_active, model_id = "m6")
+m7_results <- fit_model_and_diagnostics_ddga(input_data = sh3_final_df_ddg_2plot_active, model_id = "m7")
+m8_results <- fit_model_and_diagnostics_both(input_data = sh3_final_df_ddg_2plot_active, model_id = "m8")
+
+wilcox.test(abs(m6_results$adj_r2_values), abs(m7_results$adj_r2_values))
+
+wilcox.test(
+  subset(plot_data, category == "orthosteric" & type == "abundance")$adj_r2_values,
+  subset(plot_data, category == "orthosteric" & type == "activity")$adj_r2_values
+)
+
+```
+
+```{r}
+anova(m0_results$fit, m1_results$fit)
+# Model 1: ESM1v ~ f_ddg_pred + b_ddg_pred
+# Model 2: ESM1v ~ f_ddg_pred
+#   Res.Df    RSS Df Sum of Sq      F    Pr(>F)    
+# 1    753 5794.6                                  
+# 2    754 7967.9 -1   -2173.3 282.41 < 2.2e-16 ***
+anova(m4_results$fit, m3_results$fit)
+# Model 1: ESM1v ~ f_ddg_pred
+# Model 2: ESM1v ~ f_ddg_pred + b_ddg_pred
+#   Res.Df    RSS Df Sum of Sq      F    Pr(>F)    
+# 1    583 3265.3                                  
+# 2    582 3019.8  1    245.48 47.311 1.568e-11 ***
+anova(m6_results$fit, m8_results$fit)
+# Model 1: ESM1v ~ f_ddg_pred
+# Model 2: ESM1v ~ f_ddg_pred + b_ddg_pred
+#   Res.Df    RSS Df Sum of Sq      F    Pr(>F)    
+# 1    169 1864.3                                  
+# 2    168 1343.0  1    521.27 65.205 1.245e-13 ***
+```
+
+
+```{r}
+sh3_final_df_ddg_2plot <- sh3_final_df_ddg_2plot %>%
+  mutate(pos_eve = as.numeric(str_extract(id_ref, "(?<=\\D)(\\d+)(?=\\D)")))
+
+m0_results <- fit_model_and_diagnostics_both_lmm(input_data = sh3_final_df_ddg_2plot, model_id = "m0")
+#[1] "Marginal R-squared: 0.4035"
+#[1] "Conditional R-squared: 0.7589"
+m1_results <- fit_model_and_diagnostics_ddgf_lmm(input_data = sh3_final_df_ddg_2plot, model_id = "m1")
+#Warning: Model failed to converge with max|grad| = 0.00504248 (tol = 0.002, component 1)[1] "Marginal R-squared: 0.3404"
+#[1] "Conditional R-squared: 0.7687"
+sh3_final_df_ddg_2plot_non_active <- sh3_final_df_ddg_2plot_non_active %>%
+  mutate(pos_eve = as.numeric(str_extract(id_ref, "(?<=\\D)(\\d+)(?=\\D)")))
+
+m3_results <- fit_model_and_diagnostics_both_lmm(input_data = sh3_final_df_ddg_2plot_non_active, model_id = "m3")
+#[1] "Marginal R-squared: 0.6049"
+#[1] "Conditional R-squared: 0.7721"
+m4_results <- fit_model_and_diagnostics_ddgf_lmm(input_data = sh3_final_df_ddg_2plot_non_active, model_id = "m4")
+#[1] "Marginal R-squared: 0.5667"
+#[1] "Conditional R-squared: 0.7592"
+sh3_final_df_ddg_2plot_active <- sh3_final_df_ddg_2plot_active %>%
+  mutate(pos_eve = as.numeric(str_extract(id_ref, "(?<=\\D)(\\d+)(?=\\D)")))
+
+m6_results <- fit_model_and_diagnostics_both_lmm(input_data = sh3_final_df_ddg_2plot_active, model_id = "m6")
+#[1] "Marginal R-squared: 0.1479"
+#[1] "Conditional R-squared: 0.5509"
+m7_results <- fit_model_and_diagnostics_ddgf_lmm(input_data = sh3_final_df_ddg_2plot_active, model_id = "m7")
+#[1] "Marginal R-squared: 0.0958"
+#[1] "Conditional R-squared: 0.594"
+anova(m1_results$fit, m0_results$fit)
+# m1_results$fit: ESM1v ~ f_ddg_pred + (1 | pos_eve)
+# m0_results$fit: ESM1v ~ f_ddg_pred + b_ddg_pred + (1 | pos_eve)
+#                npar    AIC    BIC logLik -2*log(L)  Chisq Df Pr(>Chisq)    
+# m1_results$fit    4 3339.9 3358.4  -1666    3331.9                         
+# m0_results$fit    5 3304.1 3327.2  -1647    3294.1 37.858  1  7.609e-10 ***
+
+anova(m4_results$fit, m3_results$fit)
+# Models:
+# m4_results$fit: ESM1v ~ f_ddg_pred + (1 | pos_eve)
+# m3_results$fit: ESM1v ~ f_ddg_pred + b_ddg_pred + (1 | pos_eve)
+#                npar    AIC    BIC  logLik -2*log(L)  Chisq Df Pr(>Chisq)    
+# m4_results$fit    4 2461.3 2478.8 -1226.7    2453.3                         
+# m3_results$fit    5 2434.5 2456.4 -1212.3    2424.5 28.795  1  8.047e-08 ***
+
+anova(m7_results$fit, m6_results$fit)
+# m7_results$fit: ESM1v ~ f_ddg_pred + (1 | pos_eve)
+# m6_results$fit: ESM1v ~ f_ddg_pred + b_ddg_pred + (1 | pos_eve)
+#                npar    AIC    BIC  logLik -2*log(L)  Chisq Df Pr(>Chisq)  
+# m7_results$fit    4 810.36 822.92 -401.18    802.36                       
+# m6_results$fit    5 807.81 823.52 -398.91    797.81 4.5424  1    0.03307 *
+```
+
+
+```{r}
+# Combine all adjusted_r_squared values into a single dataframe
+# Step 1: Build raw data (same as before)
+plot_data <- data.frame(
+  category = rep(c("whole protein", "non-orthosteric", "orthosteric"), each = 3000),
+  type = rep(c("abundance", "activity", "both"), times = 3, each = 1000),
+  adj_r2_values = c(
+    m1_results$adj_r2_values, m2_results$adj_r2_values, m0_results$adj_r2_values,
+    m4_results$adj_r2_values, m5_results$adj_r2_values, m3_results$adj_r2_values,
+    m6_results$adj_r2_values, m7_results$adj_r2_values, m8_results$adj_r2_values
+  )
+)
+
+# Step 2: Build CI summary table
+ci_summary <- data.frame(
+  category = rep(c("whole protein", "non-orthosteric", "orthosteric"), each = 3),
+  type = rep(c("abundance", "activity", "both"), times = 3),
+  mean_adj_r2 = c(
+    mean(m1_results$adj_r2_values), mean(m2_results$adj_r2_values), m0_results$adjusted_r_squared,
+    mean(m4_results$adj_r2_values), mean(m5_results$adj_r2_values), mean(m3_results$adj_r2_values),
+    mean(m6_results$adj_r2_values), mean(m7_results$adj_r2_values), mean(m8_results$adj_r2_values)
+  ),
+  ci_lower = c(
+    quantile(m1_results$adj_r2_values, 0.025), quantile(m2_results$adj_r2_values, 0.025), m0_results$adjusted_r_squared_ci[1],
+    quantile(m4_results$adj_r2_values, 0.025), quantile(m5_results$adj_r2_values, 0.025), quantile(m3_results$adj_r2_values, 0.025),
+    quantile(m6_results$adj_r2_values, 0.025), quantile(m7_results$adj_r2_values, 0.025), quantile(m8_results$adj_r2_values, 0.025)
+  ),
+  ci_upper = c(
+    quantile(m1_results$adj_r2_values, 0.975), quantile(m2_results$adj_r2_values, 0.975), m0_results$adjusted_r_squared_ci[2],
+    quantile(m4_results$adj_r2_values, 0.975), quantile(m5_results$adj_r2_values, 0.975), quantile(m3_results$adj_r2_values, 0.975),
+    quantile(m6_results$adj_r2_values, 0.975), quantile(m7_results$adj_r2_values, 0.975), quantile(m8_results$adj_r2_values, 0.975)
+  )
+)
+
+# Factor levels for consistency
+plot_data$category <- factor(plot_data$category, levels = c("whole protein", "non-orthosteric", "orthosteric"))
+plot_data$type <- factor(plot_data$type, levels = c("abundance", "activity", "both"))
+ci_summary$category <- factor(ci_summary$category, levels = levels(plot_data$category))
+ci_summary$type <- factor(ci_summary$type, levels = levels(plot_data$type))
+
+# Step 3: Plot using CI summary for bars
+fig3E <- ggplot(ci_summary, aes(x = type, y = mean_adj_r2, fill = type)) +
+  geom_col(width = 0.6, alpha = 0.85) +
+  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.2, color = "black") +
+  geom_text(aes(label = sprintf("%.3f", mean_adj_r2)), vjust = -1.5, size = 5, color = "black") +
+  facet_wrap(~category) +
+  scale_fill_brewer(palette = "Set2") +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    axis.line = element_line(linewidth = 0.6),
+    strip.text = element_text(size = 16, face = "bold"),
+    axis.text.x = element_text(size = 16, face = "bold", angle = 45, hjust = 1),
+    axis.text.y = element_text(size = 12),
+    axis.title.y = element_text(size = 18),
+    plot.title = element_text(size = 18, face = "bold"),
+    plot.subtitle = element_text(size = 16, face = "italic")
+  ) +
+  labs(
+    title = "GRB2-SH3", 
+    subtitle = "Linear regression against ESM1v", 
+    x = "", 
+    y = "Adjusted R²"
+  ) +
+  # Significance comparisons using full plot_data
+  geom_signif(data = subset(plot_data, category == "whole protein"),
+              aes(x = type, y = adj_r2_values),
+              comparisons = list( c("abundance", "both")),
+              annotations = "p < 2.2e-16",
+              y_position = c( 0.85),
+              tip_length = 0.02,
+              step_increase = 0.05,
+              test = "wilcox.test",
+              textsize = 5) +
+  geom_signif(data = subset(plot_data, category == "non-orthosteric"),
+              aes(x = type, y = adj_r2_values),
+              comparisons = list( c("abundance", "both")),
+              annotations = "p = 1.568e-11",
+              y_position = c(0.85),
+              tip_length = 0.02,
+              step_increase = 0.05,
+              test = "wilcox.test",
+              textsize = 5) +
+  geom_signif(data = subset(plot_data, category == "orthosteric"),
+              aes(x = type, y = adj_r2_values),
+              comparisons = list( c("abundance", "both")),
+              annotations = "p = 1.245e-13",
+              y_position = c(0.85),
+              step_increase = 0.05,
+              test = "wilcox.test",
+              textsize = 5) +
+  ylim(-0.1, 1)
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig3E_2.pdf", 
+       plot = fig3E, width = 8, height = 4, dpi = 300)
+fig3E
+```
+
+```{r}
+sh3_out <- doubledeepms__minimum_interchain_distances_from_PDB_perres(
+  input_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/structures/raw_pdb/2vwf.pdb",
+  chain_query = "A",
+  chain_target = "B"
+)
+
+sh3_out
+head(sh3_final_df_ddg_2plot_all)
+```
+
+```{r, fig.width=5, fig.height=5}
+merged_df <- merge(sh3_final_df_ddg_2plot_all, sh3_out, by.x="old_Pos.x", by.y = "Pos")
+nrow(merged_df) #1056
+
+merged_df_pos <- merged_df %>% filter(b_ddg_pred >= 0)
+nrow(merged_df_pos)
+
+merged_df_residue <- merged_df_pos %>%
+  group_by(old_Pos.x) %>%
+  reframe(
+    median_ddgb = median(b_ddg_pred, na.rm = TRUE),
+    median_residual = median(residuals, na.rm = TRUE),
+    scHAmin_ligand = first(scHAmin_ligand),
+    orthosteric = first(orthosteric),
+    Pos = first(old_Pos.x))
+
+nrow(merged_df_residue) #55
+
+# Fit exponential decay: y = a * exp(-b * x) + c
+exp_model_sh3_ddgb <- nls(abs(median_ddgb) ~ a * exp(-b * scHAmin_ligand),
+                 data = merged_df_residue,
+                 start = list(a = 1, b = 0.1))
+exp_model_sh3_ddgb
+# Nonlinear regression model
+#   model: abs(median_ddgb) ~ a * exp(-b * scHAmin_ligand)
+#    data: merged_df_residue
+#      a      b 
+# 1.5129 0.1333 
+#  residual sum-of-squares: 8.253
+# 
+# Number of iterations to convergence: 6 
+# Achieved convergence tolerance: 5.017e-06
+
+a <- 1.5129
+b <-  0.1333 
+half_d <- log(2) / b  # ≈ 5.199904
+half_d
+
+y_cutoff <- mean(merged_df %>% filter(orthosteric == TRUE) %>% pull(b_ddg_pred), na.rm=TRUE)
+
+merged_df_residue$site_type <- "Non-orthosteric site"
+merged_df_residue$site_type[abs(merged_df_residue$median_ddgb) <= y_cutoff] <- "Null"
+merged_df_residue$site_type[merged_df_residue$orthosteric == TRUE] <- "Binding site"
+
+
+x_vals <- seq(min(merged_df_residue$scHAmin_ligand, na.rm = TRUE),
+              max(merged_df_residue$scHAmin_ligand, na.rm = TRUE), length.out = 200)
+
+# --- Bootstrapping for confidence intervals ---
+set.seed(11)
+boot_params <- replicate(1000, {
+  samp <- merged_df_residue[sample(nrow(merged_df_residue), replace = TRUE), ]
+  fit <- try(nlsLM(abs(median_ddgb) ~ a * exp(-b * scHAmin_ligand),
+                   data = samp, start = list(a = 1, b = 0.1)), silent = TRUE)
+  if (inherits(fit, "try-error")) c(NA, NA) else coef(fit)
+})
+boot_params <- t(boot_params)[complete.cases(t(boot_params)), ]
+
+boot_preds <- apply(boot_params, 1, function(p) p[1] * exp(-p[2] * x_vals))
+
+fit_df_residue <- data.frame(
+  scHAmin_ligand = x_vals,
+  median_ddgb = predict(exp_model_sh3_ddgb, newdata = data.frame(scHAmin_ligand = x_vals)),
+  lower = apply(boot_preds, 1, quantile, probs = 0.025),
+  upper = apply(boot_preds, 1, quantile, probs = 0.975)
+)
+
+# Plot
+p1 <- ggplot(merged_df_residue, aes(x = scHAmin_ligand, y = abs(median_ddgb))) +
+  # Base layer: all points
+  geom_point(aes(color = site_type, alpha = 0.4), size = 2) +
+   # Fit line with confidence ribbon
+  geom_ribbon(data = fit_df_residue,
+            aes(x = scHAmin_ligand, ymin = lower, ymax = upper),
+            fill = "grey70", alpha = 0.3, inherit.aes = FALSE) +
+  geom_line(data = fit_df_residue, aes(x = scHAmin_ligand, y = abs(median_ddgb)),
+          inherit.aes = FALSE, color = "black", size = 1) +
+  geom_text_repel(data = merged_df_residue %>% filter(site_type != "Null"), aes(label=Pos))+
+  
+  # Manual color palette for site type
+  scale_color_manual(values = c(
+    "Null" = "darkgreen",
+    "Non-orthosteric site" = "darkgreen",
+    "Binding site" = "orange"
+  )) +
+  # Reference lines
+  geom_vline(xintercept = 5, linetype = "dashed", color = "slategrey") +
+  theme_classic() +
+  labs(
+    title = "GRB2-SH3: allosteric decay",
+    subtitle = "370 mutations with ddGb >=0",
+    x = "Minimal distance to ligand",
+    y = "Median ddGb",
+    color = ""
+  )  + theme(legend.position = "bottom") +
+    annotate("text",  x = Inf, y = Inf,
+             hjust = 1, vjust = 1,
+           label = "y = a * exp (b * x)\na = 1.5129  \nb = -0.1333",
+           size = 4, color = "black", hjust = 0) + theme(legend.position = "none")
+
+p1 <- ggMarginal(
+  p1,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/figS3B_2.pdf", 
+       plot = p1, width = 4, height = 4, dpi = 300)
+p1
+```
+
+```{r}
+lm_model <- lm(log(abs(median_ddgb)) ~ scHAmin_ligand, data = merged_df_residue)
+summary(lm_model)
+# Call:
+# lm(formula = log(abs(median_ddgb)) ~ scHAmin_ligand, data = merged_df_residue)
+# 
+# Residuals:
+#      Min       1Q   Median       3Q      Max 
+# -2.06277 -0.49682  0.05624  0.75934  1.81772 
+# 
+# Coefficients:
+#                Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)    -0.03660    0.27318  -0.134    0.894    
+# scHAmin_ligand -0.11262    0.02514  -4.480 4.02e-05 ***
+# ---
+# Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Residual standard error: 0.8877 on 53 degrees of freedom
+# Multiple R-squared:  0.2746,	Adjusted R-squared:  0.261 
+# F-statistic: 20.07 on 1 and 53 DF,  p-value: 4.018e-05
+```
+
+
+```{r, fig.width=5, fig.height=5}
+merged_df <- merge(sh3_final_df_ddg_2plot_all, sh3_out, by.x="old_Pos.x", by.y = "Pos")
+nrow(merged_df) #1056
+
+merged_df_neg <- merged_df %>% filter(residuals <= 0)
+nrow(merged_df_neg) #681
+
+merged_df_residue <- merged_df_neg %>%
+  group_by(Pos_ref.x) %>%
+  reframe(
+    median_ddgb = median(b_ddg_pred, na.rm = TRUE),
+    median_residual = median(residuals, na.rm = TRUE),
+    scHAmin_ligand = first(scHAmin_ligand),
+    orthosteric = first(orthosteric),
+    Pos = first(old_Pos.x))
+
+nrow(merged_df_residue) #
+
+# Fit exponential decay: y = a * exp(-b * x) + c
+exp_model_sh3_res <- nls(abs(median_residual) ~ a * exp(-b * scHAmin_ligand),
+                 data = merged_df_residue,
+                 start = list(a = 1, b = 0.1))
+exp_model_sh3_res
+# Nonlinear regression model
+#   model: abs(median_residual) ~ a * exp(-b * scHAmin_ligand)
+#    data: merged_df_residue
+#      a      b 
+# 8.8472 0.1564 
+#  residual sum-of-squares: 131.2
+# 
+# Number of iterations to convergence: 10 
+# Achieved convergence tolerance: 3.291e-06
+
+a <- 8.8472
+b <-  0.1564
+half_d <- log(2) / b  # ≈ 4.431887
+half_d
+
+y_cutoff <- mean(merged_df %>% filter(orthosteric == TRUE) %>% pull(residuals), na.rm = TRUE)
+
+merged_df_residue$site_type <- "Non-orthosteric site"
+merged_df_residue$site_type[abs(merged_df_residue$median_residual) <= abs(y_cutoff)] <- "Null"
+merged_df_residue$site_type[merged_df_residue$orthosteric == TRUE] <- "Binding site"
+table(merged_df_residue$site_type)
+
+x_vals <- seq(min(merged_df_residue$scHAmin_ligand, na.rm = TRUE),
+              max(merged_df_residue$scHAmin_ligand, na.rm = TRUE), length.out = 200)
+
+# --- Bootstrapping for confidence intervals ---
+set.seed(11)
+boot_params <- replicate(1000, {
+  samp <- merged_df_residue[sample(nrow(merged_df_residue), replace = TRUE), ]
+  fit <- try(nlsLM(abs(median_residual) ~ a * exp(-b * scHAmin_ligand),
+                   data = samp, start = list(a = 1, b = 0.1)), silent = TRUE)
+  if (inherits(fit, "try-error")) c(NA, NA) else coef(fit)
+})
+boot_params <- t(boot_params)[complete.cases(t(boot_params)), ]
+
+boot_preds <- apply(boot_params, 1, function(p) p[1] * exp(-p[2] * x_vals))
+
+fit_df_residue <- data.frame(
+  scHAmin_ligand = x_vals,
+  median_ddgb = predict(exp_model_sh3_res, newdata = data.frame(scHAmin_ligand = x_vals)),
+  lower = apply(boot_preds, 1, quantile, probs = 0.025),
+  upper = apply(boot_preds, 1, quantile, probs = 0.975)
+)
+# Plot
+p2 <- ggplot(merged_df_residue, aes(x = scHAmin_ligand, y = abs(median_residual))) +
+  # Base layer: all points
+  geom_point(aes(color = site_type, alpha = 0.4), size = 2) +
+  geom_ribbon(data = fit_df_residue,
+            aes(x = scHAmin_ligand, ymin = lower, ymax = upper),
+            fill = "grey70", alpha = 0.3, inherit.aes = FALSE) +
+  geom_line(data = fit_df_residue, aes(x = scHAmin_ligand, y = abs(median_ddgb)),
+          inherit.aes = FALSE, color = "black", size = 1) +
+  geom_text_repel(data = merged_df_residue %>% filter(abs(median_residual) > 2), aes(label=Pos))+
+  
+  # Manual color palette for site type
+  scale_color_manual(values = c(
+    "Null" = "darkgreen",
+    "Non-orthosteric site" = "darkgreen",
+    "Binding site" = "orange"
+  )) +
+  # Reference lines
+  geom_vline(xintercept = 5, linetype = "dashed", color = "slategrey") +
+  theme_classic() +
+  labs(
+    title = "GRB2-SH3: allosteric decay",
+    subtitle = "681 mutations with residuals <= 0",
+    x = "Minimal distance to ligand",
+    y = "|Median ESM1v-ddGf residual|",
+    color = ""
+  )  + theme(legend.position = "bottom") +
+    annotate("text",  x = Inf, y = Inf,
+             hjust = 1, vjust = 1,
+           label = "y = a * exp (b * x)\na = 8.8472  \nb = -0.1564",
+           size = 4, color = "black", hjust = 0) + theme(legend.position = "none")
+
+p2 <- ggMarginal(
+  p2,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig3D_2.pdf", 
+       plot = p2, width = 4, height = 4, dpi = 300)
+p2
+```
+```{r}
+lm_model <- lm(log(abs(median_residual)) ~ scHAmin_ligand, data = merged_df_residue)
+summary(lm_model)
+# Call:
+# lm(formula = log(abs(median_residual)) ~ scHAmin_ligand, data = merged_df_residue)
+# 
+# Residuals:
+#      Min       1Q   Median       3Q      Max 
+# -1.52127 -0.44230 -0.00484  0.58176  1.09505 
+# 
+# Coefficients:
+#                Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)     1.55124    0.20309   7.638 5.37e-10 ***
+# scHAmin_ligand -0.09112    0.01942  -4.692 2.06e-05 ***
+# ---
+# Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Residual standard error: 0.6651 on 51 degrees of freedom
+# Multiple R-squared:  0.3015,	Adjusted R-squared:  0.2878 
+# F-statistic: 22.02 on 1 and 51 DF,  p-value: 2.064e-05
+```
+
+
+```{r, fig.width=5, fig.height=5}
+nrow(merged_df) #1056
+
+merged_df_residue <- merged_df %>%
+  group_by(Pos_ref.x) %>%
+  reframe(
+    median_ddgb = median(b_ddg_pred, na.rm = TRUE),
+    median_residual = median(residuals, na.rm = TRUE),
+    scHAmin_ligand = first(scHAmin_ligand),
+    orthosteric = first(orthosteric),
+    Pos = first(Pos_ref.x))
+
+nrow(merged_df_residue) #56
+cor.test(merged_df_residue$median_residual, merged_df_residue$median_ddgb, method = "spearman")
+# 	Spearman's rank correlation rho
+# 
+# data:  merged_df_residue$median_residual and merged_df_residue$median_ddgb
+# S = 49534, p-value = 9.813e-09
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.6928913 
+
+merged_df_residue$site_type <- "Non-orthosteric site"
+merged_df_residue$site_type[merged_df_residue$orthosteric == TRUE] <- "Binding site"
+
+figS3E <- ggplot(merged_df_residue, aes(x = median_ddgb, y =  median_residual, color = site_type)) +
+  geom_point(size = 2, alpha = 0.5) +
+  labs(
+    title = "GRB2-SH3: 56 residues (all 1056 mutations)",
+    subtitle = "Spearman's rho = -0.70",
+    x = "Median ddGb",
+    y = "Median ESM1v-ddGf residual",
+    color = "") +
+  theme_classic() +
+    scale_color_manual(values = c(
+    "Non-orthosteric site" = "darkgreen",
+    "Binding site" = "orange"
+  )) + theme(legend.position = "bottom") +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+  #xlim(-3,2) + ylim(-5,5)
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/figS3C_2.pdf", 
+       plot = figS3E, width = 4, height = 5, dpi = 300)
+figS3E
+
+```
+
+
+

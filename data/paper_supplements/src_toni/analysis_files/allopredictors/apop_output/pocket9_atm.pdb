@@ -1,0 +1,41 @@
+HEADER
+HEADER This is a pdb format file writen by the programm fpocket.                 
+HEADER It represents the atoms contacted by the voronoi vertices of the pocket.  
+HEADER                                                                           
+HEADER Information about the pocket     9:
+HEADER 0  - Pocket Score                      : 0.0077
+HEADER 1  - Drug Score                        : 0.0003
+HEADER 2  - Number of alpha spheres           :    18
+HEADER 3  - Mean alpha-sphere radius          : 3.5364
+HEADER 4  - Mean alpha-sphere Solvent Acc.    : 0.4536
+HEADER 5  - Mean B-factor of pocket residues  : 0.7562
+HEADER 6  - Hydrophobicity Score              : -0.1429
+HEADER 7  - Polarity Score                    :     6
+HEADER 8  - Amino Acid based volume Score     : 4.2857
+HEADER 9  - Pocket volume (Monte Carlo)       : 151.6004
+HEADER 10  -Pocket volume (convex hull)       : 2.8632
+HEADER 11 - Charge Score                      :     0
+HEADER 12 - Local hydrophobic density Score   : 1.0000
+HEADER 13 - Number of apolar alpha sphere     :     2
+HEADER 14 - Proportion of apolar alpha sphere : 0.1111
+ATOM    565    O ILE A 153      25.364  44.753  75.055  0.57  2.14           O 0
+ATOM    555    C LYS A 152      24.133  46.181  71.893  0.00  0.00           C 0
+ATOM    561   NZ LYS A 152      19.168  47.079  73.676  0.00  0.00           N 0
+ATOM    558   CG LYS A 152      21.708  48.259  72.023  0.00  0.00           C 0
+ATOM    773   CB GLU A 178      21.427  47.145  79.692  0.00  0.00           C 0
+ATOM    770   CA GLU A 178      21.697  48.660  79.689  0.00  0.00           C 0
+ATOM    772    O GLU A 178      19.775  49.756  80.638  0.67  3.21           O 0
+ATOM    556    O LYS A 152      23.158  45.553  71.473  0.65  6.43           O 0
+ATOM    564    C ILE A 153      24.892  43.967  74.224  0.00  0.00           C 0
+ATOM    774   CG GLU A 178      21.987  46.386  78.474  0.00  0.00           C 0
+ATOM    570    N THR A 154      24.095  42.962  74.564  0.61  1.09           N 0
+ATOM    576  CG2 THR A 154      21.442  42.073  75.230  0.00  0.00           C 0
+ATOM    757    O GLU A 176      25.604  48.736  77.085  0.00  0.00           O 0
+ATOM    554   CA LYS A 152      24.204  47.711  71.741  0.00  0.00           C 0
+ATOM    758   CB GLU A 176      25.217  50.927  74.939  0.00  0.00           C 0
+ATOM    761  OE1 GLU A 176      23.229  51.262  73.165  0.70  3.21           O 0
+ATOM    766    O SER A 177      23.011  50.804  78.589  0.63  4.29           O 0
+ATOM    800   NZ LYS A 181      18.011  52.134  79.624  0.00  0.00           N 0
+ATOM    571   CA THR A 154      23.755  42.726  75.962  0.00  0.00           C 0
+TER
+END

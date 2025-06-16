@@ -1,0 +1,331 @@
+---
+title: "fig1_domains"
+output: pdf_document
+date: "2025-06-14"
+---
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+library('ProjectTemplate')
+library(ggExtra)
+library(bio3d)
+library(ggrepel)
+load.project()
+```
+
+```{r}
+# Load and preprocess data
+domainome_data <- read_tsv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domainome/Extended_data_Table_5_aPCA_vs_variant_effect_predictors.txt")
+setDT(domainome_data)
+
+# Initial dimensions
+cat("Initial rows:", nrow(domainome_data), "\n")  # 607081
+cat("Initial unique domains:", length(unique(domainome_data$domain_ID)), "\n")  # 522
+
+# Remove rows with missing values
+domainome_data <- domainome_data[!is.na(ESM1v_domain) & 
+                                 !is.na(scaled_fitness)]
+cat("Filtered rows:", nrow(domainome_data), "\n")  # 540283
+cat("Filtered unique domains:", length(unique(domainome_data$domain_ID)), "\n")  # 522
+
+# Extract mutation information
+domainome_data <- domainome_data %>%
+  mutate(
+    mut_id = str_extract(uniprot_ID_mutation, "(?<=_).*"),
+    mutation_position = as.numeric(str_extract(mut_id, "(?<=\\D)(\\d+)(?=\\D)"))
+  )
+
+# Split data by domain
+domain_list <- split(domainome_data, by = "domain_ID")
+
+# Compute R-squared for each domain
+r_squared_values <- sapply(domain_list, function(df) {
+  if (nrow(df) >= 3) {  # Skip domains with fewer than 3 points
+    summary(lm(ESM1v_domain ~ scaled_fitness, data = df))$adj.r.squared
+  } else {
+    NA
+  }
+}, USE.NAMES = TRUE)
+
+# Convert to data frame
+r_squared_df <- data.frame(
+  domain = names(r_squared_values),
+  adj.r.squared = r_squared_values
+) %>% na.omit()
+
+# Compute average R²
+median_r_squared <- median(r_squared_df$adj.r.squared)
+median_r_squared #0.2515005
+```
+
+```{r}
+head(domainome_data)
+```
+
+# Megascale
+```{r}
+# Load data
+data <- read.csv("/Users/xl7/Documents/0.Projects/00.large_supplements/Rocklin2023/Processed_K50_dG_datasets/Tsuboyama2023_Dataset2_Dataset3_20230416.csv")
+
+# Clean data
+data <- data %>%
+  filter(ddG_ML != "-" & !str_detect(mut_type, "ins|del|:")) %>%
+  mutate(ddG_ML = as.numeric(as.character(ddG_ML)))
+
+cat("Cleaned dataset dimensions:", dim(data), "\n")
+```
+
+
+```{r}
+data <- data %>%
+  mutate(
+    stability_class = case_when(
+      ddG_ML > 1 ~ "stabilizing",
+      ddG_ML < -1 ~ "destabilizing",
+      TRUE ~ "wild type-like"
+    )
+  )
+
+# Keep only entries with available AlphaFold models
+pdb_dir <- '/Users/xl7/Documents/0.Projects/00.large_supplements/Rocklin2023/AlphaFold_model_PDBs_original'
+pdb_files <- list.files(pdb_dir)
+valid_names <- unique(data$WT_name[data$WT_name %in% pdb_files])
+
+megascale_df <- data %>%
+  filter(WT_name %in% valid_names) %>%
+  group_by(WT_name) %>%
+  mutate(wt_seq = first(aa_seq[mut_type == "wt"])) %>%
+  ungroup()
+
+cat("Filtered for PDB-available WT proteins:", dim(megascale_df), "\n")
+#Filtered for PDB-available WT proteins: 272712 39 
+
+# Recalculate stability classes just to ensure consistency
+megascale_df <- megascale_df %>%
+  mutate(
+    stability_class = case_when(
+      ddG_ML > 1 ~ "stabilizing",
+      ddG_ML < -1 ~ "destabilizing",
+      TRUE ~ "wild type-like"
+    )
+  )
+
+# Path to ProteinGym ESM1v variant files
+csv_dir <- "/Users/xl7/Documents/0.Projects/00.large_supplements/ProteinGym_v1.1/zero_shot_substitutions_scores/ESM1v/Tsuboyama_files"
+csv_files <- list.files(csv_dir, pattern = "*.csv", full.names = TRUE)
+
+megascale_merged_dfs <- lapply(csv_files, function(file) {
+  csv_data <- read.csv(file)
+  if ("mutated_sequence" %in% names(csv_data)) {
+    merge(csv_data, megascale_df, by.x = "mutated_sequence", by.y = "aa_seq")
+  } else {
+    message("Missing 'mutated_sequence' in", file)
+    NULL
+  }
+})
+
+megascale_merged_df <- bind_rows(megascale_merged_dfs)
+megascale_merged_df$base_name <- sub("_.*", "", megascale_merged_df$name)
+cat("Final merged dataset:", dim(megascale_merged_df), "\n")
+#Final merged dataset: 65724 47
+
+head(megascale_merged_df)
+```
+
+```{r}
+write.csv(final_merged_df,
+          "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned/megascale_esm1v_64_proteingym.csv",
+          row.names = FALSE)
+
+```
+
+```{r}
+unique(megascale_merged_df$WT_name)
+cat(paste(unique(megascale_merged_df$WT_name), collapse = ", "))
+
+clean_names <- sub("\\.pdb$", "", unique(megascale_merged_df$WT_name))
+cat(paste(clean_names, collapse = ", "))
+
+## use uniprot IDmapping on the webserver #https://www.uniprot.org/tool-dashboard
+pdb_map <- read_tsv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/megascale/idmapping_2025_06_14.tsv")
+head(pdb_map)
+
+mapped_uniprots <- unique(pdb_map$Entry)
+
+overlapped_uniprot <- intersect(unique(domainome_data$uniprot_ID), mapped_uniprots)
+#"O75400" "O94993" "O95155" "P02640" "P07751" "P11961" "P40040" "Q13526" "Q16512" "Q9ULT8"
+```
+
+```{r}
+overlapped_pdb <- pdb_map %>% filter (Entry %in% overlapped_uniprot) %>% pull(From)
+#"3DKM" "1W4G" "1I6C" "1URF" "1UZC" "7JJK" "1TUD" "2WQG" "3L1X" "1YU5"
+megascale_merged_df$base_name <- sub("\\.pdb$", "", megascale_merged_df$base_name)
+megascale_merged_df_overlap <- megascale_merged_df %>% filter(base_name %in% overlapped_pdb) 
+
+megascale_merged_df_overlap <- megascale_merged_df_overlap %>%
+  group_by(base_name) %>%
+  slice(1) %>%
+  ungroup() %>% dplyr::select(base_name, wt_seq)
+megascale_merged_df_overlap
+```
+
+
+```{r}
+domainome_data_overlap <- domainome_data %>% filter(uniprot_ID %in% overlapped_uniprot) %>%
+  group_by(uniprot_ID) %>%
+  slice(1) %>%
+  ungroup() %>% dplyr::select(uniprot_ID, domain_ID, aa_seq)
+domainome_data_overlap
+```
+```{r}
+merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry")
+```
+
+
+```{r}
+# check overlap manually in Aliview
+megascale_merged_df %>% filter(base_name == "1URF") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED 
+merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "Q16512") %>% pull(aa_seq)
+
+megascale_merged_df %>% filter(base_name == "1I6C") %>% slice(1) %>% pull(wt_seq)#OVERLAPPED 
+merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "Q13526") %>% pull(aa_seq)
+
+megascale_merged_df %>% filter(base_name == "2WQG") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED 
+merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "P40040") %>% pull(aa_seq)
+
+megascale_merged_df %>% filter(base_name == "1W4G") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED 
+merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "P11961") %>% pull(aa_seq)
+
+megascale_merged_df %>% filter(base_name == "1TUD") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED 
+merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "P07751") %>% pull(aa_seq)
+
+megascale_merged_df %>% filter(base_name == "1YU5") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED 
+merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "P02640") %>% pull(aa_seq)
+
+megascale_merged_df %>% filter(base_name == "3L1X") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED 
+merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "O95155") %>% pull(aa_seq)
+
+megascale_merged_df %>% filter(base_name == "7JJK") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED 
+merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "O94993") %>% pull(aa_seq)
+
+megascale_merged_df %>% filter(base_name == "1UZC") %>% slice(1) %>% pull(wt_seq) #checked unique 
+
+megascale_merged_df %>% filter(base_name == "3DKM") %>% slice(1) %>% pull(wt_seq) #checked unique 
+merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "Q9ULT8") %>% pull(aa_seq)
+
+```
+
+
+```{r}
+megascale_merged_df_fil <- megascale_merged_df %>% filter(!base_name %in% c("1URF","1I6C","2WQG","1W4G","1TUD","1YU5","3L1X","7JJK"))
+nrow(megascale_merged_df_fil) #58055
+length(unique(megascale_merged_df_fil$base_name)) #56
+head(megascale_merged_df_fil)
+```
+
+
+
+```{r}
+megascale_list <- split(megascale_merged_df_fil, megascale_merged_df_fil$base_name)
+
+# Compute R-squared for each domain
+megascale_r_squared_values <- sapply(megascale_list, function(df) {
+  if (nrow(df) >= 3) {  # Skip domains with fewer than 3 points
+    summary(lm(Ensemble_ESM1v ~ ddG_ML, data = df))$adj.r.squared
+  } else {
+    NA
+  }
+}, USE.NAMES = TRUE)
+
+# Convert to data frame
+megascale_r_squared_df <- data.frame(
+  domain = names(megascale_r_squared_values),
+  adj.r.squared = megascale_r_squared_values
+) %>% na.omit()
+
+# Compute R²
+megascale_median_r_squared <- median(megascale_r_squared_df$adj.r.squared)
+megascale_median_r_squared #0.2175292
+```
+
+```{r}
+# Create a combined dataframe for plotting
+r2_combined <- bind_rows(
+  r_squared_df %>% mutate(source = "Domainome 1.0"),
+  megascale_r_squared_df %>% mutate(source = "Mega-scale")
+)
+
+# Count summaries
+n_domainome <- length(unique(r_squared_df$domain))
+n_var_domainome <- nrow(domainome_data)
+
+n_mega <- length(unique(megascale_r_squared_df$domain))
+n_var_mega <- nrow(megascale_merged_df_fil)
+
+# Median R²s
+med_domainome <- median(r_squared_df$adj.r.squared) #0.2515005
+med_mega <- median(megascale_r_squared_df$adj.r.squared) #0.2175292
+
+# Rename column to standardize
+r2_combined <- r2_combined  %>%
+  mutate(source = factor(source, levels = c("Domainome 1.0", "Mega-scale")))
+
+# Plot
+p1 <- ggplot(r2_combined, aes(x = source, y = adj.r.squared, fill = source)) +
+  geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
+  geom_boxplot(width = 0.5, outlier.shape = NA, color = "grey", alpha = 0.7) +
+  #stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
+  geom_point(stat = "summary", fun = median, shape = 18, size = 4, color = "black") +
+  geom_text(aes(label = paste0("Median R²: ", round(..y.., 3))),
+            stat = "summary", fun = median, vjust = -1, size = 4.5) +
+  annotate("text", x = 1, y = 0.87, label = paste0(n_domainome, " domains\n", format(n_var_domainome, big.mark = ","), " variants"), size = 4.5) +
+  annotate("text", x = 2, y = 0.87, label = paste0(n_mega, " domains\n", format(n_var_mega, big.mark = ","), " variants"), size = 4.5) +
+  scale_y_continuous(limits = c(-0.1, 1), expand = c(0, 0.01)) +
+  labs(
+    title = "Protein Domains",
+    subtitle = paste(n_domainome + n_mega, "domains"),
+    x = NULL,
+    y = expression("R² between abundance and ESM1v pathogenicity")
+  ) +
+  scale_fill_manual(values = c("#82b3a6", "#8ecf63")) +
+  theme_classic(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    plot.subtitle = element_text(size = 13),
+    legend.position = "none"
+  )
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig1_domains_r2.pdf", 
+       plot = p1, width = 6, height = 4, dpi = 300)
+p1
+```
+```{r}
+range(r_squared_df$adj.r.squared) #-0.0009882439  0.6039444000
+range(megascale_r_squared_df$adj.r.squared) # 0.0009137284 0.5690583561
+```
+
+
+```{r}
+nrow(pdb_map %>% filter(!From %in% c("1URF","1I6C","2WQG","1W4G","1TUD","1YU5","3L1X","7JJK")) %>% filter(Organism == "Homo sapiens (Human)"))
+# 18 human domains in megascale 
+# 500 human domains in domainome 
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+

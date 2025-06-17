@@ -1,6 +1,6 @@
 ---
 title: "fig1_domains"
-output: pdf_document
+output: html_document
 date: "2025-06-14"
 ---
 ```{r setup, echo=FALSE}
@@ -57,11 +57,6 @@ r_squared_df <- data.frame(
 median_r_squared <- median(r_squared_df$adj.r.squared)
 median_r_squared #0.2515005
 ```
-
-```{r}
-head(domainome_data)
-```
-
 # Megascale
 ```{r}
 # Load data
@@ -74,8 +69,6 @@ data <- data %>%
 
 cat("Cleaned dataset dimensions:", dim(data), "\n")
 ```
-
-
 ```{r}
 data <- data %>%
   mutate(
@@ -87,7 +80,7 @@ data <- data %>%
   )
 
 # Keep only entries with available AlphaFold models
-pdb_dir <- '/Users/xl7/Documents/0.Projects/00.large_supplements/Rocklin2023/AlphaFold_model_PDBs_original'
+pdb_dir <- '/Users/xl7/Documents/0.Projects/00.large_supplements/Rocklin2023/AlphaFold_model_PDBs_cleaned'
 pdb_files <- list.files(pdb_dir)
 valid_names <- unique(data$WT_name[data$WT_name %in% pdb_files])
 
@@ -100,6 +93,11 @@ megascale_df <- data %>%
 cat("Filtered for PDB-available WT proteins:", dim(megascale_df), "\n")
 #Filtered for PDB-available WT proteins: 272712 39 
 
+length(unique(megascale_df$WT_name)) #298
+```
+
+
+```{r}
 # Recalculate stability classes just to ensure consistency
 megascale_df <- megascale_df %>%
   mutate(
@@ -332,8 +330,8 @@ domainome_data[fdr_destabilising < 0.1 & scaled_fitness < 0, stability_class := 
 domainome_data[fdr_destabilising < 0.1 & scaled_fitness < (-0.3), stability_class := "strongly destabilizing"]
 
 table(domainome_data$stability_class)
-  mildly destabilizing            stabilizing strongly destabilizing         wild type-like 
-                103114                   4932                 194801                 237436 
+#  mildly destabilizing            stabilizing strongly destabilizing         wild type-like 
+#                103114                   4932                 194801                 237436 
 ```
 
 ```{r}
@@ -416,6 +414,51 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig1_d
 p2
 ```
 
+```{r}
+# # # domainome
+# # clinvar_clinical_significance    stability.  count.   percent.  
+# # benign	WT-like	139	        86.335404	
+# # benign	destabilizing	19	  11.801242	
+# # benign	stabilizing	3	      1.863354	
+# # pathogenic	WT-like	221	    46.921444	
+# # pathogenic	destabilizing	  245	52.016985	
+# # pathogenic	stabilizing	5	  1.061571	
+# 
+# # patho 221+245+5 = 471
+# # benign 139+19+3 = 161
+# 
+# # Create expanded binary vectors
+# y_true <- c(
+#   rep(1, 245),  # pathogenic destabilizing
+#   rep(1, 226),  # pathogenic non-destabilizing
+#   rep(0, 19),   # benign destabilizing
+#   rep(0, 142)   # benign non-destabilizing
+# )
+# 
+# # Predicted labels or scores: 1 for destabilizing, 0 for not
+# y_pred <- c(
+#   rep(1, 245),  # pathogenic destabilizing
+#   rep(0, 226),  # pathogenic non-destabilizing
+#   rep(1, 19),   # benign destabilizing
+#   rep(0, 142)   # benign non-destabilizing
+# )
+# 
+# # ROC AUC
+# roc_obj <- roc(y_true, y_pred)
+# roc_auc <- auc(roc_obj)
+# 
+# # PR AUC
+# pr_obj <- pr.curve(scores.class0 = y_pred[y_true == 1],
+#                    scores.class1 = y_pred[y_true == 0],
+#                    curve = TRUE)
+# pr_auc <- pr_obj$auc.integral
+# 
+# # Print results
+# cat("ROC-AUC:", round(roc_auc, 4), "\n")
+# #ROC-AUC: 0.7011
+# cat("PR-AUC:", round(pr_auc, 4), "\n")
+# #PR-AUC: 0.8717 
+```
 
 
 

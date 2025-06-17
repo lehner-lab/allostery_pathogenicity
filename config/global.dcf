@@ -8,11 +8,12 @@ munging: TRUE
 logging: FALSE
 logging_level: INFO
 load_libraries: TRUE
-libraries: dplyr, stringr, readr, ggplot2, tidyr, patchwork, gridExtra, GGally, readxl, viridis, cowplot, ggsignif, minpack.lm, purrr, scales, bigsnpr, drc, data.table
+libraries: dplyr, stringr, readr, ggplot2, tidyr, patchwork, gridExtra, GGally, readxl, viridis, cowplot, ggsignif,
+             minpack.lm, purrr, scales, bigsnpr, drc, data.table
 as_factors: FALSE
 tables_type: tibble
 attach_internal_libraries: FALSE
-cache_loaded_data:  TRUE
+cache_loaded_data: TRUE
 sticky_variables: NONE
 underscore_variables: TRUE
 cache_file_format: RData

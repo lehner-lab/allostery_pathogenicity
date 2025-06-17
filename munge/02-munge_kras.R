@@ -302,24 +302,24 @@ kras_ddg_apca_esm1v_full <- read_csv('./data/cleaned_ddg/kras_ddg_apca_esm1v_ful
 # 
 # write.csv(kras_final_df_fit, './data/cleaned/kras_fit_cleaned.csv', row.names = FALSE)
 
-kras_final_df_fit <- read_csv('./data/cleaned_ddg/kras_fit_cleaned.csv')
-
-# Convert relevant columns to numeric, coercing non-numeric values to NA
-kras_final_df_fit <- kras_final_df_fit %>%
-  mutate(
-    abundance_nor_fit = as.numeric(abundance_nor_fit),
-    pik3cg_nor_fit = as.numeric(pik3cg_nor_fit),
-    raf1_nor_fit = as.numeric(raf1_nor_fit),
-    ralgds_nor_fit = as.numeric(ralgds_nor_fit),
-    sos1_nor_fit = as.numeric(sos1_nor_fit),
-    abundance_nor_fit_std = as.numeric(abundance_nor_fit_std),
-    pik3cg_nor_fit_std = as.numeric(pik3cg_nor_fit_std),
-    raf1_nor_fit_std = as.numeric(raf1_nor_fit_std),
-    ralgds_nor_fit_std = as.numeric(ralgds_nor_fit_std),
-    sos1_nor_fit_std = as.numeric(sos1_nor_fit_std)
-  )
-
-kras_fit_apca_esm1v_full <- read_csv('./data/cleaned_ddg/kras_fit_apca_esm1v_full.csv')
+# kras_final_df_fit <- read_csv('./data/cleaned_ddg/kras_fit_cleaned.csv')
+# 
+# # Convert relevant columns to numeric, coercing non-numeric values to NA
+# kras_final_df_fit <- kras_final_df_fit %>%
+#   mutate(
+#     abundance_nor_fit = as.numeric(abundance_nor_fit),
+#     pik3cg_nor_fit = as.numeric(pik3cg_nor_fit),
+#     raf1_nor_fit = as.numeric(raf1_nor_fit),
+#     ralgds_nor_fit = as.numeric(ralgds_nor_fit),
+#     sos1_nor_fit = as.numeric(sos1_nor_fit),
+#     abundance_nor_fit_std = as.numeric(abundance_nor_fit_std),
+#     pik3cg_nor_fit_std = as.numeric(pik3cg_nor_fit_std),
+#     raf1_nor_fit_std = as.numeric(raf1_nor_fit_std),
+#     ralgds_nor_fit_std = as.numeric(ralgds_nor_fit_std),
+#     sos1_nor_fit_std = as.numeric(sos1_nor_fit_std)
+#   )
+# 
+# kras_fit_apca_esm1v_full <- read_csv('./data/cleaned_ddg/kras_fit_apca_esm1v_full.csv')
 # only KRAS needs this as the other proteins align fully 
 
 ########################################

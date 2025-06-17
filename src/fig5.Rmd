@@ -1,9 +1,8 @@
 ---
 title: "fig5"
 output: pdf_document
-date: "2025-05-12"
+date: "2025-06-13"
 ---
-
 ```{r setup, echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
@@ -39,8 +38,12 @@ nrow(gck_clinvar) #8835
 
 gck_df <- merge(gck_df, gck_clinvar, by.x="mutant", by.y="variant")
 
+
 gck_clinvar_web <- read.delim("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/GCK_clinvar_web_042925.txt")
 nrow(gck_clinvar_web) #319
+table(gck_clinvar_web$Variant.type)
+# single nucleotide variant 
+#                       319
 
 # Map from 3-letter to 1-letter amino acid codes
 aa_map <- c(
@@ -70,7 +73,7 @@ gck_clinvar_web$canonical_short <- sapply(gck_clinvar_web$canonical_long, functi
 
 gck_clinvar_web <- gck_clinvar_web %>% dplyr::select( canonical_short, Condition.s., Germline.classification,Protein.change)
 nrow(gck_clinvar_web) #319
-head(gck_clinvar_web)
+
 # Classify based on known pathogenic GCK disease mechanisms
 classify_gck_conditions <- function(cond_str) {
   cond_lower <- tolower(cond_str)
@@ -134,6 +137,11 @@ range(gck_df_merged$DMS_score_activity) #-1.085214  6.670528
 
 gck_gnomad <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_gnomad/GCK_gnomAD_v4.1.0_ENSG00000106633_2025_04_09_14_05_39.csv")
 gck_gnomad <- gck_gnomad %>% filter(VEP.Annotation == "missense_variant")
+summary(gck_gnomad$Allele.Frequency)
+nrow(gck_gnomad) #528
+#      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+# 6.195e-07 6.197e-07 6.230e-07 1.076e-05 1.859e-06 2.580e-03
+
 gck_gnomad <-  gck_gnomad %>% dplyr::select(HGVS.Consequence, ClinVar.Germline.Classification,
                                             rsIDs, ClinVar.Variation.ID)
 nrow(gck_gnomad) #528
@@ -165,8 +173,6 @@ gck_df <- merge(gck_df_merged, gck_gnomad, by.x="mutant", by.y = "ID", all.x = T
 nrow(gck_df) #8255
 length(unique(gck_df$mutant)) #8255
 ```
-
-
 ```{r}
 #https://cspec.genome.network/cspec/ui/svi/doc/GN086
 active_positions <- c(151:179, # disordered loop
@@ -177,10 +183,7 @@ active_positions <- c(151:179, # disordered loop
 fil_gck_df <- gck_df %>%
   filter(!mutation_position %in% active_positions)
 
-nrow(fil_gck_df) #6996
-head(fil_gck_df)
-```
-```{r}
+nrow(fil_gck_df) #7224
 # Fit a loess model using the filtered data
 loess_fit <- loess(DMS_score_activity ~ DMS_score_abundance, data = fil_gck_df, span = 0.7, family = "symmetric")
 
@@ -188,8 +191,8 @@ loess_fit <- loess(DMS_score_activity ~ DMS_score_abundance, data = fil_gck_df, 
 gck_df$fitted <- predict(loess_fit, newdata = gck_df)
 
 # Calculate residuals for ALL points
-gck_df$residuals <- gck_df$fitted - gck_df$DMS_score_activity
-range(gck_df$residuals)
+gck_df$residuals <- gck_df$DMS_score_activity - gck_df$fitted
+range(gck_df$residuals) #-1.891487  6.102024
 
 # Generate LOESS fit line from fil_gck_df
 loess_fit <- loess(DMS_score_activity ~ DMS_score_abundance, data = fil_gck_df, span = 0.7, family = "symmetric")
@@ -204,11 +207,10 @@ fit_line_df$DMS_score_activity <- predict(loess_fit, newdata = fit_line_df)
 
 #length(unique(gck_df$mutant)) #8255
 
-#range(gck_df$residuals) #-6.080233  1.906766
-#range(gck_df$DMS_score_abundance) #-0.9834964  1.6096087
-#range(gck_df$DMS_score_activity) #-1.085214  6.670528
-#median(gck_df$DMS_score_activity) #0.56
-
+range(gck_df$residuals) #-1.891487  6.102024
+range(gck_df$DMS_score_abundance) #-0.9834964  1.6096087
+range(gck_df$DMS_score_activity) #-1.085214  6.670528
+median(gck_df$DMS_score_activity) #0.56
 ```
 
 ```{r}
@@ -221,8 +223,8 @@ median_residuals <- gck_df %>%
   dplyr::group_by(mutation_position) %>%
   summarise(median_residuals = median(residuals, na.rm = TRUE))
 
-min(median_residuals$median_residuals) #-2.551111
-max(median_residuals$median_residuals) #1.136173
+min(median_residuals$median_residuals) #-1.136173
+max(median_residuals$median_residuals) #2.551111
 
 pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/GCK/1v4s.pdb")
 data <- median_residuals
@@ -262,10 +264,9 @@ write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/dat
 
 ```
 
-
-```{r, fig.width=6, fig.height=6}
-
+```{r, fig.width=9, fig.height=3}
 # Plot
+nrow(gck_df)
 p1 <- ggplot(gck_df, aes(x = DMS_score_abundance, y = DMS_score_activity, color = residuals)) +
   geom_point(size = 2, alpha = 0.35) +
   geom_vline(xintercept = 0.58, linetype = "dashed", linewidth = 0.5, color = "grey") +
@@ -285,7 +286,7 @@ p1 <- ggplot(gck_df, aes(x = DMS_score_abundance, y = DMS_score_activity, color 
   geom_point(data = subset(gck_df, mutant %in% c("T206M", "V452L")),
              aes(x = DMS_score_abundance, y = DMS_score_activity),
              shape = 17, color = "black", size = 3) +  # Triangle shape
-  scale_color_viridis(option = "C", direction = -1, limits = c(-6.2,8)) + 
+  scale_color_viridis(option = "C", direction = 1, limits = c(-6.2, 6.2)) + 
   labs(
     title = "All 8255 Variants",
     x = "Measured abundance",
@@ -327,7 +328,7 @@ p2 <- ggplot(patho_df, aes(x = DMS_score_abundance, y = DMS_score_activity, colo
   geom_hline(yintercept = 0.66, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_line(data = fit_line_df, aes(x = DMS_score_abundance, y = DMS_score_activity),
             inherit.aes = FALSE, color = "black", linewidth = 1) +
-  scale_color_viridis(option = "C", direction = -1, limits = c(-6.2,8)) + 
+  scale_color_viridis(option = "C", direction = 1, limits = c(-6.2, 6.2)) + 
   labs(
     title = "ClinVar Pathogenic Variants",
     x = "Measured abundance",
@@ -378,7 +379,7 @@ p3 <- ggplot(gnomad_df, aes(x = DMS_score_abundance, y = DMS_score_activity, col
   geom_point(data = subset(gck_df, mutant %in% c("A11T", "E279Q", "R46K")),
              aes(x = DMS_score_abundance, y = DMS_score_activity),
              color = "black", size = 2) +  # Triangle shape
-  scale_color_viridis(option = "C", direction = -1, limits = c(-6.2,8)) + 
+  scale_color_viridis(option = "C", direction = 1, limits = c(-6.2, 6.2)) + 
   labs(
     title = "gnomAD Variants",
     x = "Measured abundance",
@@ -414,7 +415,7 @@ p4 <- ggplot(benign_df, aes(x = DMS_score_abundance, y = DMS_score_activity, col
   geom_hline(yintercept = 0.66, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_line(data = fit_line_df, aes(x = DMS_score_abundance, y = DMS_score_activity),
             inherit.aes = FALSE, color = "black", linewidth = 1) +
-  scale_color_viridis(option = "C", direction = -1, limits = c(-6.2,8)) + 
+  scale_color_viridis(option = "C", direction = 1, limits = c(-6.2, 6.2)) + 
   labs(
     title = "ClinVar Benign Variants",
     x = "Measured abundance",
@@ -434,175 +435,147 @@ p4 <- ggMarginal(
   fill = "lightgrey"
 )
 
-p5 <- plot_grid(p1,p3,p2, nrow=2, ncol=2)
+p5 <- plot_grid(p1,p3,p2, nrow=1, ncol=3)
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig5_scatter.pdf", 
+       plot = p5, width = 9, height = 3, dpi = 300)
 p5
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig5_scatter1.pdf", 
-       plot = p5, width = 6, height = 6, dpi = 300)
-
 ```
-
-
 ```{r}
-gnomad_df %>% filter(mutant %in% c("A11T", "E279Q", "R46K"))
-```
-
-
-
-```{r}
-scatter_legend <- ggplot(gnomad_df, aes(x = DMS_score_abundance, y = DMS_score_activity, color = residuals)) +
+p1 <- ggplot(benign_df, aes(x = DMS_score_abundance, y = DMS_score_activity, color = residuals)) +
   geom_point(size = 2) +
   geom_vline(xintercept = 0.58, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0.66, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_line(data = fit_line_df, aes(x = DMS_score_abundance, y = DMS_score_activity),
             inherit.aes = FALSE, color = "black", linewidth = 1) +
-  scale_color_viridis(option = "C", direction = -1, limits = c(-6.1,8)) + 
+  scale_color_viridis(option = "C", direction = 1, limits = c(-6.2, 6.2)) + 
   labs(
-    title = "gnomAD Variants",
-     x = "Measured abundance",
+    title = "ClinVar Benign Variants",
+    x = "Measured abundance",
     y = "Measured activity",
-    color = "Activity-abundance residuals"
+    color = "Loess residuals"
   ) + theme_classic() + scale_y_continuous(breaks = seq(-1, 7, by = 2),
-    limits = c(-1, 7)) + xlim(-1,1.7) +theme(legend.position = "bottom") 
+                                           limits = c(-1, 7)) + xlim(-1,1.7) +
+  theme(legend.position = "bottom")
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig5_scatter1_legend.pdf", 
-       plot = scatter_legend, width = 6, height = 4, dpi = 300)
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig5_scatter_legend.pdf", 
+       plot = p1, width = 3, height = 3, dpi = 300)
+p1
 ```
 
 
-```{r, fig.width=12, fig.height=3}
-p6 <- ggplot(subset(patho_df, clean_condition == "HH"), aes(x = DMS_score_abundance, y = DMS_score_activity, color = residuals)) +
-  geom_point(size = 2, shape = 17) +
-  geom_vline(xintercept = 0.58, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_hline(yintercept = 0.66, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_line(data = fit_line_df, aes(x = DMS_score_abundance, y = DMS_score_activity),
-            inherit.aes = FALSE, color = "black", linewidth = 1) +
-  geom_text_repel(aes(label = mutant),
-    size = 4,color = "black",
-    max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3
-  ) +
-  scale_color_viridis(option = "C", direction = -1, limits = c(-6.1,8)) + 
-  labs(
-    title = "HH",
-    x = "Measured abundance",
-    y = "Measured activity",
-    color = "Loess residuals"
-  ) +
-  theme_classic() + ylim(-1.1,6.8) + xlim(-1,1.7) +
-  theme(legend.position = "none")
+```{r}
+# 1. Set up
+set.seed(123)
+n_boot <- 1000
+match_window <- 0.05
+n_patho <- nrow(patho_df)
 
-p6 <- ggMarginal(
-  p6,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
+# 2. Get abundance/residuals from gck_patho
+patho_df <- patho_df %>% dplyr::select(DMS_score_abundance, residuals)
+patho_df$group <- "Pathogenic"
+
+# 3. Bootstrap sampling from non-patho pool with abundance matching
+non_patho_pool <- gck_df %>%
+  filter(!(mutant %in% patho_df$mutant)) 
+
+bootstrap_medians <- vector("numeric", length = n_boot)
+
+# Pre-group non-patho pool into bins
+non_patho_pool <- non_patho_pool %>%
+  mutate(bin = cut(DMS_score_abundance, breaks = seq(-0.5, 2, by = match_window)))
+
+# Bin pathogenic variants accordingly
+patho_df <- patho_df %>%
+  mutate(bin = cut(DMS_score_abundance, breaks = seq(-0.5, 2, by = match_window)))
+
+# Create lookup table for fast sampling
+bin_lookup <- split(non_patho_pool$residuals, non_patho_pool$bin)
+
+# Bootstrap matrix
+bootstrap_matrix <- matrix(NA, nrow = n_boot, ncol = n_patho)
+
+for (i in 1:n_boot) {
+  for (j in 1:n_patho) {
+    bin_j <- patho_df$bin[j]
+    candidates <- bin_lookup[[as.character(bin_j)]]
+    if (!is.null(candidates) && length(candidates) > 0) {
+      bootstrap_matrix[i, j] <- sample(candidates, 1)
+    }
+  }
+}
+
+# Summarize into a dataframe
+boot_df <- data.frame(
+  group = "Random abundance-matched",
+  residuals = apply(bootstrap_matrix, 1, median, na.rm = TRUE)
 )
 
-p7 <- ggplot(subset(patho_df, clean_condition == "Mixed"), aes(x = DMS_score_abundance, y = DMS_score_activity, color = residuals)) +
-  geom_point(size = 2, shape = 17) +
-  geom_text_repel(aes(label = mutant),
-                  size = 4,color = "black",
-                  max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3
-  ) +
-  geom_vline(xintercept = 0.58, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_hline(yintercept = 0.66, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_line(data = fit_line_df, aes(x = DMS_score_abundance, y = DMS_score_activity),
-            inherit.aes = FALSE, color = "black", linewidth = 1) +
-  scale_color_viridis(option = "C", direction = -1, limits = c(-6.1,8)) + 
-  labs(
-    title = "Mixed",
-    x = "Measured abundance",
-    y = "Measured activity",
-    color = "Loess residuals"
-  ) +
-  theme_classic() + ylim(-1.1,6.8) + xlim(-1,1.7) +
-  theme(legend.position = "none") 
-p7 <- ggMarginal(
-  p7,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
+# Combine with patho residuals
+plot_df <- bind_rows(
+  patho_df %>% dplyr::select(group, residuals),
+  boot_df
 )
 
-p8 <- ggplot(subset(patho_df, clean_condition == "MODY"), aes(x = DMS_score_abundance, y = DMS_score_activity, color = residuals)) +
-  geom_point(size = 2, shape = 17) +
-  geom_text_repel(data = subset(patho_df, mutant %in% c("M251T", "D205G", "I293R", "Y289C")),
-                  aes(label = mutant),
-                  size = 4,color = "black",
-                  max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3
+label_df <- plot_df %>%
+  group_by(group) %>%
+  summarise(
+    n = n(),
+    median_val = median(residuals),
+    y_max = max(residuals),
+    .groups = "drop"
+  )
+
+label_df <- label_df %>%
+  mutate(n_label = case_when(
+    group == "Random abundance-matched" ~ "bootstrapped 1000 times",
+    TRUE ~ paste0("n = ", n)
+  ))
+
+# Plot
+p_fast <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
+  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
+  geom_jitter(width = 0.15, size = 2, alpha = 0.7, color = "lightgrey") +
+    stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
+  stat_summary(fun = median, geom = "point", shape = 23, size = 2.5,
+               fill = "black", color = "black", stroke = 0.7) +
+
+ geom_text(
+  data = label_df,
+  aes(x = group, y = 3.5, label = n_label),
+  inherit.aes = FALSE,
+  size = 4) +
+
+  geom_text(
+    data = label_df,
+    aes(x = group, y = median_val + 0.25, label = sprintf(" %.2f", median_val)),
+    inherit.aes = FALSE,
+    size = 6
   ) +
-  geom_vline(xintercept = 0.58, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_hline(yintercept = 0.66, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_line(data = fit_line_df, aes(x = DMS_score_abundance, y = DMS_score_activity),
-            inherit.aes = FALSE, color = "black", linewidth = 1) +
-  scale_color_viridis(option = "C", direction = -1, limits = c(-6.1,8)) + 
   labs(
-    title = "MODY",
-    x = "Measured abundance",
-    y = "Measured activity",
-    color = "Loess residuals"
+    x = "",
+    y = "Activity-abundance residuals",
+    title = ""
   ) +
-  theme_classic() + ylim(-1.1,6.8) + xlim(-1,1.7) +
-  theme(legend.position = "none") 
-p8 <- ggMarginal(
-  p8,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+  theme_classic(base_size = 14) +
+  scale_fill_manual(values = c("Pathogenic" = "cornflowerblue", "Random abundance-matched" = "darkolivegreen3")) +
+  theme(legend.position = "none") +
+  geom_signif(comparisons = list(c("Pathogenic", "Random abundance-matched")),
+              map_signif_level = FALSE,
+              test = "wilcox.test",
+              tip_length = 0.01)
 
-p9 <- ggplot(subset(patho_df, clean_condition == "Monogenic diabetes"), aes(x = DMS_score_abundance, y = DMS_score_activity, color = residuals)) +
-  geom_point(size = 2, shape = 17) +
-    geom_text_repel(data = subset(patho_df, mutant %in% c("R250H", "E177D")),
-                  aes(label = mutant),
-                  size = 4,color = "black",
-                  max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3
-  ) +
-  geom_vline(xintercept = 0.58, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_hline(yintercept = 0.66, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_line(data = fit_line_df, aes(x = DMS_score_abundance, y = DMS_score_activity),
-            inherit.aes = FALSE, color = "black", linewidth = 1) +
-  scale_color_viridis(option = "C", direction = -1, limits = c(-6.1,8)) + 
-  labs(
-    title = "Monogenic diabetes",
-    x = "Measured abundance",
-    y = "Measured activity",
-    color = "Loess residuals"
-  ) +
-  theme_classic() + ylim(-1.1,6.8) + xlim(-1,1.7) +
-  theme(legend.position = "none") 
-p9 <- ggMarginal(
-  p9,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
-
-p11 <- plot_grid(p6,p8,p9, ncol=3,nrow=1)
-p11
-
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig5_scatter2.pdf", 
-       plot = p11, width = 9, height = 3, dpi = 300)
+p_fast
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig5_violin1.pdf", 
+       plot = p_fast, width = 3, height = 4, dpi = 300)
+p_fast
 ```
 
 ```{r}
 nrow(gnomad_df) #268
+patho_df <- gck_df %>% filter(!is.na(Germline.classification))
+#nrow(patho_df) #277
 gnomad_df <- gnomad_df %>% dplyr::select(mutant, DMS_score_abundance, DMS_score_activity, residuals)
 patho_df1 <- patho_df %>% filter(clean_condition == "HH") %>% dplyr::select(mutant, DMS_score_abundance, DMS_score_activity, residuals)
 patho_df2 <- patho_df %>% filter(clean_condition == "MODY") %>% dplyr::select(mutant, DMS_score_abundance, DMS_score_activity, residuals)
@@ -685,12 +658,11 @@ p10 <- ggplot(combined_df, aes(x = var_class2, y = residuals, fill = var_class2)
     step_increase = 0.1,
     textsize = 3
   ) 
-p10
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig5_violin0.pdf", 
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig5_violin2.pdf", 
        plot = p10, width = 3, height = 4, dpi = 300)
+p10
 ```
-
-
 ```{r}
 #nrow(gnomad_df) #268
 #nrow(patho_df) #277
@@ -708,67 +680,6 @@ patho_df <- patho_df %>% dplyr::select(mutant, residuals, var_source,DMS_score_a
 
 ```
 
-
-```{r, fig.width=12, fig.height=3}
-combined_df <- rbind(gnomad_df, patho_df)
-#nrow(combined_df) #492
-
-median_df <- combined_df %>%
-  group_by(var_source) %>%
-  summarise(
-    median_residual = median(residuals, na.rm = TRUE),
-    n = n()
-  )
-#median_df
-
-combined_df$var_source <- factor(
-  combined_df$var_source,
-  levels = c("gnomAD", "Pathogenic")
-)
-#table(combined_df$var_source)
-
-custom_colors <- c(
-  "gnomAD"     = "#1b9e77",  # Teal green (unchanged)
-  "Pathogenic" = "#de425b"   # Deep ocean blue
-)
-
-nrow(combined_df)
-p12 <- ggplot(combined_df, aes(x = var_source, y = residuals, fill = var_source)) +
-  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
-  geom_jitter(width = 0.15, size = 2, alpha = 0.7, color = "lightgrey") +
-  stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
-  stat_summary(fun = median, geom = "point", shape = 23, size = 2, fill = "black", color = "black", stroke = 0.7) +
-  geom_text(
-    data = median_df,
-    aes(x = var_source, y = median_residual + 1, label = sprintf("%.2f", median_residual)),
-    inherit.aes = FALSE,
-    size = 5
-  ) +
-  scale_fill_manual(values = custom_colors) +
-  geom_text(
-    data = median_df,
-    aes(x = var_source, y = 3, label = paste0("n = ", n)),
-    inherit.aes = FALSE,
-    size = 4.5
-  ) +
-  labs(
-    title = "All 492 Variants",
-    x = "",
-    y = "LOESS fit residuals",
-    fill = ""
-  ) + theme_classic()+
-  theme(
-    legend.position = "none"
-  ) +
-  geom_signif(
-    comparisons = list(c("gnomAD", "Pathogenic")),
-    map_signif_level = FALSE,
-    test = "wilcox.test",
-    step_increase = 0.1, y_position = 3.5, 
-    textsize = 3
-  ) 
-p12
-```
 ```{r}
 combined_df <- rbind(gnomad_df, patho_df)
 
@@ -788,7 +699,10 @@ median_df <- combined_df_int %>%
 #median_df
 
 #table(combined_df_int$var_source)
-
+custom_colors <- c(
+  "gnomAD"     = "#1b9e77",  # Teal green (unchanged)
+  "Pathogenic" = "#de425b"   # Deep ocean blue
+)
 p13 <- ggplot(combined_df_int, aes(x = var_source, y = residuals, fill = var_source)) +
   geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
   geom_jitter(width = 0.15, size = 2, alpha = 0.7, color = "lightgrey") +
@@ -876,7 +790,6 @@ p14 <- ggplot(combined_df_out, aes(x = var_source, y = residuals, fill = var_sou
   )  + ylim(-5, 5)
 p14
 ```
-
 
 ```{r}
 combined_df_stable <- combined_df %>% filter(DMS_score_abundance > 0.58)
@@ -985,26 +898,21 @@ p16 <- ggplot(combined_df_stable_out, aes(x = var_source, y = residuals, fill = 
 p17 <- plot_grid(p13,p14,p15,p16,ncol=4,nrow=1)
 p17
 ```
-
-
 ```{r}
 
 p18 <- plot_grid(p13,p14,ncol=2,nrow=1)
 
 p19 <- plot_grid(p15,p16,ncol=2,nrow=1)
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig5_violin1.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig5_violin3.pdf", 
        plot = p18, width = 5, height = 3, dpi = 300)
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig5_violin2.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig5_violin4.pdf", 
        plot = p19, width = 5, height = 3, dpi = 300)
 
 p18
 p19
 ```
-
-
-
 ```{r}
 pdb <- read.pdb("~/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/GCK/1v4s.pdb")
 #unique(pdb$atom$resid)
@@ -1148,14 +1056,62 @@ p1 <- ggplot(combined_df, aes(x = var_class2, y = min_dist_to_ligand, fill = var
     textsize = 3
   ) 
 p1
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig5_violin3.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig5_violin5.pdf", 
        plot = p1, width = 3, height = 4, dpi = 300)
+p1
 ```
-
-
 ```{r}
+ggplot(combined_df, aes(x = var_class2, y = min_dist_to_ligand, fill = var_class2)) +
+  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
+ geom_jitter(aes(shape = site_type), width = 0.15, size = 2, alpha = 0.7,
+            fill = "lightgrey", color = "darkgrey", stroke = 0.5)+
+  stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
+  stat_summary(fun = median, geom = "point", shape = 23, size = 2, fill = "black", color = "black", stroke = 0.7) +
+  geom_text(
+    data = median_df,
+    aes(x = var_class2, y =  median_dist + 1, label = sprintf("%.2f",  median_dist)),
+    inherit.aes = FALSE,
+    size = 5
+  ) +
+  scale_fill_manual(values = custom_colors, guide = "none") +
+  scale_shape_manual(values = c(
+  "Non-orthosteric site" = 21,
+  "Active site" = 22,
+  "Binding site" = 23
+)) +
+  geom_text(
+    data = median_df,
+    aes(x = var_class2, y = 40, label = paste0("n = ", n)),
+    inherit.aes = FALSE,
+    size = 4
+  ) +
+  labs(
+    title = "475 Variants",
+    x = "",
+    y = "Distance to glucose",
+    fill = "",
+    shape = "Site Type"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 45, hjust = 1)
 
-
+  ) +
+  geom_signif(
+    comparisons = list(c("gnomAD", "HH"), 
+                       c("gnomAD", "MODY"), 
+                       c("gnomAD", "Monogenic diabetes")),
+    map_signif_level = FALSE,
+    test = "wilcox.test",
+    step_increase = 0.1,
+    textsize = 3
+  ) 
+```
+```{r}
+nrow(merged_df) #7969
+merged_df <- merged_df %>% filter(residuals <=0)
+nrow(merged_df) #4417
 merged_df_residue <- merged_df %>%
   group_by(mutation_position) %>%
   summarise(
@@ -1164,36 +1120,29 @@ merged_df_residue <- merged_df %>%
 merged_df_residue <- merge(merged_df_residue, protein_ca, by.x="mutation_position", by.y = "resno", all.x = TRUE)
     
 merged_df_residue <- merged_df_residue[!is.na(merged_df_residue$min_dist_to_ligand), ]
-nrow(merged_df_residue) #447
+nrow(merged_df_residue) #445
 
-merged_df_residue_nonfunc <- merged_df_residue %>% filter(!mutation_position %in% binding_sites)
-
-# Fit exponential decay: y = a * exp(-b * x) + c
+# Fit exponential decay: y = a * exp(-b * x) 
 exp_model <- nls(abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_ligand),
-                 data = merged_df_residue_nonfunc,
+                 data = merged_df_residue,
                  start = list(a = 1, b = 0.1))
 exp_model
 # Nonlinear regression model
 #   model: abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_ligand)
-#    data: merged_df_residue_nonfunc
-#       a       b 
-# 0.66007 0.02628 
-#  residual sum-of-squares: 41.35
+#    data: merged_df_residue
+#      a      b 
+# 0.9493 0.0438 
+#  residual sum-of-squares: 19.54
 # 
-# Number of iterations to convergence: 5 
-# Achieved convergence tolerance: 9.318e-07
+# Number of iterations to convergence: 4 
+# Achieved convergence tolerance: 8.104e-07
 ```
-```{r}
-merged_df_residue %>% filter (site_type == "Glucose-binding site") %>% arrange(min_dist_to_ligand)
-```
-
-
 ```{r, fig.width=5, fig.height=5}
 
-a <- 0.66007
-b <- 0.02628
+a <- 0.9493
+b <- 0.0438 
 half_d <- log(2) / b  
-half_d #26.37546
+half_d #15.82528
 
 y_cutoff <- a  * exp(- b * half_d)
 y_cutoff
@@ -1201,17 +1150,32 @@ y_cutoff
 x_vals <- seq(min(merged_df_residue$min_dist_to_ligand),
               max(merged_df_residue$min_dist_to_ligand), length.out = 200)
 
-predicted_y <- predict(exp_model, newdata = data.frame(min_dist_to_ligand = x_vals))
+# --- Bootstrapping for confidence intervals ---
+set.seed(11)
+boot_params <- replicate(1000, {
+  samp <- merged_df_residue[sample(nrow(merged_df_residue), replace = TRUE), ]
+  fit <- try(nlsLM(abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_ligand),
+                   data = samp, start = list(a = 1, b = 0.1)), silent = TRUE)
+  if (inherits(fit, "try-error")) c(NA, NA) else coef(fit)
+})
+boot_params <- t(boot_params)[complete.cases(t(boot_params)), ]
 
-fit_df_residue <- data.frame(min_dist_to_ligand = x_vals, loess_residual_pred = predicted_y)
+boot_preds <- apply(boot_params, 1, function(p) p[1] * exp(-p[2] * x_vals))
 
+fit_df_residue <- data.frame(
+  min_dist_to_ligand = x_vals,
+  loess_residual_avg = predict(exp_model, newdata = data.frame(min_dist_to_ligand = x_vals)),
+  lower = apply(boot_preds, 1, quantile, probs = 0.025),
+  upper = apply(boot_preds, 1, quantile, probs = 0.975)
+)
 merged_df_residue$site_type <- "Non-orthosteric site"
 merged_df_residue$site_type[abs(merged_df_residue$loess_residual_avg) <= y_cutoff] <- "Null"
 merged_df_residue$site_type[merged_df_residue$mutation_position %in% active_sites] <- "ATP-binding site"
 merged_df_residue$site_type[merged_df_residue$mutation_position %in% binding_sites] <- "Glucose-binding site"
 
+max(merged_df_residue %>% filter (site_type == "Glucose-binding site") %>% pull(min_dist_to_ligand)) #8.666125
 table(merged_df_residue$site_type)
-
+nrow(merged_df_residue) #445
 # Plot with fitted curve
 p23 <- ggplot(merged_df_residue, aes(x = min_dist_to_ligand, y = abs(loess_residual_avg))) +
   # First, plot NULL points separately with alpha = 0.2
@@ -1220,14 +1184,17 @@ p23 <- ggplot(merged_df_residue, aes(x = min_dist_to_ligand, y = abs(loess_resid
   # Then plot the rest
   geom_point(data = subset(merged_df_residue, site_type != "Null"),
              aes(color = site_type), size = 1) +
-  geom_text_repel(data = subset(merged_df_residue, mutation_position %in% c(123:130)) ,
-                  aes(label = mutation_position, color = site_type), vjust = -0.5, size = 3) +
-  geom_text_repel(data = subset(merged_df_residue, mutation_position %in% c(1:14)) ,
-                  aes(label = mutation_position, color = site_type), vjust = -0.5, size = 3) +
+  #geom_text_repel(data = subset(merged_df_residue, mutation_position %in% c(123:130)) ,
+  #                aes(label = mutation_position, color = site_type), vjust = -0.5, size = 3) +
+  #geom_text_repel(data = subset(merged_df_residue, mutation_position %in% c(1:14)) ,
+  #                aes(label = mutation_position, color = site_type), vjust = -0.5, size = 3) +
   geom_text_repel(data = merged_df_residue %>% filter (abs(loess_residual_avg) >= y_cutoff) ,
                   aes(label = mutation_position, color = site_type), vjust = 0.5, size = 3) +
-  geom_line(data = fit_df_residue, aes(x = min_dist_to_ligand, y = loess_residual_pred),
-            inherit.aes = FALSE, color = "black", size = 0.5) +
+  geom_ribbon(data = fit_df_residue,
+            aes(x = min_dist_to_ligand, ymin = lower, ymax = upper),
+            fill = "grey70", alpha = 0.3, inherit.aes = FALSE) +
+  geom_line(data = fit_df_residue, aes(x = min_dist_to_ligand, y = abs(loess_residual_avg)),
+          inherit.aes = FALSE, color = "black", size = 1) +
   scale_color_manual(values = c(
     "Null" = "grey",
     "Non-orthosteric site" = "darkgreen",
@@ -1239,56 +1206,87 @@ p23 <- ggplot(merged_df_residue, aes(x = min_dist_to_ligand, y = abs(loess_resid
   geom_hline(yintercept = y_cutoff, linetype = "dashed", color = "slategrey") +
   labs(
     title = "GCK: per-residue allosteric decay",
-    subtitle = "7969 mutations",
+    subtitle = "445 residues",
     x = "Minimal distance to glucose",
     y = "Median residual",
     color = ""
   )  + theme(legend.position = "bottom") +
     annotate("text",  x = Inf, y = Inf,
              hjust = 1, vjust = 1,
-           label = "y = a * exp (b * x)\na = 0.66007 \nb = - 0.02628 ",
+           label = "y = a * exp (b * x)\na = 0.9493 \nb = -0.0438",
            size = 4, color = "black", hjust = 0) + theme(legend.position = "none")
-
+p23 <- ggMarginal(
+  p23,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
 p23
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig5_decay3.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig5_decay1.pdf", 
        plot = p23, width = 5, height = 5, dpi = 300)
 p23
+```
+```{r}
+lm_model <- lm(log(abs(loess_residual_avg)) ~ min_dist_to_ligand, data = merged_df_residue)
+summary(lm_model)
+# Call:
+# lm(formula = log(abs(loess_residual_avg)) ~ min_dist_to_ligand, 
+#     data = merged_df_residue)
+# 
+# Residuals:
+#     Min      1Q  Median      3Q     Max 
+# -3.4024 -0.3130  0.1089  0.4467  1.5179 
+# 
+# Coefficients:
+#                     Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)        -0.173587   0.085822  -2.023   0.0437 *  
+# min_dist_to_ligand -0.045660   0.004112 -11.104   <2e-16 ***
+# ---
+# Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Residual standard error: 0.6397 on 443 degrees of freedom
+# Multiple R-squared:  0.2177,	Adjusted R-squared:  0.2159 
+# F-statistic: 123.3 on 1 and 443 DF,  p-value: < 2.2e-16
 ```
 
 
 ```{r}
 merged_df$pathogenic_status <- ifelse(
-  merged_df$clinvar_clinical_significance %in% c("pathogenic",
-                                           "likely_pathogenic"),
+  merged_df$clinvar_clinical_significance %in% c(
+    "pathogenic", "likely_pathogenic"),
   "Pathogenic", "Other"
 )
 
-nrow(merged_df) #7969
-```
-
-```{r, fig.width=5, fig.height=5}
-
-merged_df_nonfunc <- merged_df %>% filter(!mutation_position %in% binding_sites)
+nrow(merged_df)
+table(merged_df$pathogenic_status)
 
 # Fit exponential decay: y = a * exp(-b * x) + c
 exp_model <- nls(abs(residuals) ~ a * exp(-b * min_dist_to_ligand),
-                 data = merged_df_nonfunc,
+                 data = merged_df,
                  start = list(a = 1, b = 0.1))
 exp_model
 # Nonlinear regression model
 #   model: abs(residuals) ~ a * exp(-b * min_dist_to_ligand)
-#    data: merged_df_nonfunc
+#    data: merged_df
 #       a       b 
-# 0.69943 0.01135 
-#  residual sum-of-squares: 1806
+# 0.90290 0.03361 
+#  residual sum-of-squares: 431
 # 
-# Number of iterations to convergence: 5 
-# Achieved convergence tolerance: 1.995e-07
+# Number of iterations to convergence: 4 
+# Achieved convergence tolerance: 2.906e-07
 
-a <-  0.69943
-b <- 0.01135 
-half_d <- log(2) / b  # 
+```
+
+
+```{r}
+a <-  0.90290
+b <- 0.03361  
+half_d <- log(2) / b  #20.62324 
 half_d
 
 y_cutoff <- a  * exp(-b    * half_d)
@@ -1299,26 +1297,40 @@ merged_df$site_type[abs(merged_df$residuals) <= y_cutoff] <- "Null"
 merged_df$site_type[merged_df$mutation_position %in% active_sites] <- "ATP-binding site"
 merged_df$site_type[merged_df$mutation_position %in% binding_sites] <- "Glucose-binding site"
 
-
 x_vals <- seq(min(merged_df$min_dist_to_ligand, na.rm = TRUE),
               max(merged_df$min_dist_to_ligand, na.rm = TRUE), length.out = 200)
 
-predicted_y <- predict(exp_model, newdata = data.frame(min_dist_to_ligand = x_vals))
+set.seed(11)
+boot_params <- replicate(1000, {
+  samp <- merged_df[sample(nrow(merged_df), replace = TRUE), ]
+  fit <- try(nlsLM(abs(residuals) ~ a * exp(-b * min_dist_to_ligand),
+                   data = samp, start = list(a = 1, b = 0.1)), silent = TRUE)
+  if (inherits(fit, "try-error")) c(NA, NA) else coef(fit)
+})
+boot_params <- t(boot_params)[complete.cases(t(boot_params)), ]
 
-fit_df <- data.frame(min_dist_to_ligand = x_vals, loess_residual_pred = predicted_y)
+boot_preds <- apply(boot_params, 1, function(p) p[1] * exp(-p[2] * x_vals))
+
+fit_df_residue <- data.frame(
+  min_dist_to_ligand = x_vals,
+  residuals = predict(exp_model, newdata = data.frame(min_dist_to_ligand = x_vals)),
+  lower = apply(boot_preds, 1, quantile, probs = 0.025),
+  upper = apply(boot_preds, 1, quantile, probs = 0.975)
+)
 
 # Plot
 p24 <- ggplot(merged_df, aes(x = min_dist_to_ligand, y = abs(residuals))) +
   # Base layer: all points
   geom_point(aes(color = site_type, alpha = pathogenic_status, shape = pathogenic_status), size = 2) +
-  
-  # Loess fit line
-  geom_line(data = fit_df, aes(x = min_dist_to_ligand, y = loess_residual_pred),
-            inherit.aes = FALSE, color = "black", size = 1) +
+  geom_ribbon(data = fit_df_residue,
+            aes(x = min_dist_to_ligand, ymin = lower, ymax = upper),
+            fill = "grey70", alpha = 0.3, inherit.aes = FALSE) +
+  geom_line(data = fit_df_residue, aes(x = min_dist_to_ligand, y = abs(residuals)),
+          inherit.aes = FALSE, color = "black", size = 1) +
   
   # Repelled text labels for selected mutations
   geom_text_repel(
-    data = subset(merged_df, pathogenic_status == "Pathogenic" & min_dist_to_ligand > 15.362402 & residuals > mut_cutoff & site_type == "Non-orthosteric site"),
+    data = subset(merged_df, pathogenic_status == "Pathogenic" & min_dist_to_ligand > 8.666125 & site_type == "Non-orthosteric site"),
     aes(label = mutant,color = site_type),
     size = 3, 
     max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3
@@ -1341,525 +1353,311 @@ p24 <- ggplot(merged_df, aes(x = min_dist_to_ligand, y = abs(residuals))) +
   theme_classic() +
   labs(
     title = "GCK: per-mutation allosteric decay",
-    subtitle = "7969 mutations",
+    subtitle = "4417 mutations with residuals >= 0",
     x = "Minimal distance to glucose",
     y = "LOESS residual",
     color = ""
   ) + theme(legend.position = "bottom") + guides(color = "none", alpha = "none") +
     annotate("text",  x = Inf, y = Inf,
              hjust = 1, vjust = 1,
-           label = "y = a * exp (b * x)\na = 0.69943 \nb = - 0.01135",
+           label = "y = a * exp (b * x)\na = 0.90290 \nb = - 0.03361",
            size = 4, color = "black", hjust = 0) + theme(legend.position = "none")
+
+p24 <- ggMarginal(
+  p24,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
 p24
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig5_decay4.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig5_decay2.pdf", 
        plot = p24, width = 5, height = 5, dpi = 300)
 p24
 ```
 
+
 ```{r}
+lm_model <- lm(log(abs(residuals)) ~ min_dist_to_ligand, data = merged_df)
+summary(lm_model)
+# Call:
+# lm(formula = log(abs(residuals)) ~ min_dist_to_ligand, data = merged_df)
+# 
+# Residuals:
+#     Min      1Q  Median      3Q     Max 
+# -8.7790 -0.4103  0.2504  0.6455  1.8923 
+# 
+# Coefficients:
+#                     Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)        -0.233775   0.039517  -5.916 3.55e-09 ***
+# min_dist_to_ligand -0.044398   0.002099 -21.154  < 2e-16 ***
+# ---
+# Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Residual standard error: 1.001 on 4415 degrees of freedom
+# Multiple R-squared:  0.09203,	Adjusted R-squared:  0.09183 
+# F-statistic: 447.5 on 1 and 4415 DF,  p-value: < 2.2e-16
+```
+
+
+```{r}
+nrow(merged_df) #4417
+
 merged_df <- merge(gck_df, fil_protein_ca, by.x="mutation_position", by.y = "resno", all.x = TRUE)
 #nrow(merged_df) #8255
 
 merged_df <- merged_df %>% dplyr::select(-sequence)
 nrow(merged_df)
- 
-merged_df <- merged_df %>% filter(residuals >= 0)
+
 merged_df <- merged_df[!is.na(merged_df$min_dist_to_ligand),]
-nrow(merged_df) #4417
-
-```
-
-```{r}
-merged_df_residue <- merged_df %>%
-  group_by(mutation_position) %>%
-  summarise(
-    loess_residual_avg = median(residuals, na.rm = TRUE))
-
-merged_df_residue <- merge(merged_df_residue, protein_ca, by.x="mutation_position", by.y = "resno", all.x = TRUE)
-
-merged_df_residue <- merged_df_residue[!is.na(merged_df_residue$min_dist_to_ligand), ]
-nrow(merged_df_residue) #445
-head(merged_df_residue)
-```
-
-```{r}
-
-merged_df_residue_func <- merged_df_residue %>% filter(mutation_position %in% binding_sites)
-nrow(merged_df_residue_func)
-```
-
-```{r, fig.width=5, fig.height=5}
-merged_df_residue_nonfunc <- merged_df_residue %>% filter(!mutation_position %in% binding_sites)
-
-exp_model <- nls(abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_ligand) ,
-                 data = merged_df_residue_nonfunc,
-                 start = list(a = 1, b = 0.1))
-exp_model
-# Nonlinear regression model
-#   model: abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_ligand)
-#    data: merged_df_residue_nonfunc
-#       a       b 
-# 0.93394 0.04293 
-#  residual sum-of-squares: 19.13
-# 
-# Number of iterations to convergence: 4 
-# Achieved convergence tolerance: 5.019e-06
-
-a <- 0.93394
-b <- 0.04293
-half_d <- log(2) / b  # ≈ 16.14599
-half_d
-
-y_cutoff <- a * exp(-b * half_d)
-
-x_vals <- seq(min(merged_df_residue$min_dist_to_ligand),
-              max(merged_df_residue$min_dist_to_ligand), length.out = 200)
-
-predicted_y <- predict(exp_model, newdata = data.frame(min_dist_to_ligand = x_vals))
-
-fit_df_residue <- data.frame(min_dist_to_ligand = x_vals, loess_residual_pred = predicted_y)
-
-nrow(merged_df_residue) #445
-
-
-merged_df_residue$site_type <- "Non-orthosteric site"
-merged_df_residue$site_type[abs(merged_df_residue$loess_residual_avg) <= y_cutoff] <- "Null"
-merged_df_residue$site_type[merged_df_residue$mutation_position %in% active_sites] <- "ATP-binding site"
-merged_df_residue$site_type[merged_df_residue$mutation_position %in% binding_sites] <- "Glucose-binding site"
-
-table(merged_df_residue$site_type)
-
-# Plot with fitted curve
-p20 <- ggplot(merged_df_residue, aes(x = min_dist_to_ligand, y = abs(loess_residual_avg))) +
-  # First, plot NULL points separately with alpha = 0.2
-  geom_point(data = subset(merged_df_residue, site_type == "Null"),
-             aes(color = site_type), size = 1, alpha = 0.2) +
-  # Then plot the rest
-  geom_point(data = subset(merged_df_residue, site_type != "Null"),
-             aes(color = site_type), size = 1) +
-  geom_text_repel(data = subset(merged_df_residue, mutation_position %in% c(151, 169, 78, 228, 85)) ,
-                  aes(label = mutation_position, color = site_type), vjust = -0.5, size = 3) +
-  geom_text_repel(data = subset(merged_df_residue, mutation_position %in% c(210,212,234,452,454)) ,
-                  aes(label = mutation_position, color = site_type), vjust = -0.5, size = 3) +
-  geom_text_repel(data = merged_df_residue %>% filter(min_dist_to_ligand > 8.666125) %>% filter (loess_residual_avg > y_cutoff) ,
-                  aes(label = mutation_position, color = site_type), vjust = 0.5, size = 3) +
-  geom_line(data = fit_df_residue, aes(x = min_dist_to_ligand, y = loess_residual_pred),
-            inherit.aes = FALSE, color = "black", size = 0.5) +
-  scale_color_manual(values = c(
-    "Null" = "darkgreen",
-    "Non-orthosteric site" = "darkgreen",
-    "ATP-binding site" = "cyan",
-    "Glucose-binding site" = "orange"
-  )) +
-  theme_classic() +
-  geom_vline(xintercept = 8.666125, linetype = "dashed", color = "slategrey") +
-  geom_hline(yintercept = y_cutoff, linetype = "dashed", color = "slategrey") +
-  labs(
-    title = "GCK:per-residue Allosteric Decay",
-    subtitle = "445 residues",
-    x = "Minimal distance to glucose",
-    y = "Median residual",
-    color = ""
-  )  + theme(legend.position = "bottom") +
-    annotate("text",  x = Inf, y = Inf,
-             hjust = 1, vjust = 1,
-           label = "y = a * exp (b * x)\na = 0.93394 \nb = - 0.04293 ",
-           size = 4, color = "black", hjust = 0) + theme(legend.position = "none")
-
-p20 <- ggMarginal(
-  p20,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
-p20
-p20
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig5_decay1.pdf", 
-       plot = p20, width = 5, height = 5, dpi = 300)
-p20
-```
-
-```{r}
-merged_df_residue %>% filter (site_type == "Glucose-binding site") %>% arrange(min_dist_to_ligand)
-```
-
-
-```{r}
-# Flag pathogenic and likely pathogenic
-# merged_df$pathogenic_status <- ifelse(
-#   merged_df$Germline.classification %in% c("Likely pathogenic", "Likely pathogenic/Likely risk allele",
-#                                            "Likely risk allele", "Pathogenic",
-#                                            "Pathogenic/Likely pathogenic", "Pathogenic/Likely pathogenic/Likely risk allele"),
-#   "Pathogenic", "Other"
-# )
+nrow(merged_df) #7969
 
 merged_df$pathogenic_status <- ifelse(
-  merged_df$clinvar_clinical_significance %in% c("pathogenic", "likely_pathogenic"),
+  merged_df$clinvar_clinical_significance %in% c(
+    "pathogenic", "likely_pathogenic"),
   "Pathogenic", "Other"
 )
 
-nrow(merged_df) #4417
-merged_df <- merged_df[!is.na(merged_df$min_dist_to_ligand),]
-nrow(merged_df) #4417
+merged_df_int <- merged_df %>% filter(mutation_position %in% active_positions)
+nrow(merged_df_int) #1031
+table(merged_df_int$pathogenic_status)
+# Other Pathogenic 
+#        1009         22
+
+merged_df_out <- merged_df %>% filter(!mutation_position %in% active_positions)
+nrow(merged_df_out) #6938
+table(merged_df_out$pathogenic_status)
+     # Other Pathogenic 
+     #  6829        109 
 ```
 
+```{r}
+# 1. Set up
+set.seed(123)
+n_boot <- 1000
+match_window <- 0.05
+n_patho <- nrow(merged_df_int %>% filter(pathogenic_status == "Pathogenic"))
 
-```{r, fig.width=5, fig.height=5}
-merged_df_func <- merged_df %>% filter(mutation_position %in% binding_sites)
-nrow(merged_df_func)
-nrow(merged_df)
-merged_df_nonfunc <- merged_df %>% filter(!mutation_position %in% binding_sites)
+# 2. Get abundance/residuals from pten_patho
+patho_df <- merged_df_int %>% filter(pathogenic_status == "Pathogenic") %>% dplyr::select(DMS_score_abundance, residuals)
+patho_df$group <- "Pathogenic"
 
-merged_df$site_type <- "Non-orthosteric site"
-#merged_df$site_type[abs(merged_df$residuals) <= mut_cutoff] <- "Null"
-merged_df$site_type[merged_df$mutation_position %in% active_sites] <- "ATP-binding site"
-merged_df$site_type[merged_df$mutation_position %in% binding_sites] <- "Glucose-binding site"
+# 3. Bootstrap sampling from non-patho pool with abundance matching
+non_patho_pool <- merged_df_int %>% filter(pathogenic_status != "Pathogenic") %>%
+  filter(!(mutant %in% patho_df$mutant)) 
 
-# Fit exponential decay: y = a * exp(-b * x) + c
-exp_model <- nls(abs(residuals) ~ a * exp(-b * min_dist_to_ligand),
-                 data = merged_df_nonfunc,
-                 start = list(a = 1, b = 0.1))
-exp_model
-# Nonlinear regression model
-#   model: abs(residuals) ~ a * exp(-b * min_dist_to_ligand)
-#    data: merged_df_nonfunc
-#       a       b 
-# 0.89980 0.03337 
-#  residual sum-of-squares: 399.8
-# 
-# Number of iterations to convergence: 5 
-# Achieved convergence tolerance: 2.762e-07
+bootstrap_medians <- vector("numeric", length = n_boot)
 
-a <-0.89980 
-b <- 0.03337 
-half_d <- log(2) / b  # ≈ 20.77157
-half_d #20.77157
+# Pre-group non-patho pool into bins
+non_patho_pool <- non_patho_pool %>%
+  mutate(bin = cut(DMS_score_abundance, breaks = seq(-0.5, 2, by = match_window)))
 
-y_cutoff <- a  * exp(-b  * half_d)
-y_cutoff
+# Bin pathogenic variants accordingly
+patho_df <- patho_df %>%
+  mutate(bin = cut(DMS_score_abundance, breaks = seq(-0.5, 2, by = match_window)))
 
-x_vals <- seq(min(merged_df$min_dist_to_ligand),
-              max(merged_df$min_dist_to_ligand), length.out = 200)
+# Create lookup table for fast sampling
+bin_lookup <- split(non_patho_pool$residuals, non_patho_pool$bin)
 
-predicted_y <- predict(exp_model, newdata = data.frame(min_dist_to_ligand = x_vals))
+# Bootstrap matrix
+bootstrap_matrix <- matrix(NA, nrow = n_boot, ncol = n_patho)
 
-fit_df <- data.frame(min_dist_to_ligand = x_vals, loess_residual_pred = predicted_y)
+for (i in 1:n_boot) {
+  for (j in 1:n_patho) {
+    bin_j <- patho_df$bin[j]
+    candidates <- bin_lookup[[as.character(bin_j)]]
+    if (!is.null(candidates) && length(candidates) > 0) {
+      bootstrap_matrix[i, j] <- sample(candidates, 1)
+    }
+  }
+}
 
-# Plot
-p21 <- ggplot(merged_df, aes(x = min_dist_to_ligand, y = residuals)) +
-  # Base layer: all points
-  geom_point(aes(color = site_type, alpha = pathogenic_status, shape = pathogenic_status), size = 2) +
-  
-  # Loess fit line
-  geom_line(data = fit_df, aes(x = min_dist_to_ligand, y = loess_residual_pred),
-            inherit.aes = FALSE, color = "black", size = 1) +
-  
-  # Repelled text labels for selected mutations
-  geom_text_repel(
-    data = subset(merged_df, pathogenic_status == "Pathogenic" & min_dist_to_ligand > 8.666125 & residuals > y_cutoff & site_type == "Non-orthosteric site"),
-    aes(label = mutant,color = site_type),
-    size = 3, 
-    max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3
-  ) +
-  
-  # Manual color palette for site type
-  scale_color_manual(values = c(
-    "Null" = "grey",
-    "Non-orthosteric site" = "darkgreen",
-    "ATP-binding site" = "cyan",
-    "Glucose-binding site" = "orange"
-  )) +
-  
-  # Transparency scale
-  scale_alpha_manual(values = c("Other" = 0.1, "Pathogenic" = 1)) +
-  
-  # Reference lines
-  geom_vline(xintercept = 8.666125, linetype = "dashed", color = "slategrey") +
-  geom_hline(yintercept = y_cutoff, linetype = "dashed", color = "slategrey") +
-  theme_classic() +
-  labs(
-    title = "GCK: per-mutation Allosteric Decay",
-    subtitle = "4417 mutations with positive residuals",
-    x = "Minimal distance to glucose-binding sites (GLC)",
-    y = "LOESS residual",
-    color = ""
-  ) + theme(legend.position = "bottom") + guides(color = "none", alpha = "none") +
-    annotate("text",  x = Inf, y = Inf,
-             hjust = 1, vjust = 1,
-           label = "y = a * exp (b * x)\na = 0.89980  \nb = - 0.03337 ",
-           size = 4, color = "black", hjust = 0) + theme(legend.position = "none")
-p21 <- ggMarginal(
-  p21,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
+# Summarize into a dataframe
+boot_df <- data.frame(
+  group = "Random abundance-matched",
+  residuals = apply(bootstrap_matrix, 1, median, na.rm = TRUE)   # Mean across matches per bootstrap
 )
-p20
-p21
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig5_decay2.pdf", 
-       plot = p21, width = 5, height = 5, dpi = 300)
-```
+# Combine with patho residuals
+plot_df <- bind_rows(
+  patho_df %>% dplyr::select(group, residuals),
+  boot_df
+)
 
-```{r}
-p0 <- ggplot(merged_df_residue, aes(x = min_dist_to_ligand, y = abs(loess_residual_avg))) +
-  # First, plot NULL points separately with alpha = 0.2
-  geom_point(data = subset(merged_df_residue, site_type == "Null"),
-             aes(color = site_type), size = 1, alpha = 0.2) +
-  # Then plot the rest
-  geom_point(data = subset(merged_df_residue, site_type != "Null"),
-             aes(color = site_type), size = 1) +
-  geom_text_repel(data = subset(merged_df_residue, mutation_position %in% c(151, 169, 78, 228, 85)) ,
-                  aes(label = mutation_position, color = site_type), vjust = -0.5, size = 3) +
-  geom_text_repel(data = subset(merged_df_residue, mutation_position %in% c(210,212,234,452,454)) ,
-                  aes(label = mutation_position, color = site_type), vjust = -0.5, size = 3) +
-  geom_text_repel(data = merged_df_residue %>% filter(min_dist_to_ligand > 8.666125) %>% filter (loess_residual_avg > y_cutoff) ,
-                  aes(label = mutation_position, color = site_type), vjust = 0.5, size = 3) +
-  geom_line(data = fit_df_residue, aes(x = min_dist_to_ligand, y = loess_residual_pred),
-            inherit.aes = FALSE, color = "black", size = 0.5) +
-  scale_color_manual(values = c(
-    "Null" = "darkgreen",
-    "Non-orthosteric site" = "darkgreen",
-    "ATP-binding site" = "cyan",
-    "Glucose-binding site" = "orange"
-  )) +
-  theme_classic() +
-  geom_vline(xintercept = 8.666125, linetype = "dashed", color = "slategrey") +
-  geom_hline(yintercept = y_cutoff, linetype = "dashed", color = "slategrey") +
-  labs(
-    title = "GCK:per-residue Allosteric Decay",
-    subtitle = "445 residues",
-    x = "Minimal distance to glucose",
-    y = "Median residual",
-    color = ""
-  )  + theme(legend.position = "bottom") +
-    annotate("text",  x = Inf, y = Inf,
-             hjust = 1, vjust = 1,
-           label = "y = a * exp (b * x)\na = 0.93394 \nb = - 0.04293 ",
-           size = 4, color = "black", hjust = 0) +  theme(legend.position = "bottom")
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig5_decay_legend.pdf", 
-       plot = p0, width = 5, height = 5, dpi = 300)
-```
-
-
-```{r}
-merged_df <- merge(gck_df, fil_protein_ca, by.x="mutation_position", by.y = "resno", all.x = TRUE)
-nrow(merged_df)
-head(merged_df)
-
-merged_df <- merged_df %>% dplyr::select(-sequence)
-nrow(merged_df) #8255
-
-merged_df <- merged_df %>% filter(!is.na(min_dist_to_ligand))
-merged_df <- merged_df %>% filter(residuals < 0)
-nrow(merged_df) #3552
-
-merged_df_residue <- merged_df %>%
-  group_by(mutation_position) %>%
+label_df <- plot_df %>%
+  group_by(group) %>%
   summarise(
-    loess_residual_avg = median(residuals, na.rm = TRUE))
-    
-merged_df_residue <- merge(merged_df_residue, protein_ca, by.x="mutation_position", by.y = "resno", all.x = TRUE)
-    
-merged_df_residue <- merged_df_residue[!is.na(merged_df_residue$min_dist_to_ligand), ]
-nrow(merged_df_residue) #406
+    n = n(),
+    median_val = median(residuals),
+    y_max = max(residuals),
+    .groups = "drop"
+  )
 
-merged_df_residue_nonfunc <- merged_df_residue %>% filter(!mutation_position %in% binding_sites)
-
-# Fit exponential decay: y = a * exp(-b * x) + c
-exp_model <- nls(abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_ligand),
-                 data = merged_df_residue_nonfunc,
-                 start = list(a = 1, b = 0.1))
-exp_model
-# Nonlinear regression model
-#   model: abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_ligand)
-#    data: merged_df_residue_nonfunc
-#         a         b 
-#  0.457972 -0.003207 
-#  residual sum-of-squares: 48.3
-# 
-# Number of iterations to convergence: 6 
-# Achieved convergence tolerance: 5.088e-06
-```
-
-```{r, fig.width=5, fig.height=5}
-a <- 0.457972 
-b <- 0.003207 
-half_d <- log(2) / b  
-half_d
-
-y_cutoff <- a  * exp(- b * half_d)
-
-x_vals <- seq(min(merged_df_residue$min_dist_to_ligand),
-              max(merged_df_residue$min_dist_to_ligand), length.out = 200)
-
-predicted_y <- predict(exp_model, newdata = data.frame(min_dist_to_ligand = x_vals))
-
-fit_df_residue <- data.frame(min_dist_to_ligand = x_vals, loess_residual_pred = predicted_y)
-
-nrow(merged_df_residue) #270
-
-merged_df_residue$site_type <- "Non-orthosteric site"
-merged_df_residue$site_type[abs(merged_df_residue$loess_residual_avg) <= y_cutoff] <- "Null"
-merged_df_residue$site_type[merged_df_residue$mutation_position %in% active_sites] <- "ATP-binding site"
-merged_df_residue$site_type[merged_df_residue$mutation_position %in% binding_sites] <- "Glucose-binding site"
-
-table(merged_df_residue$site_type)
-
-# Plot with fitted curve
-p25 <- ggplot(merged_df_residue, aes(x = min_dist_to_ligand, y = abs(loess_residual_avg))) +
-  # First, plot NULL points separately with alpha = 0.2
-  geom_point(data = subset(merged_df_residue, site_type == "Null"),
-             aes(color = site_type), size = 1, alpha = 0.2) +
-  # Then plot the rest
-  geom_point(data = subset(merged_df_residue, site_type != "Null"),
-             aes(color = site_type), size = 1) +
-  geom_text_repel(data = subset(merged_df_residue, mutation_position %in% c(123:130)) ,
-                  aes(label = mutation_position, color = site_type), vjust = -0.5, size = 3) +
-    geom_text_repel(data = subset(merged_df_residue, mutation_position %in% c(1:14)) ,
-                  aes(label = mutation_position, color = site_type), vjust = -0.5, size = 3) +
-  geom_text_repel(data = merged_df_residue %>% filter(min_dist_to_ligand > 8.666125) %>% filter (loess_residual_avg > y_cutoff) ,
-                  aes(label = mutation_position, color = site_type), vjust = 0.5, size = 3) +
-  geom_line(data = fit_df_residue, aes(x = min_dist_to_ligand, y = loess_residual_pred),
-            inherit.aes = FALSE, color = "black", size = 0.5) +
-  scale_color_manual(values = c(
-    "Null" = "darkgreen",
-    "Non-orthosteric site" = "darkgreen",
-    "ATP-binding site" = "cyan",
-    "Glucose-binding site" = "orange"
-  )) +
-  theme_classic() +
-  geom_vline(xintercept = 8.666125, linetype = "dashed", color = "slategrey") +
-  geom_hline(yintercept = y_cutoff, linetype = "dashed", color = "slategrey") +
-  labs(
-    title = "GCK: per-residue Allosteric Decay",
-    subtitle = "3552 mutations with residuals < 0",
-    x = "Minimal distance to TLA",
-    y = "Median residual",
-    color = ""
-  )  + theme(legend.position = "bottom") +
-    annotate("text",  x = Inf, y = Inf,
-             hjust = 1, vjust = 1,
-           label = "y = a * exp (b * x)\na =  0.457972  \nb = 0.003207",
-           size = 4, color = "black", hjust = 0) + theme(legend.position = "none")
-
-
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig5_decay5.pdf", 
-       plot = p25, width = 5, height = 5, dpi = 300)
-p25
-```
-```{r}
-nrow(merged_df) #2390
-
-# Flag pathogenic and likely pathogenic
-merged_df$pathogenic_status <- ifelse(
-  merged_df$clinvar_clinical_significance %in% c("pathogenic",
-                                           "likely_pathogenic"),
-  "Pathogenic", "Other"
-)
-
-merged_df <- merged_df[!is.na(merged_df$min_dist_to_ligand),]
-nrow(merged_df) #3552
-```
-
-```{r, fig.width=5, fig.height=5}
-
-merged_df_nonfunc <- merged_df %>% filter(!mutation_position %in% binding_sites)
-nrow(merged_df) #
-
-# Fit exponential decay: y = a * exp(-b * x) + c
-exp_model <- nls(abs(residuals) ~ a * exp(-b * min_dist_to_ligand),
-                 data = merged_df_nonfunc,
-                 start = list(a = 1, b = 0.1))
-exp_model
-# Nonlinear regression model
-#   model: abs(residuals) ~ a * exp(-b * min_dist_to_ligand)
-#    data: merged_df_nonfunc
-#        a        b 
-# 0.694558 0.004684 
-#  residual sum-of-squares: 1345
-# 
-# Number of iterations to convergence: 5 
-# Achieved convergence tolerance: 2.403e-06
-
-a <-0.694558
-b <- 0.004684
-half_d <- log(2) / b  # ≈ 16.75483
-half_d
-
-y_cutoff <- a  * exp(-b    * half_d)
-y_cutoff
-
-
-merged_df$site_type <- "Non-orthosteric site"
-merged_df$site_type[abs(merged_df$residuals) <= y_cutoff] <- "Null"
-merged_df$site_type[merged_df$mutation_position %in% active_sites] <- "ATP-binding site"
-merged_df$site_type[merged_df$mutation_position %in% binding_sites] <- "Glucose-binding site"
-
-
-x_vals <- seq(min(merged_df$min_dist_to_ligand, na.rm = TRUE),
-              max(merged_df$min_dist_to_ligand, na.rm = TRUE), length.out = 200)
-
-predicted_y <- predict(exp_model, newdata = data.frame(min_dist_to_ligand = x_vals))
-
-fit_df <- data.frame(min_dist_to_ligand = x_vals, loess_residual_pred = predicted_y)
+label_df <- label_df %>%
+  mutate(n_label = case_when(
+    group == "Random abundance-matched" ~ "bootstrapped 1000 times",
+    TRUE ~ paste0("n = ", n)
+  ))
 
 # Plot
-p26 <- ggplot(merged_df, aes(x = min_dist_to_ligand, y = abs(residuals))) +
-  # Base layer: all points
-  geom_point(aes(color = site_type, alpha = pathogenic_status, shape = pathogenic_status), size = 2) +
-  
-  # Loess fit line
-  geom_line(data = fit_df, aes(x = min_dist_to_ligand, y = loess_residual_pred),
-            inherit.aes = FALSE, color = "black", size = 1) +
-  
-  # Repelled text labels for selected mutations
-  geom_text_repel(
-    data = subset(merged_df, pathogenic_status == "Pathogenic" ),
-    aes(label = mutant,color = site_type),
-    size = 3, 
-    max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3
+p_fast <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
+  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
+  geom_jitter(width = 0.15, size = 2, alpha = 0.7, color = "lightgrey") +
+    stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
+  stat_summary(fun = median, geom = "point", shape = 23, size = 2.5,
+               fill = "black", color = "black", stroke = 0.7) +
+
+ geom_text(
+  data = label_df,
+  aes(x = group, y = 2.5, label = n_label),
+  inherit.aes = FALSE,
+  size = 4) +
+
+  geom_text(
+    data = label_df,
+    aes(x = group, y = median_val + 0.25, label = sprintf(" %.2f", median_val)),
+    inherit.aes = FALSE,
+    size = 6
   ) +
-  
-  # Manual color palette for site type
-  scale_color_manual(values = c(
-    "Null" = "darkgreen",
-    "Non-orthosteric site" = "darkgreen",
-    "ATP-binding site" = "cyan",
-    "Glucose-binding site" = "orange"
-  )) +
-  
-  # Transparency scale
-  scale_alpha_manual(values = c("Other" = 0.1, "Pathogenic" = 1)) +
-  # Reference lines
-  geom_vline(xintercept = 8.666125, linetype = "dashed", color = "slategrey") +
-  geom_hline(yintercept = y_cutoff, linetype = "dashed", color = "slategrey") +
-  theme_classic() +
   labs(
-    title = "GCK: per-mutation Allosteric Decay",
-    subtitle = "3552 mutations with residuals < 0",
-    x = "Minimal distance to TLA",
-    y = "LOESS residual",
-    color = ""
-  ) + theme(legend.position = "bottom") + guides(color = "none", alpha = "none") +
-    annotate("text",  x = Inf, y = Inf,
-             hjust = 1, vjust = 1,
-           label = "y = a * exp (b * x)\na =  0.694558 \nb = - 0.004684",
-           size = 4, color = "black", hjust = 0) + theme(legend.position = "none")
+    x = "",
+    y = "Activity-abundance residuals",
+    title = "Orthosteric variants"
+  ) +
+  theme_classic(base_size = 14) +
+  scale_fill_manual(values = c("Pathogenic" = "cornflowerblue", "Random abundance-matched" = "darkolivegreen3")) +
+  theme(legend.position = "none") +
+  geom_signif(comparisons = list(c("Pathogenic", "Random abundance-matched")),
+              map_signif_level = FALSE,
+              test = "wilcox.test",
+              tip_length = 0.01)
+
+p_fast
+```
+```{r}
+merged_df_out
+table(merged_df_out$clinvar_clinical_significance)
+```
 
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig5_decay6.pdf", 
-       plot = p26, width = 5, height = 5, dpi = 300)
-p26
+```{r}
+# 1. Set up
+set.seed(123)
+n_boot <- 1000
+match_window <- 0.05
+n_patho <- nrow(merged_df_out %>% filter(pathogenic_status == "Pathogenic"))
+
+# 2. Get abundance/residuals from pten_patho
+patho_df <- merged_df_out %>% filter(pathogenic_status == "Pathogenic") %>% dplyr::select(DMS_score_abundance, residuals)
+patho_df$group <- "Pathogenic"
+
+# 3. Bootstrap sampling from non-patho pool with abundance matching
+non_patho_pool <- merged_df_out %>% filter(pathogenic_status != "Pathogenic") 
+
+nrow(non_patho_pool)
+
+bootstrap_medians <- vector("numeric", length = n_boot)
+
+# Pre-group non-patho pool into bins
+non_patho_pool <- non_patho_pool %>%
+  mutate(bin = cut(DMS_score_abundance, breaks = seq(-0.5, 2, by = match_window)))
+
+# Bin pathogenic variants accordingly
+patho_df <- patho_df %>%
+  mutate(bin = cut(DMS_score_abundance, breaks = seq(-0.5, 2, by = match_window)))
+
+# Create lookup table for fast sampling
+bin_lookup <- split(non_patho_pool$residuals, non_patho_pool$bin)
+
+# Bootstrap matrix
+bootstrap_matrix <- matrix(NA, nrow = n_boot, ncol = n_patho)
+
+for (i in 1:n_boot) {
+  for (j in 1:n_patho) {
+    bin_j <- patho_df$bin[j]
+    candidates <- bin_lookup[[as.character(bin_j)]]
+    if (!is.null(candidates) && length(candidates) > 0) {
+      bootstrap_matrix[i, j] <- sample(candidates, 1)
+    }
+  }
+}
+
+# Summarize into a dataframe
+boot_df <- data.frame(
+  group = "Random abundance-matched",
+  residuals = apply(bootstrap_matrix, 1, median, na.rm = TRUE)   # Mean across matches per bootstrap
+)
+
+# Combine with patho residuals
+plot_df <- bind_rows(
+  patho_df %>% dplyr::select(group, residuals),
+  boot_df
+)
+
+label_df <- plot_df %>%
+  group_by(group) %>%
+  summarise(
+    n = n(),
+    median_val = median(residuals),
+    y_max = max(residuals),
+    .groups = "drop"
+  )
+
+label_df <- label_df %>%
+  mutate(n_label = case_when(
+    group == "Random abundance-matched" ~ "bootstrapped 1000 times",
+    TRUE ~ paste0("n = ", n)
+  ))
+
+# Plot
+p_fast2 <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
+  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
+  geom_jitter(width = 0.15, size = 2, alpha = 0.7, color = "lightgrey") +
+    stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
+  stat_summary(fun = median, geom = "point", shape = 23, size = 2.5,
+               fill = "black", color = "black", stroke = 0.7) +
+
+ geom_text(
+  data = label_df,
+  aes(x = group, y = 1.5, label = n_label),
+  inherit.aes = FALSE,
+  size = 4) +
+
+  geom_text(
+    data = label_df,
+    aes(x = group, y = median_val + 0.25, label = sprintf(" %.2f", median_val)),
+    inherit.aes = FALSE,
+    size = 6
+  ) +
+  labs(
+    x = "",
+    y = "Activity-abundance residual",
+    title = "Non-orthosteric variants"
+  ) +
+  theme_classic(base_size = 14) +
+  scale_fill_manual(values = c("Pathogenic" = "cornflowerblue", "Random abundance-matched" = "darkolivegreen3")) +
+  theme(legend.position = "none") +
+  geom_signif(comparisons = list(c("Pathogenic", "Random abundance-matched")),
+              map_signif_level = FALSE,
+              test = "wilcox.test",
+              tip_length = 0.01)
+
+
+p_fast2
+```
+```{r, fig.width=3, fig.height=6}
+fig5G<- plot_grid(p_fast, p_fast2, ncol=1, nrow=2)
+fig5G
+```
+
+
+```{r}
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig5_violin6.pdf", 
+       plot = fig5G, width = 3, height = 6, dpi = 300)
 ```
 
 ```{r}
@@ -1868,21 +1666,31 @@ p26
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ```{r}
 
 ```
 
 
 
-```{r}
-
-```
-
-
-
-```{r}
-
-```
 
 
 

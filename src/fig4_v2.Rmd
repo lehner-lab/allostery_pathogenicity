@@ -1,6 +1,6 @@
 ---
 title: "fig4"
-output: pdf_document
+output: html_document
 date: "2025-06-12"
 ---
 
@@ -126,8 +126,8 @@ loess_fit <- loess(DMS_score_activity ~ DMS_score_abundance, data = fil_pten_df,
 pten_df$fitted <- predict(loess_fit, newdata = pten_df)
 
 # Calculate residuals for ALL points
-pten_df$residuals <- pten_df$fitted - pten_df$DMS_score_activity
-range(pten_df$residuals) #-4.754293  5.157748
+pten_df$residuals <-  pten_df$DMS_score_activity - pten_df$fitted
+range(pten_df$residuals) #-5.157748  4.754293
 
 fit_line_df <- data.frame(
   DMS_score_abundance = seq(min(fil_pten_df$DMS_score_abundance, na.rm = TRUE),
@@ -139,7 +139,6 @@ fit_line_df$DMS_score_activity <- predict(loess_fit, newdata = fit_line_df)
 range(pten_df$residuals)
 range(pten_df$DMS_score_abundance)
 range(pten_df$DMS_score_activity)
-
 ```
 ```{r}
 pten_df <- pten_df %>%
@@ -148,7 +147,7 @@ pten_df <- pten_df %>%
 nrow(pten_df)
 
 median_residuals <- pten_df %>%
-  dplyr::group_by(mutation_position) %>%
+  group_by(mutation_position) %>%
   summarise(median_residuals = median(residuals, na.rm = TRUE))
 
 min(median_residuals$median_residuals) #-1.861488
@@ -189,7 +188,6 @@ new_b_factors[non_matching_indices] <- 999
 # Write the modified PDB structure to a new file
 pdb$atom$b <- new_b_factors
 write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/PTEN/1d5r_median_residual_loess.pdb")
-
 ```
 
 
@@ -241,7 +239,6 @@ length(unique(pten_gnomad$mutant)) #37
 
 pten_gnomad$var_source <- "gnomAD"
 
-write.csv(pten_gnomad, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/meta/PTEN_exp/gnomad_PTEN_filtered_.csv", row.names = FALSE)
 
 pten_somatic <- merge(pten_df, pten_soma_hotspot, by.x="mutant", by.y = "Protein.Change")
 nrow(pten_somatic) #
@@ -259,7 +256,6 @@ nrow(pten_somatic) #37
 pten_somatic$var_source <- "Somatic"
 
 colnames(pten_somatic)
-write.csv(pten_somatic, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/meta/PTEN_exp/somatic_PTEN_filtered.csv", row.names = FALSE)
 
 pten_patho <- pten_df %>% filter(clinvar_clinical_significance %in% c("likely_pathogenic", "pathogenic"))
 nrow(pten_patho) #
@@ -267,13 +263,10 @@ length(unique(pten_patho$mutant)) #115
 pten_patho <- pten_patho %>% distinct(mutant, .keep_all = TRUE)
 nrow(pten_patho) #115
 pten_patho$var_source <- "Pathogenic"
-
-write.csv(pten_patho, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/meta/PTEN_exp/pathogenic_PTEN_filtered.csv", row.names = FALSE)
-
 ```
 
 
-```{r , fig.width=6, fig.height=6}
+```{r , fig.width=9, fig.height=3}
 
 p1 <- ggplot(pten_df, aes(x = DMS_score_abundance, y = DMS_score_activity, color = residuals)) +
   geom_point(size = 2, alpha = 0.35) +
@@ -297,7 +290,7 @@ p1 <- ggplot(pten_df, aes(x = DMS_score_abundance, y = DMS_score_activity, color
   ) +
   theme_classic() +
   ylim(-5.8, 2.9) + xlim(-0.3, 1.7) +
-  scale_color_viridis(option = "C", direction = -1, limits = c(-4.8, 5.2)) +
+  scale_color_viridis(option = "C", direction = 1, limits = c(-4.8, 5.2)) +
   theme(legend.position = "none")
 
 # Add marginal density plots
@@ -327,7 +320,7 @@ p2 <- ggplot(pten_gnomad, aes(x = DMS_score_abundance, y = DMS_score_activity, c
   ) +
   theme_classic() +
   ylim(-5.8, 2.9) + xlim(-0.3, 1.7) +
-  scale_color_viridis(option = "C", direction = -1, limits = c(-4.8, 5.2)) +
+  scale_color_viridis(option = "C", direction = 1, limits = c(-4.8, 5.2)) +
   theme(legend.position = "none") +
     geom_text_repel(data = subset(pten_df, mutant %in% c("A79T")),
                   aes(label = mutant),
@@ -374,7 +367,7 @@ p3 <- ggplot(pten_patho, aes(x = DMS_score_abundance, y = DMS_score_activity, co
   ) +
   theme_classic() +
   ylim(-5.8, 2.9) + xlim(-0.3, 1.7) +
-  scale_color_viridis(option = "C", direction = -1, limits = c(-4.8, 5.2)) +
+  scale_color_viridis(option = "C", direction = 1, limits = c(-4.8, 5.2)) +
   theme(legend.position = "none")
 
 # Add marginal density plots
@@ -389,11 +382,37 @@ p3 <- ggMarginal(
   fill = "lightgrey"
 )
 
-p4 <- plot_grid(p1,p2,p3,ncol=2, nrow=2)
+p4 <- plot_grid(p1,p2,p3,ncol=3, nrow=1)
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig4_scatter1.pdf", 
-       plot = p4, width = 6, height = 6, dpi = 300)
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig4_scatter1.pdf", 
+       plot = p4, width = 9, height = 3, dpi = 300)
 p4
+```
+```{r}
+ggplot(pten_df, aes(x = DMS_score_abundance, y = DMS_score_activity, color = residuals)) +
+  geom_point(size = 2, alpha = 0.35) +
+  geom_vline(xintercept = 0.71, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = -1.11, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_line(data = fit_line_df, aes(x = DMS_score_abundance, y = DMS_score_activity),
+            inherit.aes = FALSE, color = "black", linewidth = 1) +
+    geom_text_repel(data = subset(pten_df, mutant %in% c("R130G", "C124R")),
+                  aes(label = mutant),
+                  size = 4,color = "black",
+                  max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3
+  ) +
+  geom_point(data = subset(pten_df, mutant %in% c("R130G", "C124R")),
+             aes(x = DMS_score_abundance, y = DMS_score_activity),
+             shape = 17, color = "black", size = 3) +  # Triangle shape
+  labs(
+    title = "All 4839 Variants",
+    x = "Measured abundance",
+    y = "Measured activity",
+    color = "Residuals"
+  ) +
+  theme_classic() +
+  ylim(-5.8, 2.9) + xlim(-0.3, 1.7) +
+  scale_color_viridis(option = "C", direction = 1, limits = c(-4.8, 5.2)) +
+  theme(legend.position = "bottom")
 ```
 
 
@@ -487,19 +506,18 @@ p_fast <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
   ) +
   labs(
     x = "",
-    y = "Loess residuals",
+    y = "Activity-abundance residuals",
     title = ""
   ) +
   theme_classic(base_size = 14) +
-  scale_fill_manual(values = c("Pathogenic" = "orange", "Random abundance-matched" = "darkgreen")) +
+  scale_fill_manual(values = c("Pathogenic" = "cornflowerblue", "Random abundance-matched" = "darkolivegreen3")) +
   theme(legend.position = "none") +
   geom_signif(comparisons = list(c("Pathogenic", "Random abundance-matched")),
               map_signif_level = FALSE,
               test = "wilcox.test",
               tip_length = 0.01)
 
-p_fast
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig4D.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig4_violin1.pdf", 
        plot = p_fast, width = 3, height = 4, dpi = 300)
 p_fast
 ```
@@ -593,7 +611,7 @@ p10 <- ggplot(combined_df, aes(x = var_class2, y = residuals, fill = var_class2)
     textsize = 3
   ) 
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig4_violin0.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig4_violin2.pdf", 
        plot = p10, width = 3, height = 4, dpi = 300)
 p10
 
@@ -665,7 +683,7 @@ p11 <- ggplot(pten_df_clean_2plot, aes(x = var_source, y = residuals, fill = var
   labs(
     title = "All 173 Variants",
     x = "",
-    y = "LOESS fit residuals",
+    y = "Activity-abundance residuals",
     fill = ""
   ) + theme_classic()+
   theme(
@@ -751,7 +769,7 @@ p12 <- ggplot(pten_df_clean_2plot_int, aes(x = var_source, y = residuals, fill =
     test = "wilcox.test",
     step_increase = 0.1,
     textsize = 3
-  ) + ylim(-5, 11)
+  ) + ylim(-8, 11)
 
 p12
 
@@ -817,7 +835,7 @@ p13 <- ggplot(pten_df_clean_2plot_out, aes(x = var_source, y = residuals, fill =
     test = "wilcox.test",
     step_increase = 0.1,
     textsize = 3
-  ) + ylim(-5, 11)
+  ) + ylim(-8, 11)
 
 p13
 
@@ -877,7 +895,7 @@ p14 <- ggplot(pten_df_clean_2plot_stable_int, aes(x = var_source, y = residuals,
     test = "wilcox.test",
     step_increase = 0.1,
     textsize = 3
-  ) + ylim(-5, 11)
+  ) + ylim(-8, 11)
 
 p14
 
@@ -930,7 +948,7 @@ p15 <- ggplot(pten_df_clean_2plot_stable_out, aes(x = var_source, y = residuals,
     test = "wilcox.test",
     step_increase = 0.1,
     textsize = 3
-  ) + ylim(-5, 11)
+  ) + ylim(-8, 11)
 
 p15 
 
@@ -943,14 +961,14 @@ wilcox.test(pten_df_clean_2plot_stable_int %>% filter(var_source == "gnomAD")  %
 p16 <- plot_grid(p12,p13,ncol=2,nrow=1)
 p16
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig4_violin1.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig4_violin3.pdf", 
        plot = p16, width = 5, height = 3, dpi = 300)
 ```
 ```{r}
 p17 <- plot_grid(p14,p15,ncol=2,nrow=1)
 p17
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig4_violin2.pdf", 
-       plot = p17, width = 6, height = 3, dpi = 300)
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig4_violin4.pdf", 
+       plot = p17, width = 6, height = 4, dpi = 300)
 ```
 ```{r}
 pdb <- read.pdb("~/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/PTEN/1d5r.pdb")
@@ -1146,7 +1164,7 @@ p1 <- ggplot(combined_df, aes(x = var_class2, y = min_dist_to_ligand, fill = var
     textsize = 3
   ) 
 p1
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig4E.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig4_violin_distance.pdf", 
        plot = p1, width = 6, height = 4, dpi = 300)
 
 p1
@@ -1156,7 +1174,7 @@ merged_df <- merge(pten_df_clean, fil_protein_ca, by.x="mutation_position", by.y
 merged_df <- merged_df %>% dplyr::select(-sequence)
 
 merged_df <- merged_df %>% filter(!is.na(min_dist_to_ligand))
-merged_df <- merged_df %>% filter(residuals >= 0)
+merged_df <- merged_df %>% filter(residuals <= 0)
 nrow(merged_df)
 
 merged_df_residue <- merged_df %>%
@@ -1242,7 +1260,7 @@ p23 <- ggplot(merged_df_residue, aes(x = min_dist_to_ligand, y = abs(loess_resid
                   aes(label = mutation_position, color = site_type), vjust = -0.5, size = 3) +
     geom_text_repel(data = subset(merged_df_residue, mutation_position %in% c(1:14)) ,
                   aes(label = mutation_position, color = site_type), vjust = -0.5, size = 3) +
-  geom_text_repel(data = merged_df_residue %>% filter (loess_residual_avg >= y_cutoff) %>% filter (min_dist_to_ligand > 16.42677),
+  geom_text_repel(data = merged_df_residue %>% filter (loess_residual_avg <= y_cutoff) %>% filter (min_dist_to_ligand > 16.42677),
                   aes(label = mutation_position, color = site_type), vjust = 0.5, size = 3) +
   geom_ribbon(data = fit_df_residue,
             aes(x = min_dist_to_ligand, ymin = lower, ymax = upper),
@@ -1281,7 +1299,7 @@ p23 <- ggMarginal(
   colour = "grey",
   fill = "lightgrey"
 )
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version3/fig4_decay3.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig4_decay1.pdf", 
        plot = p23, width = 5, height = 5, dpi = 300)
 p23
 ```
@@ -1311,7 +1329,7 @@ summary(lm_model)
 
 
 ```{r}
-merged_df <- merged_df %>% filter(residuals >= 0)
+merged_df <- merged_df %>% filter(residuals <= 0)
 nrow(merged_df) #2003
 
 # Fit exponential decay: y = a * exp(-b * x) + c
@@ -1374,7 +1392,7 @@ merged_df$pathogenic_status <- ifelse(
 )
 
 # Plot
-p21 <- ggplot(merged_df, aes(x = min_dist_to_ligand, y = residuals)) +
+p21 <- ggplot(merged_df, aes(x = min_dist_to_ligand, y = abs(residuals))) +
   # Base layer: all points
   geom_point(aes(color = site_type, alpha = pathogenic_status, shape = pathogenic_status), size = 2) +
   
@@ -1387,7 +1405,7 @@ p21 <- ggplot(merged_df, aes(x = min_dist_to_ligand, y = residuals)) +
   
   # Repelled text labels for selected mutations
   geom_text_repel(
-    data = subset(merged_df, pathogenic_status == "Pathogenic" & min_dist_to_ligand > 16.42677 & residuals > y_cutoff & site_type == "Non-orthosteric site"),
+    data = subset(merged_df, pathogenic_status == "Pathogenic" & min_dist_to_ligand > 16.42677 & residuals < y_cutoff & site_type == "Non-orthosteric site"),
     aes(label = mutant,color = site_type),
     size = 3, 
     max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3
@@ -1430,9 +1448,10 @@ p21 <- ggMarginal(
   colour = "grey",
   fill = "lightgrey"
 )
-p21
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig4F.pdf", 
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig4_decay2.pdf", 
        plot = p21, width = 5, height = 5, dpi = 300)
+p21
 ```
 ```{r}
 lm_model <- lm(log(abs(residuals)) ~ min_dist_to_ligand, data = merged_df)
@@ -1574,7 +1593,7 @@ p_fast <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
     title = "Orthosteric variants"
   ) +
   theme_classic(base_size = 14) +
-  scale_fill_manual(values = c("Pathogenic" = "orange", "Random abundance-matched" = "darkgreen")) +
+  scale_fill_manual(values = c("Pathogenic" = "cornflowerblue", "Random abundance-matched" = "darkolivegreen3")) +
   theme(legend.position = "none") +
   geom_signif(comparisons = list(c("Pathogenic", "Random abundance-matched")),
               map_signif_level = FALSE,
@@ -1681,7 +1700,7 @@ p_fast2 <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
     title = "Non-orthosteric variants"
   ) +
   theme_classic(base_size = 14) +
-  scale_fill_manual(values = c("Pathogenic" = "orange", "Random abundance-matched" = "darkgreen")) +
+  scale_fill_manual(values = c("Pathogenic" = "cornflowerblue", "Random abundance-matched" = "darkolivegreen3")) +
   theme(legend.position = "none") +
   geom_signif(comparisons = list(c("Pathogenic", "Random abundance-matched")),
               map_signif_level = FALSE,
@@ -1694,8 +1713,9 @@ p_fast2
 ```
 ```{r}
 fig4G <- plot_grid(p_fast, p_fast2, nrow = 2, ncol=1)
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig4G.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig4_violin5.pdf", 
        plot = fig4G, width = 3, height = 6, dpi = 300)
+fig4G
 ```
 
 

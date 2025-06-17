@@ -62,14 +62,14 @@ analyze_ddg_vs_esm1v <- function(ddg_file, esm_file, protein_name = "Protein") {
   )
 }
 casp1_pred <- analyze_ddg_vs_esm1v(
-  ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb_3/CASP1/AF-P29466-F1-model_v4.csv",
+  ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/CASP1/AF-P29466-F1-model_v4.csv",
   esm_file = "/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P29466.csv",
   protein_name = "CASP1"
 )
 
 #result$spearman_rho #-0.5410593
 p0 <- casp1_pred$plot
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig2_casp1_p0.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_casp1_p0.pdf", 
        plot = p0, width = 5, height = 5, dpi = 300)
 p0
 ```
@@ -146,7 +146,7 @@ plot_loess_residuals <- function(test_df, active_site_positions,
 
 casp1_pred_residual <- plot_loess_residuals(casp1_pred$merged_data, active_site_positions = c(179, 235, 236, 237, 238, 239, 283, 284, 285, 338, 339, 340, 341, 342,343, 347 ,348, 383), protein_name = "CASP1")
 p1 <- casp1_pred_residual$plot
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig2_casp1_p1.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_casp1_p1.pdf", 
        plot = p1, width = 5, height = 4, dpi = 300)
 p1
 ```
@@ -193,8 +193,8 @@ map_loess_residuals_to_pdb <- function(test_df, pdb_path, output_pdb_path) {
 
 pdb_residual <- map_loess_residuals_to_pdb(
   test_df = casp1_pred_residual$data,
-  pdb_path = "~/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb_3/CASP1/2hbq.pdb",
-  output_pdb_path = "~/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb_3/CASP1/2hbq_loess_residual.pdb"
+  pdb_path = "~/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/CASP1/2hbq.pdb",
+  output_pdb_path = "~/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/CASP1/2hbq_loess_residual.pdb"
 )
 
 print(pdb_residual)
@@ -205,7 +205,7 @@ print(pdb_residual)
 
 ```{r, fig.width=5, fig.height=5}
 # --- Read PDB and extract protein/ligand atoms ---
-pdb <- read.pdb("~/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb_3/CASP1/2hbq.pdb", rm.alt = TRUE)
+pdb <- read.pdb("~/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/CASP1/2hbq.pdb", rm.alt = TRUE)
 
 # Select CA atoms from protein chains A and B (exclude ligand and waters)
 protein_ca <- pdb$atom[
@@ -368,7 +368,7 @@ p2 <- ggplot(merged_df_residue, aes(x = min_dist_to_ligand, y = abs(loess_residu
            label = sprintf("y = a * exp(-b * x)\na = %.4f\nb = %.5f", coefs["a"], coefs["b"]),
            size = 4, color = "black", hjust = 0)
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig2_casp1_p2.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_casp1_p2.pdf", 
        plot = p2, width = 4, height = 4, dpi = 300)
 p2
 ```
@@ -462,7 +462,7 @@ p3 <- ggplot(merged_df_residue, aes(x = site_class, y = abs(loess_residual_avg),
   )) +
   theme_classic() +
   theme(legend.position = "none")
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig2_casp1_p3.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_casp1_p3.pdf", 
        plot = p3, width = 3, height = 4, dpi = 300)
 p3
 ```
@@ -565,7 +565,7 @@ p4 <- ggplot(plot_df, aes(x = site_class, y = median_resid, fill = site_class)) 
   theme_classic() +
   theme(legend.position = "none") 
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig2_casp1_p4.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_casp1_p4.pdf", 
        plot = p4, width = 3, height = 4, dpi = 300)
 p4
 ```

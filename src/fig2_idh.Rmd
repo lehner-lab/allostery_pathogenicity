@@ -62,7 +62,7 @@ analyze_ddg_vs_esm1v <- function(ddg_file, esm_file, protein_name = "Protein") {
   )
 }
 idh_pred <- analyze_ddg_vs_esm1v(
-  ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb_3/IDH/AF-O75874-F1-model_v4.csv",
+  ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/IDH/AF-O75874-F1-model_v4.csv",
   esm_file = "/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/O75874.csv",
   protein_name = "IDH"
 )
@@ -71,7 +71,7 @@ nrow(idh_pred$merged_data)
 
 
 p0 <- idh_pred$plot
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig2_idh_p0.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_idh_p0.pdf", 
        plot = p0, width = 5, height = 5, dpi = 300)
 p0
 ```
@@ -149,7 +149,7 @@ plot_loess_residuals <- function(test_df, active_site_positions,
 
 idh_pred_residual <- plot_loess_residuals(idh_pred$merged_data, active_site_positions = c(15,  16,  17,  18,  19,  21 , 22,  23,  44,  45,  71 , 72 , 73 , 74 , 75 , 76 , 77 , 78 , 79,  80,  81,  82,  83 , 85 , 86 , 91 , 92,  93 , 94 , 95 , 96,  97,  98,  99 ,100, 107, 109, 121, 122, 123, 252,253 ,254, 255, 256, 257, 258, 259, 260 ,276 ,279 ,280 ,281, 282, 283 ,284, 285, 286 ,287, 288 ,289 ,291 ,292 ,293, 294, 295 ,304 ,305 ,306 ,307 ,308, 309, 310, 311, 312, 313, 314, 315 ,316, 317, 325, 326,327, 328 ,329, 330 ,331 ,332, 333 ,334 ,335 ,372, 373, 374 ,375 ,376, 377, 393, 394, 397), protein_name = "idh")
 p1 <- idh_pred_residual$plot
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig2_idh_p1.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_idh_p1.pdf", 
        plot = p1, width = 5, height = 4, dpi = 300)
 p1
 ```
@@ -196,8 +196,8 @@ map_loess_residuals_to_pdb <- function(test_df, pdb_path, output_pdb_path) {
 
 pdb_residual <- map_loess_residuals_to_pdb(
   test_df = idh_pred_residual$data,
-  pdb_path = "~/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb_3/IDH/6io0.pdb",
-  output_pdb_path = "~/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb_3/IDH/6io0_loess_residual.pdb"
+  pdb_path = "~/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/IDH/6io0.pdb",
+  output_pdb_path = "~/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/IDH/6io0_loess_residual.pdb"
 )
 
 print(pdb_residual)
@@ -207,7 +207,7 @@ print(pdb_residual)
 ```
 ```{r, fig.width=5, fig.height=5}
 # --- Read PDB and extract protein/ligand atoms ---
-pdb <- read.pdb("~/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb_3/IDH/6io0.pdb", rm.alt = TRUE)
+pdb <- read.pdb("~/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/IDH/6io0.pdb", rm.alt = TRUE)
 
 protein_ca <- pdb$atom[
   pdb$atom$elety == "CA" &
@@ -371,7 +371,7 @@ p2 <- ggplot(merged_df_residue, aes(x = min_dist_to_ligand, y = abs(loess_residu
            label = sprintf("y = a * exp(-b * x)\na = %.4f\nb = %.5f", coefs["a"], coefs["b"]),
            size = 4, color = "black", hjust = 0)
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig2_idh_p2.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_idh_p2.pdf", 
        plot = p2, width = 4, height = 4, dpi = 300)
 p2
 ```
@@ -464,7 +464,7 @@ p3 <- ggplot(merged_df_residue, aes(x = site_class, y = abs(loess_residual_avg),
   )) +
   theme_classic() +
   theme(legend.position = "none")
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig2_idh_p3.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_idh_p3.pdf", 
        plot = p3, width = 3, height = 4, dpi = 300)
 p3
 ```
@@ -567,7 +567,7 @@ p4 <- ggplot(plot_df, aes(x = site_class, y = median_resid, fill = site_class)) 
   theme_classic() +
   theme(legend.position = "none") 
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/version4/fig2_idh_p4.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_idh_p4.pdf", 
        plot = p4, width = 3, height = 4, dpi = 300)
 p4
 ```

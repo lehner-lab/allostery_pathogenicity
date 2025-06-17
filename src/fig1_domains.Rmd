@@ -1,6 +1,6 @@
 ---
 title: "fig1_domains"
-output: html_document
+output: pdf_document
 date: "2025-06-14"
 ---
 ```{r setup, echo=FALSE}

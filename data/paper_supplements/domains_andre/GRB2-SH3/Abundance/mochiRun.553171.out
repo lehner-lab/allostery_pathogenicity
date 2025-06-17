@@ -1,0 +1,627 @@
+Loading fitness data
+One-hot encoding sequence features
+One-hot encoding interaction features
+Defining cross-validation groups
+Defining coefficient groups
+Done!
+Performing grid search...
+Fitting model:
+{'fold': 1, 'seed': 1, 'grid_search': True, 'batch_size': 512, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Epoch 1; Avg_val_loss: 1.6158; WTcoef_1: 0.2424; WTcoef_2: -0.9815; WTres_1: 0.2915; WTres_2: 0.4673; 
+Epoch 11; Avg_val_loss: 1.2902; WTcoef_1: -1.7233; WTcoef_2: -2.0579; WTres_1: 0.0587; WTres_2: -0.0708; 
+Epoch 21; Avg_val_loss: 1.2865; WTcoef_1: -2.1198; WTcoef_2: -2.1140; WTres_1: 0.0279; WTres_2: -0.1241; 
+Epoch 31; Avg_val_loss: 1.3036; WTcoef_1: -2.2682; WTcoef_2: -2.1090; WTres_1: 0.0600; WTres_2: -0.0509; 
+Epoch 41; Avg_val_loss: 1.3308; WTcoef_1: -2.2344; WTcoef_2: -2.0138; WTres_1: 0.0379; WTres_2: -0.0151; 
+Epoch 51; Avg_val_loss: 1.2607; WTcoef_1: -2.2537; WTcoef_2: -2.0198; WTres_1: 0.0321; WTres_2: -0.1009; 
+Epoch 61; Avg_val_loss: 1.2525; WTcoef_1: -2.2180; WTcoef_2: -2.0280; WTres_1: 0.0321; WTres_2: -0.0852; 
+Epoch 71; Avg_val_loss: 1.2683; WTcoef_1: -2.2208; WTcoef_2: -1.9395; WTres_1: 0.0089; WTres_2: -0.0725; 
+Epoch 81; Avg_val_loss: 1.2846; WTcoef_1: -2.1776; WTcoef_2: -1.9095; WTres_1: 0.0741; WTres_2: -0.0966; 
+Epoch 91; Avg_val_loss: 1.2430; WTcoef_1: -2.1746; WTcoef_2: -1.9349; WTres_1: 0.0277; WTres_2: -0.0536; 
+Done!
+Fitting model:
+{'fold': 1, 'seed': 1, 'grid_search': True, 'batch_size': 1024, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Epoch 1; Avg_val_loss: 1.6581; WTcoef_1: 0.4145; WTcoef_2: -0.4816; WTres_1: 0.3704; WTres_2: 0.5500; 
+Epoch 11; Avg_val_loss: 1.2425; WTcoef_1: -1.3104; WTcoef_2: -1.8740; WTres_1: 0.0266; WTres_2: -0.0527; 
+Epoch 21; Avg_val_loss: 1.2376; WTcoef_1: -1.8090; WTcoef_2: -1.9190; WTres_1: 0.0264; WTres_2: -0.1013; 
+Epoch 31; Avg_val_loss: 1.2805; WTcoef_1: -1.9800; WTcoef_2: -1.9261; WTres_1: 0.0764; WTres_2: -0.1092; 
+Epoch 41; Avg_val_loss: 1.2597; WTcoef_1: -2.0549; WTcoef_2: -1.9265; WTres_1: 0.0201; WTres_2: -0.1199; 
+Epoch 51; Avg_val_loss: 1.2331; WTcoef_1: -2.0933; WTcoef_2: -1.8913; WTres_1: 0.0339; WTres_2: -0.1104; 
+Epoch 61; Avg_val_loss: 1.2804; WTcoef_1: -2.0815; WTcoef_2: -1.8678; WTres_1: 0.0679; WTres_2: -0.0986; 
+Epoch 71; Avg_val_loss: 1.2187; WTcoef_1: -2.0893; WTcoef_2: -1.8682; WTres_1: 0.0313; WTres_2: -0.0709; 
+Epoch 81; Avg_val_loss: 1.2335; WTcoef_1: -2.0796; WTcoef_2: -1.8203; WTres_1: 0.0550; WTres_2: -0.0742; 
+Epoch 91; Avg_val_loss: 1.2083; WTcoef_1: -2.0620; WTcoef_2: -1.8337; WTres_1: 0.0330; WTres_2: -0.0722; 
+Done!
+Fitting model:
+{'fold': 1, 'seed': 1, 'grid_search': True, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Epoch 1; Avg_val_loss: 1.8868; WTcoef_1: 0.2832; WTcoef_2: -0.2024; WTres_1: 0.3736; WTres_2: 0.6620; 
+Epoch 11; Avg_val_loss: 1.2520; WTcoef_1: -0.7960; WTcoef_2: -1.6984; WTres_1: 0.0395; WTres_2: 0.0064; 
+Epoch 21; Avg_val_loss: 1.2243; WTcoef_1: -1.3575; WTcoef_2: -1.7637; WTres_1: 0.0290; WTres_2: -0.0730; 
+Epoch 31; Avg_val_loss: 1.2713; WTcoef_1: -1.6468; WTcoef_2: -1.7765; WTres_1: 0.0556; WTres_2: -0.1163; 
+Epoch 41; Avg_val_loss: 1.2313; WTcoef_1: -1.7915; WTcoef_2: -1.8056; WTres_1: 0.0038; WTres_2: -0.0923; 
+Epoch 51; Avg_val_loss: 1.2036; WTcoef_1: -1.8310; WTcoef_2: -1.7676; WTres_1: 0.0342; WTres_2: -0.0582; 
+Epoch 61; Avg_val_loss: 1.2075; WTcoef_1: -1.8831; WTcoef_2: -1.7572; WTres_1: 0.0355; WTres_2: -0.0607; 
+Epoch 71; Avg_val_loss: 1.2024; WTcoef_1: -1.9162; WTcoef_2: -1.7729; WTres_1: 0.0239; WTres_2: -0.0859; 
+Epoch 81; Avg_val_loss: 1.2072; WTcoef_1: -1.9325; WTcoef_2: -1.7706; WTres_1: 0.0434; WTres_2: -0.0648; 
+Epoch 91; Avg_val_loss: 1.2037; WTcoef_1: -1.9476; WTcoef_2: -1.7331; WTres_1: 0.0272; WTres_2: -0.0822; 
+Done!
+Best model:
+{'fold': 1, 'seed': 1, 'grid_search': True, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Fitting model:
+{'fold': 1, 'seed': 1, 'grid_search': False, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Epoch 1; Avg_val_loss: 1.8868; WTcoef_1: 0.2832; WTcoef_2: -0.2024; WTres_1: 0.3736; WTres_2: 0.6620; 
+Epoch 11; Avg_val_loss: 1.2520; WTcoef_1: -0.7960; WTcoef_2: -1.6984; WTres_1: 0.0395; WTres_2: 0.0064; 
+Epoch 21; Avg_val_loss: 1.2243; WTcoef_1: -1.3575; WTcoef_2: -1.7637; WTres_1: 0.0290; WTres_2: -0.0730; 
+Epoch 31; Avg_val_loss: 1.2713; WTcoef_1: -1.6468; WTcoef_2: -1.7765; WTres_1: 0.0556; WTres_2: -0.1163; 
+Epoch 41; Avg_val_loss: 1.2313; WTcoef_1: -1.7915; WTcoef_2: -1.8056; WTres_1: 0.0038; WTres_2: -0.0923; 
+Epoch 51; Avg_val_loss: 1.2036; WTcoef_1: -1.8310; WTcoef_2: -1.7676; WTres_1: 0.0342; WTres_2: -0.0582; 
+Epoch 61; Avg_val_loss: 1.2075; WTcoef_1: -1.8831; WTcoef_2: -1.7572; WTres_1: 0.0355; WTres_2: -0.0607; 
+Epoch 71; Avg_val_loss: 1.2024; WTcoef_1: -1.9162; WTcoef_2: -1.7729; WTres_1: 0.0239; WTres_2: -0.0859; 
+Epoch 81; Avg_val_loss: 1.2072; WTcoef_1: -1.9325; WTcoef_2: -1.7706; WTres_1: 0.0434; WTres_2: -0.0648; 
+Epoch 91; Avg_val_loss: 1.2037; WTcoef_1: -1.9476; WTcoef_2: -1.7331; WTres_1: 0.0272; WTres_2: -0.0822; 
+Epoch 101; Avg_val_loss: 1.2007; WTcoef_1: -1.9136; WTcoef_2: -1.7186; WTres_1: 0.0240; WTres_2: -0.0797; 
+Epoch 111; Avg_val_loss: 1.2019; WTcoef_1: -1.9033; WTcoef_2: -1.6831; WTres_1: 0.0321; WTres_2: -0.0745; 
+Epoch 121; Avg_val_loss: 1.1992; WTcoef_1: -1.8995; WTcoef_2: -1.6822; WTres_1: 0.0137; WTres_2: -0.0796; 
+Epoch 131; Avg_val_loss: 1.1891; WTcoef_1: -1.9025; WTcoef_2: -1.6626; WTres_1: 0.0342; WTres_2: -0.0861; 
+Epoch 141; Avg_val_loss: 1.1936; WTcoef_1: -1.8832; WTcoef_2: -1.6384; WTres_1: 0.0399; WTres_2: -0.0911; 
+Epoch 151; Avg_val_loss: 1.2061; WTcoef_1: -1.8614; WTcoef_2: -1.6092; WTres_1: 0.0440; WTres_2: -0.0746; 
+Epoch 161; Avg_val_loss: 1.2045; WTcoef_1: -1.8879; WTcoef_2: -1.6193; WTres_1: 0.0084; WTres_2: -0.0869; 
+Epoch 171; Avg_val_loss: 1.1914; WTcoef_1: -1.8562; WTcoef_2: -1.5925; WTres_1: 0.0284; WTres_2: -0.0774; 
+Epoch 181; Avg_val_loss: 1.1853; WTcoef_1: -1.8462; WTcoef_2: -1.5742; WTres_1: 0.0238; WTres_2: -0.0936; 
+Epoch 191; Avg_val_loss: 1.1923; WTcoef_1: -1.8346; WTcoef_2: -1.5536; WTres_1: 0.0228; WTres_2: -0.0776; 
+Epoch 201; Avg_val_loss: 1.1863; WTcoef_1: -1.8250; WTcoef_2: -1.5393; WTres_1: 0.0187; WTres_2: -0.0874; 
+Epoch 211; Avg_val_loss: 1.1856; WTcoef_1: -1.8231; WTcoef_2: -1.5330; WTres_1: 0.0130; WTres_2: -0.0830; 
+Epoch 221; Avg_val_loss: 1.1924; WTcoef_1: -1.8077; WTcoef_2: -1.5146; WTres_1: 0.0182; WTres_2: -0.0856; 
+Epoch 231; Avg_val_loss: 1.1885; WTcoef_1: -1.8034; WTcoef_2: -1.5079; WTres_1: 0.0182; WTres_2: -0.0975; 
+Epoch 241; Avg_val_loss: 1.1904; WTcoef_1: -1.7871; WTcoef_2: -1.4962; WTres_1: 0.0246; WTres_2: -0.0786; 
+Epoch 251; Avg_val_loss: 1.1834; WTcoef_1: -1.7886; WTcoef_2: -1.4759; WTres_1: 0.0272; WTres_2: -0.0892; 
+Epoch 261; Avg_val_loss: 1.1892; WTcoef_1: -1.7851; WTcoef_2: -1.4669; WTres_1: 0.0182; WTres_2: -0.1016; 
+Epoch 271; Avg_val_loss: 1.1876; WTcoef_1: -1.7819; WTcoef_2: -1.4669; WTres_1: 0.0307; WTres_2: -0.0826; 
+Epoch 281; Avg_val_loss: 1.1835; WTcoef_1: -1.7717; WTcoef_2: -1.4551; WTres_1: 0.0209; WTres_2: -0.0888; 
+Epoch 291; Avg_val_loss: 1.1858; WTcoef_1: -1.7724; WTcoef_2: -1.4512; WTres_1: 0.0240; WTres_2: -0.0906; 
+Epoch 301; Avg_val_loss: 1.1860; WTcoef_1: -1.7744; WTcoef_2: -1.4463; WTres_1: 0.0177; WTres_2: -0.0957; 
+Epoch 311; Avg_val_loss: 1.1893; WTcoef_1: -1.7547; WTcoef_2: -1.4324; WTres_1: 0.0333; WTres_2: -0.0698; 
+Epoch 321; Avg_val_loss: 1.1878; WTcoef_1: -1.7617; WTcoef_2: -1.4385; WTres_1: 0.0208; WTres_2: -0.0844; 
+Epoch 331; Avg_val_loss: 1.1840; WTcoef_1: -1.7537; WTcoef_2: -1.4327; WTres_1: 0.0253; WTres_2: -0.0865; 
+Epoch 341; Avg_val_loss: 1.1869; WTcoef_1: -1.7557; WTcoef_2: -1.4263; WTres_1: 0.0255; WTres_2: -0.0870; 
+Epoch 351; Avg_val_loss: 1.1821; WTcoef_1: -1.7555; WTcoef_2: -1.4275; WTres_1: 0.0233; WTres_2: -0.0951; 
+Epoch 361; Avg_val_loss: 1.1856; WTcoef_1: -1.7526; WTcoef_2: -1.4187; WTres_1: 0.0246; WTres_2: -0.0902; 
+Epoch 371; Avg_val_loss: 1.1851; WTcoef_1: -1.7505; WTcoef_2: -1.4127; WTres_1: 0.0243; WTres_2: -0.0918; 
+Epoch 381; Avg_val_loss: 1.1883; WTcoef_1: -1.7455; WTcoef_2: -1.4129; WTres_1: 0.0196; WTres_2: -0.0889; 
+Epoch 391; Avg_val_loss: 1.1847; WTcoef_1: -1.7430; WTcoef_2: -1.4091; WTres_1: 0.0282; WTres_2: -0.0886; 
+Epoch 401; Avg_val_loss: 1.1884; WTcoef_1: -1.7451; WTcoef_2: -1.4079; WTres_1: 0.0245; WTres_2: -0.0958; 
+Epoch 411; Avg_val_loss: 1.1858; WTcoef_1: -1.7390; WTcoef_2: -1.4043; WTres_1: 0.0272; WTres_2: -0.0915; 
+Epoch 421; Avg_val_loss: 1.1803; WTcoef_1: -1.7401; WTcoef_2: -1.4012; WTres_1: 0.0243; WTres_2: -0.0912; 
+Epoch 431; Avg_val_loss: 1.1844; WTcoef_1: -1.7336; WTcoef_2: -1.4015; WTres_1: 0.0206; WTres_2: -0.0865; 
+Epoch 441; Avg_val_loss: 1.1875; WTcoef_1: -1.7336; WTcoef_2: -1.3986; WTres_1: 0.0230; WTres_2: -0.0879; 
+Epoch 451; Avg_val_loss: 1.1822; WTcoef_1: -1.7345; WTcoef_2: -1.3950; WTres_1: 0.0239; WTres_2: -0.0895; 
+Epoch 461; Avg_val_loss: 1.1807; WTcoef_1: -1.7340; WTcoef_2: -1.3949; WTres_1: 0.0231; WTres_2: -0.0865; 
+Epoch 471; Avg_val_loss: 1.1861; WTcoef_1: -1.7313; WTcoef_2: -1.3923; WTres_1: 0.0245; WTres_2: -0.0875; 
+Epoch 481; Avg_val_loss: 1.1896; WTcoef_1: -1.7313; WTcoef_2: -1.3916; WTres_1: 0.0256; WTres_2: -0.0895; 
+Stopping early: coefficients not changing and validation loss not decreasing.
+Done!
+Best model:
+{'fold': 1, 'seed': 1, 'grid_search': True, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Fitting model:
+{'fold': 2, 'seed': 1, 'grid_search': False, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Epoch 1; Avg_val_loss: 1.9244; WTcoef_1: 0.3876; WTcoef_2: -0.1990; WTres_1: 0.3909; WTres_2: 0.7017; 
+Epoch 11; Avg_val_loss: 1.2916; WTcoef_1: -0.8407; WTcoef_2: -1.7262; WTres_1: -0.0019; WTres_2: -0.0151; 
+Epoch 21; Avg_val_loss: 1.2625; WTcoef_1: -1.3545; WTcoef_2: -1.8077; WTres_1: 0.0559; WTres_2: -0.0574; 
+Epoch 31; Avg_val_loss: 1.2093; WTcoef_1: -1.6342; WTcoef_2: -1.8679; WTres_1: 0.0267; WTres_2: -0.0658; 
+Epoch 41; Avg_val_loss: 1.2145; WTcoef_1: -1.7891; WTcoef_2: -1.8172; WTres_1: 0.0309; WTres_2: -0.0826; 
+Epoch 51; Avg_val_loss: 1.2123; WTcoef_1: -1.8468; WTcoef_2: -1.8604; WTres_1: 0.0181; WTres_2: -0.0629; 
+Epoch 61; Avg_val_loss: 1.2151; WTcoef_1: -1.8891; WTcoef_2: -1.8175; WTres_1: 0.0381; WTres_2: -0.0839; 
+Epoch 71; Avg_val_loss: 1.2389; WTcoef_1: -1.9182; WTcoef_2: -1.8036; WTres_1: 0.0431; WTres_2: -0.1109; 
+Epoch 81; Avg_val_loss: 1.2189; WTcoef_1: -1.9275; WTcoef_2: -1.7881; WTres_1: 0.0149; WTres_2: -0.0652; 
+Epoch 91; Avg_val_loss: 1.2120; WTcoef_1: -1.9298; WTcoef_2: -1.7582; WTres_1: 0.0224; WTres_2: -0.0783; 
+Epoch 101; Avg_val_loss: 1.2155; WTcoef_1: -1.8826; WTcoef_2: -1.7095; WTres_1: 0.0420; WTres_2: -0.0763; 
+Epoch 111; Avg_val_loss: 1.2077; WTcoef_1: -1.9083; WTcoef_2: -1.7019; WTres_1: 0.0314; WTres_2: -0.1006; 
+Epoch 121; Avg_val_loss: 1.2078; WTcoef_1: -1.9005; WTcoef_2: -1.6821; WTres_1: 0.0470; WTres_2: -0.0700; 
+Epoch 131; Avg_val_loss: 1.2020; WTcoef_1: -1.8543; WTcoef_2: -1.6661; WTres_1: 0.0257; WTres_2: -0.0680; 
+Epoch 141; Avg_val_loss: 1.2057; WTcoef_1: -1.8528; WTcoef_2: -1.6468; WTres_1: 0.0228; WTres_2: -0.0624; 
+Epoch 151; Avg_val_loss: 1.2073; WTcoef_1: -1.8458; WTcoef_2: -1.6185; WTres_1: 0.0430; WTres_2: -0.0639; 
+Epoch 161; Avg_val_loss: 1.1978; WTcoef_1: -1.8319; WTcoef_2: -1.6181; WTres_1: 0.0228; WTres_2: -0.0736; 
+Epoch 171; Avg_val_loss: 1.1966; WTcoef_1: -1.8327; WTcoef_2: -1.5863; WTres_1: 0.0289; WTres_2: -0.0843; 
+Epoch 181; Avg_val_loss: 1.1952; WTcoef_1: -1.8311; WTcoef_2: -1.5790; WTres_1: 0.0265; WTres_2: -0.0772; 
+Epoch 191; Avg_val_loss: 1.1919; WTcoef_1: -1.8167; WTcoef_2: -1.5695; WTres_1: 0.0309; WTres_2: -0.0863; 
+Epoch 201; Avg_val_loss: 1.1923; WTcoef_1: -1.8074; WTcoef_2: -1.5521; WTres_1: 0.0202; WTres_2: -0.0896; 
+Epoch 211; Avg_val_loss: 1.1999; WTcoef_1: -1.8029; WTcoef_2: -1.5398; WTres_1: 0.0160; WTres_2: -0.0888; 
+Epoch 221; Avg_val_loss: 1.1916; WTcoef_1: -1.7939; WTcoef_2: -1.5289; WTres_1: 0.0232; WTres_2: -0.0955; 
+Epoch 231; Avg_val_loss: 1.1928; WTcoef_1: -1.7792; WTcoef_2: -1.5176; WTres_1: 0.0305; WTres_2: -0.0817; 
+Epoch 241; Avg_val_loss: 1.1940; WTcoef_1: -1.7772; WTcoef_2: -1.5040; WTres_1: 0.0281; WTres_2: -0.0909; 
+Epoch 251; Avg_val_loss: 1.1893; WTcoef_1: -1.7683; WTcoef_2: -1.4962; WTres_1: 0.0276; WTres_2: -0.0894; 
+Epoch 261; Avg_val_loss: 1.1950; WTcoef_1: -1.7612; WTcoef_2: -1.4919; WTres_1: 0.0261; WTres_2: -0.0769; 
+Epoch 271; Avg_val_loss: 1.1939; WTcoef_1: -1.7615; WTcoef_2: -1.4875; WTres_1: 0.0251; WTres_2: -0.0839; 
+Epoch 281; Avg_val_loss: 1.1950; WTcoef_1: -1.7605; WTcoef_2: -1.4793; WTres_1: 0.0319; WTres_2: -0.0816; 
+Epoch 291; Avg_val_loss: 1.2002; WTcoef_1: -1.7544; WTcoef_2: -1.4764; WTres_1: 0.0220; WTres_2: -0.0758; 
+Epoch 301; Avg_val_loss: 1.1895; WTcoef_1: -1.7573; WTcoef_2: -1.4730; WTres_1: 0.0300; WTres_2: -0.0913; 
+Epoch 311; Avg_val_loss: 1.1906; WTcoef_1: -1.7542; WTcoef_2: -1.4639; WTres_1: 0.0277; WTres_2: -0.0877; 
+Epoch 321; Avg_val_loss: 1.1929; WTcoef_1: -1.7516; WTcoef_2: -1.4552; WTres_1: 0.0271; WTres_2: -0.0872; 
+Epoch 331; Avg_val_loss: 1.1943; WTcoef_1: -1.7500; WTcoef_2: -1.4506; WTres_1: 0.0269; WTres_2: -0.0898; 
+Epoch 341; Avg_val_loss: 1.1890; WTcoef_1: -1.7450; WTcoef_2: -1.4537; WTres_1: 0.0254; WTres_2: -0.0865; 
+Epoch 351; Avg_val_loss: 1.1960; WTcoef_1: -1.7480; WTcoef_2: -1.4481; WTres_1: 0.0259; WTres_2: -0.0929; 
+Epoch 361; Avg_val_loss: 1.1953; WTcoef_1: -1.7412; WTcoef_2: -1.4462; WTres_1: 0.0253; WTres_2: -0.0850; 
+Epoch 371; Avg_val_loss: 1.1935; WTcoef_1: -1.7409; WTcoef_2: -1.4428; WTres_1: 0.0277; WTres_2: -0.0901; 
+Stopping early: coefficients not changing and validation loss not decreasing.
+Done!
+Best model:
+{'fold': 1, 'seed': 1, 'grid_search': True, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Fitting model:
+{'fold': 3, 'seed': 1, 'grid_search': False, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Epoch 1; Avg_val_loss: 1.9881; WTcoef_1: 0.3687; WTcoef_2: -0.2225; WTres_1: 0.3557; WTres_2: 0.6756; 
+Epoch 11; Avg_val_loss: 1.3032; WTcoef_1: -0.7879; WTcoef_2: -1.7235; WTres_1: 0.0273; WTres_2: 0.0367; 
+Epoch 21; Avg_val_loss: 1.2948; WTcoef_1: -1.3559; WTcoef_2: -1.8160; WTres_1: 0.0227; WTres_2: -0.1043; 
+Epoch 31; Avg_val_loss: 1.2561; WTcoef_1: -1.5906; WTcoef_2: -1.8744; WTres_1: -0.0107; WTres_2: -0.0776; 
+Epoch 41; Avg_val_loss: 1.2177; WTcoef_1: -1.7374; WTcoef_2: -1.8779; WTres_1: 0.0298; WTres_2: -0.0590; 
+Epoch 51; Avg_val_loss: 1.2264; WTcoef_1: -1.8107; WTcoef_2: -1.8876; WTres_1: 0.0147; WTres_2: -0.0558; 
+Epoch 61; Avg_val_loss: 1.2219; WTcoef_1: -1.8250; WTcoef_2: -1.8033; WTres_1: 0.0186; WTres_2: -0.0604; 
+Epoch 71; Avg_val_loss: 1.2422; WTcoef_1: -1.8641; WTcoef_2: -1.8239; WTres_1: 0.0001; WTres_2: -0.0791; 
+Epoch 81; Avg_val_loss: 1.2063; WTcoef_1: -1.8486; WTcoef_2: -1.7943; WTres_1: 0.0265; WTres_2: -0.0812; 
+Epoch 91; Avg_val_loss: 1.2213; WTcoef_1: -1.8557; WTcoef_2: -1.8067; WTres_1: 0.0065; WTres_2: -0.0918; 
+Epoch 101; Avg_val_loss: 1.2107; WTcoef_1: -1.8483; WTcoef_2: -1.7618; WTres_1: 0.0221; WTres_2: -0.0692; 
+Epoch 111; Avg_val_loss: 1.2079; WTcoef_1: -1.8500; WTcoef_2: -1.7383; WTres_1: 0.0213; WTres_2: -0.0617; 
+Epoch 121; Avg_val_loss: 1.2063; WTcoef_1: -1.8383; WTcoef_2: -1.7333; WTres_1: 0.0232; WTres_2: -0.0764; 
+Epoch 131; Avg_val_loss: 1.2037; WTcoef_1: -1.8309; WTcoef_2: -1.7035; WTres_1: 0.0307; WTres_2: -0.0781; 
+Epoch 141; Avg_val_loss: 1.2125; WTcoef_1: -1.8135; WTcoef_2: -1.6933; WTres_1: 0.0146; WTres_2: -0.0941; 
+Epoch 151; Avg_val_loss: 1.2079; WTcoef_1: -1.7996; WTcoef_2: -1.6707; WTres_1: 0.0407; WTres_2: -0.0841; 
+Epoch 161; Avg_val_loss: 1.2098; WTcoef_1: -1.7983; WTcoef_2: -1.6756; WTres_1: 0.0252; WTres_2: -0.0807; 
+Epoch 171; Avg_val_loss: 1.1997; WTcoef_1: -1.7769; WTcoef_2: -1.6509; WTres_1: 0.0182; WTres_2: -0.0716; 
+Epoch 181; Avg_val_loss: 1.2008; WTcoef_1: -1.7836; WTcoef_2: -1.6376; WTres_1: 0.0263; WTres_2: -0.0829; 
+Epoch 191; Avg_val_loss: 1.2003; WTcoef_1: -1.7700; WTcoef_2: -1.6291; WTres_1: 0.0277; WTres_2: -0.0889; 
+Epoch 201; Avg_val_loss: 1.2048; WTcoef_1: -1.7612; WTcoef_2: -1.6082; WTres_1: 0.0314; WTres_2: -0.0732; 
+Epoch 211; Avg_val_loss: 1.1984; WTcoef_1: -1.7605; WTcoef_2: -1.6194; WTres_1: 0.0159; WTres_2: -0.0779; 
+Epoch 221; Avg_val_loss: 1.2015; WTcoef_1: -1.7513; WTcoef_2: -1.5931; WTres_1: 0.0329; WTres_2: -0.0742; 
+Epoch 231; Avg_val_loss: 1.2006; WTcoef_1: -1.7556; WTcoef_2: -1.5932; WTres_1: 0.0195; WTres_2: -0.0872; 
+Epoch 241; Avg_val_loss: 1.1986; WTcoef_1: -1.7345; WTcoef_2: -1.5704; WTres_1: 0.0238; WTres_2: -0.0796; 
+Epoch 251; Avg_val_loss: 1.2068; WTcoef_1: -1.7322; WTcoef_2: -1.5573; WTres_1: 0.0307; WTres_2: -0.0945; 
+Epoch 261; Avg_val_loss: 1.1983; WTcoef_1: -1.7163; WTcoef_2: -1.5561; WTres_1: 0.0195; WTres_2: -0.0841; 
+Epoch 271; Avg_val_loss: 1.1961; WTcoef_1: -1.7198; WTcoef_2: -1.5430; WTres_1: 0.0212; WTres_2: -0.0827; 
+Epoch 281; Avg_val_loss: 1.1925; WTcoef_1: -1.7171; WTcoef_2: -1.5307; WTres_1: 0.0250; WTres_2: -0.0819; 
+Epoch 291; Avg_val_loss: 1.2003; WTcoef_1: -1.7167; WTcoef_2: -1.5242; WTres_1: 0.0239; WTres_2: -0.0882; 
+Epoch 301; Avg_val_loss: 1.1942; WTcoef_1: -1.7074; WTcoef_2: -1.5162; WTres_1: 0.0274; WTres_2: -0.0834; 
+Epoch 311; Avg_val_loss: 1.1934; WTcoef_1: -1.7069; WTcoef_2: -1.5167; WTres_1: 0.0200; WTres_2: -0.0912; 
+Epoch 321; Avg_val_loss: 1.1941; WTcoef_1: -1.6991; WTcoef_2: -1.5074; WTres_1: 0.0266; WTres_2: -0.0804; 
+Epoch 331; Avg_val_loss: 1.1930; WTcoef_1: -1.7013; WTcoef_2: -1.5053; WTres_1: 0.0233; WTres_2: -0.0923; 
+Epoch 341; Avg_val_loss: 1.1977; WTcoef_1: -1.6884; WTcoef_2: -1.4976; WTres_1: 0.0247; WTres_2: -0.0762; 
+Epoch 351; Avg_val_loss: 1.1944; WTcoef_1: -1.6878; WTcoef_2: -1.4931; WTres_1: 0.0222; WTres_2: -0.0837; 
+Epoch 361; Avg_val_loss: 1.1966; WTcoef_1: -1.6877; WTcoef_2: -1.4887; WTres_1: 0.0257; WTres_2: -0.0844; 
+Epoch 371; Avg_val_loss: 1.2001; WTcoef_1: -1.6906; WTcoef_2: -1.4826; WTres_1: 0.0237; WTres_2: -0.0860; 
+Epoch 381; Avg_val_loss: 1.1961; WTcoef_1: -1.6847; WTcoef_2: -1.4791; WTres_1: 0.0284; WTres_2: -0.0877; 
+Epoch 391; Avg_val_loss: 1.1952; WTcoef_1: -1.6845; WTcoef_2: -1.4822; WTres_1: 0.0211; WTres_2: -0.0825; 
+Epoch 401; Avg_val_loss: 1.1974; WTcoef_1: -1.6840; WTcoef_2: -1.4785; WTres_1: 0.0176; WTres_2: -0.0832; 
+Epoch 411; Avg_val_loss: 1.1965; WTcoef_1: -1.6834; WTcoef_2: -1.4748; WTres_1: 0.0241; WTres_2: -0.0851; 
+Epoch 421; Avg_val_loss: 1.1971; WTcoef_1: -1.6805; WTcoef_2: -1.4736; WTres_1: 0.0209; WTres_2: -0.0904; 
+Epoch 431; Avg_val_loss: 1.1983; WTcoef_1: -1.6799; WTcoef_2: -1.4719; WTres_1: 0.0264; WTres_2: -0.0878; 
+Epoch 441; Avg_val_loss: 1.1982; WTcoef_1: -1.6776; WTcoef_2: -1.4708; WTres_1: 0.0184; WTres_2: -0.0853; 
+Epoch 451; Avg_val_loss: 1.1938; WTcoef_1: -1.6731; WTcoef_2: -1.4666; WTres_1: 0.0213; WTres_2: -0.0817; 
+Epoch 461; Avg_val_loss: 1.1926; WTcoef_1: -1.6758; WTcoef_2: -1.4658; WTres_1: 0.0225; WTres_2: -0.0843; 
+Epoch 471; Avg_val_loss: 1.1961; WTcoef_1: -1.6734; WTcoef_2: -1.4628; WTres_1: 0.0243; WTres_2: -0.0846; 
+Epoch 481; Avg_val_loss: 1.1958; WTcoef_1: -1.6722; WTcoef_2: -1.4609; WTres_1: 0.0197; WTres_2: -0.0851; 
+Epoch 491; Avg_val_loss: 1.1988; WTcoef_1: -1.6740; WTcoef_2: -1.4601; WTres_1: 0.0219; WTres_2: -0.0888; 
+Stopping early: coefficients not changing and validation loss not decreasing.
+Done!
+Best model:
+{'fold': 1, 'seed': 1, 'grid_search': True, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Fitting model:
+{'fold': 4, 'seed': 1, 'grid_search': False, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Epoch 1; Avg_val_loss: 1.9426; WTcoef_1: 0.3940; WTcoef_2: -0.2062; WTres_1: 0.3799; WTres_2: 0.7210; 
+Epoch 11; Avg_val_loss: 1.2611; WTcoef_1: -0.8364; WTcoef_2: -1.7243; WTres_1: 0.0081; WTres_2: -0.0031; 
+Epoch 21; Avg_val_loss: 1.2820; WTcoef_1: -1.3397; WTcoef_2: -1.8102; WTres_1: 0.0505; WTres_2: -0.0210; 
+Epoch 31; Avg_val_loss: 1.2188; WTcoef_1: -1.6403; WTcoef_2: -1.8462; WTres_1: 0.0223; WTres_2: -0.0626; 
+Epoch 41; Avg_val_loss: 1.2731; WTcoef_1: -1.7739; WTcoef_2: -1.8664; WTres_1: -0.0045; WTres_2: -0.1012; 
+Epoch 51; Avg_val_loss: 1.2260; WTcoef_1: -1.8244; WTcoef_2: -1.8395; WTres_1: 0.0098; WTres_2: -0.0827; 
+Epoch 61; Avg_val_loss: 1.2303; WTcoef_1: -1.8303; WTcoef_2: -1.8127; WTres_1: 0.0326; WTres_2: -0.0479; 
+Epoch 71; Avg_val_loss: 1.2199; WTcoef_1: -1.8646; WTcoef_2: -1.7922; WTres_1: 0.0131; WTres_2: -0.0815; 
+Epoch 81; Avg_val_loss: 1.2177; WTcoef_1: -1.8658; WTcoef_2: -1.7757; WTres_1: 0.0301; WTres_2: -0.0654; 
+Epoch 91; Avg_val_loss: 1.2225; WTcoef_1: -1.8615; WTcoef_2: -1.7350; WTres_1: 0.0448; WTres_2: -0.0733; 
+Epoch 101; Avg_val_loss: 1.2230; WTcoef_1: -1.8535; WTcoef_2: -1.7384; WTres_1: 0.0388; WTres_2: -0.0764; 
+Epoch 111; Avg_val_loss: 1.2153; WTcoef_1: -1.8648; WTcoef_2: -1.7334; WTres_1: 0.0216; WTres_2: -0.0797; 
+Epoch 121; Avg_val_loss: 1.2234; WTcoef_1: -1.8329; WTcoef_2: -1.7302; WTres_1: 0.0167; WTres_2: -0.0667; 
+Epoch 131; Avg_val_loss: 1.2052; WTcoef_1: -1.8347; WTcoef_2: -1.7023; WTres_1: 0.0298; WTres_2: -0.0816; 
+Epoch 141; Avg_val_loss: 1.2039; WTcoef_1: -1.8122; WTcoef_2: -1.6735; WTres_1: 0.0296; WTres_2: -0.0739; 
+Epoch 151; Avg_val_loss: 1.2078; WTcoef_1: -1.8164; WTcoef_2: -1.6528; WTres_1: 0.0364; WTres_2: -0.0790; 
+Epoch 161; Avg_val_loss: 1.2049; WTcoef_1: -1.7994; WTcoef_2: -1.6563; WTres_1: 0.0137; WTres_2: -0.0792; 
+Epoch 171; Avg_val_loss: 1.2030; WTcoef_1: -1.7973; WTcoef_2: -1.6466; WTres_1: 0.0174; WTres_2: -0.0940; 
+Epoch 181; Avg_val_loss: 1.2086; WTcoef_1: -1.7881; WTcoef_2: -1.6220; WTres_1: 0.0308; WTres_2: -0.0896; 
+Epoch 191; Avg_val_loss: 1.2018; WTcoef_1: -1.7739; WTcoef_2: -1.6070; WTres_1: 0.0200; WTres_2: -0.0842; 
+Epoch 201; Avg_val_loss: 1.2051; WTcoef_1: -1.7695; WTcoef_2: -1.5918; WTres_1: 0.0247; WTres_2: -0.0948; 
+Epoch 211; Avg_val_loss: 1.2007; WTcoef_1: -1.7600; WTcoef_2: -1.5760; WTres_1: 0.0273; WTres_2: -0.0880; 
+Epoch 221; Avg_val_loss: 1.2015; WTcoef_1: -1.7489; WTcoef_2: -1.5638; WTres_1: 0.0158; WTres_2: -0.0889; 
+Epoch 231; Avg_val_loss: 1.2060; WTcoef_1: -1.7374; WTcoef_2: -1.5441; WTres_1: 0.0354; WTres_2: -0.0909; 
+Epoch 241; Avg_val_loss: 1.2049; WTcoef_1: -1.7341; WTcoef_2: -1.5355; WTres_1: 0.0239; WTres_2: -0.0983; 
+Epoch 251; Avg_val_loss: 1.2020; WTcoef_1: -1.7329; WTcoef_2: -1.5129; WTres_1: 0.0256; WTres_2: -0.0865; 
+Epoch 261; Avg_val_loss: 1.1971; WTcoef_1: -1.7157; WTcoef_2: -1.5243; WTres_1: 0.0141; WTres_2: -0.0798; 
+Epoch 271; Avg_val_loss: 1.2035; WTcoef_1: -1.7173; WTcoef_2: -1.5000; WTres_1: 0.0231; WTres_2: -0.0933; 
+Epoch 281; Avg_val_loss: 1.2012; WTcoef_1: -1.7024; WTcoef_2: -1.4920; WTres_1: 0.0281; WTres_2: -0.0825; 
+Epoch 291; Avg_val_loss: 1.1948; WTcoef_1: -1.7039; WTcoef_2: -1.4852; WTres_1: 0.0240; WTres_2: -0.0897; 
+Epoch 301; Avg_val_loss: 1.1981; WTcoef_1: -1.7000; WTcoef_2: -1.4717; WTres_1: 0.0232; WTres_2: -0.0941; 
+Epoch 311; Avg_val_loss: 1.1985; WTcoef_1: -1.6891; WTcoef_2: -1.4685; WTres_1: 0.0250; WTres_2: -0.0856; 
+Epoch 321; Avg_val_loss: 1.1997; WTcoef_1: -1.6874; WTcoef_2: -1.4737; WTres_1: 0.0212; WTres_2: -0.0761; 
+Epoch 331; Avg_val_loss: 1.1998; WTcoef_1: -1.6909; WTcoef_2: -1.4586; WTres_1: 0.0251; WTres_2: -0.0952; 
+Epoch 341; Avg_val_loss: 1.1937; WTcoef_1: -1.6827; WTcoef_2: -1.4568; WTres_1: 0.0165; WTres_2: -0.0846; 
+Epoch 351; Avg_val_loss: 1.1995; WTcoef_1: -1.6816; WTcoef_2: -1.4482; WTres_1: 0.0169; WTres_2: -0.0875; 
+Epoch 361; Avg_val_loss: 1.1973; WTcoef_1: -1.6781; WTcoef_2: -1.4405; WTres_1: 0.0235; WTres_2: -0.0900; 
+Epoch 371; Avg_val_loss: 1.1968; WTcoef_1: -1.6774; WTcoef_2: -1.4381; WTres_1: 0.0218; WTres_2: -0.0804; 
+Epoch 381; Avg_val_loss: 1.1971; WTcoef_1: -1.6723; WTcoef_2: -1.4343; WTres_1: 0.0203; WTres_2: -0.0874; 
+Epoch 391; Avg_val_loss: 1.1947; WTcoef_1: -1.6688; WTcoef_2: -1.4313; WTres_1: 0.0216; WTres_2: -0.0877; 
+Epoch 401; Avg_val_loss: 1.1977; WTcoef_1: -1.6690; WTcoef_2: -1.4284; WTres_1: 0.0179; WTres_2: -0.0904; 
+Epoch 411; Avg_val_loss: 1.2006; WTcoef_1: -1.6653; WTcoef_2: -1.4258; WTres_1: 0.0240; WTres_2: -0.0856; 
+Epoch 421; Avg_val_loss: 1.1929; WTcoef_1: -1.6648; WTcoef_2: -1.4226; WTres_1: 0.0234; WTres_2: -0.0899; 
+Epoch 431; Avg_val_loss: 1.1967; WTcoef_1: -1.6604; WTcoef_2: -1.4181; WTres_1: 0.0239; WTres_2: -0.0846; 
+Stopping early: coefficients not changing and validation loss not decreasing.
+Done!
+Best model:
+{'fold': 1, 'seed': 1, 'grid_search': True, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Fitting model:
+{'fold': 5, 'seed': 1, 'grid_search': False, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Epoch 1; Avg_val_loss: 1.9240; WTcoef_1: 0.3749; WTcoef_2: -0.2107; WTres_1: 0.3837; WTres_2: 0.6411; 
+Epoch 11; Avg_val_loss: 1.2572; WTcoef_1: -0.8344; WTcoef_2: -1.6988; WTres_1: 0.0258; WTres_2: -0.0206; 
+Epoch 21; Avg_val_loss: 1.2147; WTcoef_1: -1.3740; WTcoef_2: -1.7739; WTres_1: 0.0211; WTres_2: -0.0446; 
+Epoch 31; Avg_val_loss: 1.2631; WTcoef_1: -1.6504; WTcoef_2: -1.7687; WTres_1: 0.0591; WTres_2: -0.0973; 
+Epoch 41; Avg_val_loss: 1.2375; WTcoef_1: -1.7390; WTcoef_2: -1.7637; WTres_1: 0.0322; WTres_2: -0.0388; 
+Epoch 51; Avg_val_loss: 1.2124; WTcoef_1: -1.8412; WTcoef_2: -1.7568; WTres_1: 0.0255; WTres_2: -0.0600; 
+Epoch 61; Avg_val_loss: 1.2187; WTcoef_1: -1.8912; WTcoef_2: -1.7445; WTres_1: 0.0275; WTres_2: -0.0546; 
+Epoch 71; Avg_val_loss: 1.2158; WTcoef_1: -1.8978; WTcoef_2: -1.6876; WTres_1: 0.0287; WTres_2: -0.1096; 
+Epoch 81; Avg_val_loss: 1.2287; WTcoef_1: -1.9097; WTcoef_2: -1.6780; WTres_1: 0.0435; WTres_2: -0.1009; 
+Epoch 91; Avg_val_loss: 1.2073; WTcoef_1: -1.9042; WTcoef_2: -1.6982; WTres_1: 0.0280; WTres_2: -0.0657; 
+Epoch 101; Avg_val_loss: 1.2020; WTcoef_1: -1.9045; WTcoef_2: -1.6846; WTres_1: 0.0377; WTres_2: -0.0837; 
+Epoch 111; Avg_val_loss: 1.2106; WTcoef_1: -1.8729; WTcoef_2: -1.6761; WTres_1: 0.0157; WTres_2: -0.0571; 
+Epoch 121; Avg_val_loss: 1.2078; WTcoef_1: -1.8745; WTcoef_2: -1.6455; WTres_1: 0.0298; WTres_2: -0.0557; 
+Epoch 131; Avg_val_loss: 1.2074; WTcoef_1: -1.8529; WTcoef_2: -1.6183; WTres_1: 0.0239; WTres_2: -0.0684; 
+Epoch 141; Avg_val_loss: 1.1956; WTcoef_1: -1.8480; WTcoef_2: -1.5975; WTres_1: 0.0231; WTres_2: -0.0835; 
+Epoch 151; Avg_val_loss: 1.2040; WTcoef_1: -1.8385; WTcoef_2: -1.5789; WTres_1: 0.0273; WTres_2: -0.0720; 
+Epoch 161; Avg_val_loss: 1.1965; WTcoef_1: -1.8419; WTcoef_2: -1.5536; WTres_1: 0.0305; WTres_2: -0.0808; 
+Epoch 171; Avg_val_loss: 1.2053; WTcoef_1: -1.8181; WTcoef_2: -1.5420; WTres_1: 0.0371; WTres_2: -0.0623; 
+Epoch 181; Avg_val_loss: 1.1966; WTcoef_1: -1.8240; WTcoef_2: -1.5275; WTres_1: 0.0285; WTres_2: -0.0806; 
+Epoch 191; Avg_val_loss: 1.1954; WTcoef_1: -1.8034; WTcoef_2: -1.5207; WTres_1: 0.0315; WTres_2: -0.0812; 
+Epoch 201; Avg_val_loss: 1.1971; WTcoef_1: -1.8002; WTcoef_2: -1.5026; WTres_1: 0.0222; WTres_2: -0.0614; 
+Epoch 211; Avg_val_loss: 1.2053; WTcoef_1: -1.7802; WTcoef_2: -1.4876; WTres_1: 0.0320; WTres_2: -0.0598; 
+Epoch 221; Avg_val_loss: 1.1998; WTcoef_1: -1.7864; WTcoef_2: -1.4767; WTres_1: 0.0212; WTres_2: -0.0848; 
+Epoch 231; Avg_val_loss: 1.1929; WTcoef_1: -1.7769; WTcoef_2: -1.4729; WTres_1: 0.0230; WTres_2: -0.0764; 
+Epoch 241; Avg_val_loss: 1.1951; WTcoef_1: -1.7664; WTcoef_2: -1.4715; WTres_1: 0.0282; WTres_2: -0.0767; 
+Epoch 251; Avg_val_loss: 1.1981; WTcoef_1: -1.7629; WTcoef_2: -1.4460; WTres_1: 0.0319; WTres_2: -0.0846; 
+Epoch 261; Avg_val_loss: 1.1970; WTcoef_1: -1.7583; WTcoef_2: -1.4370; WTres_1: 0.0258; WTres_2: -0.0803; 
+Epoch 271; Avg_val_loss: 1.1954; WTcoef_1: -1.7582; WTcoef_2: -1.4325; WTres_1: 0.0201; WTres_2: -0.0791; 
+Epoch 281; Avg_val_loss: 1.1943; WTcoef_1: -1.7479; WTcoef_2: -1.4110; WTres_1: 0.0343; WTres_2: -0.0822; 
+Epoch 291; Avg_val_loss: 1.1915; WTcoef_1: -1.7483; WTcoef_2: -1.4115; WTres_1: 0.0217; WTres_2: -0.0761; 
+Epoch 301; Avg_val_loss: 1.1964; WTcoef_1: -1.7357; WTcoef_2: -1.3891; WTres_1: 0.0334; WTres_2: -0.0725; 
+Epoch 311; Avg_val_loss: 1.1939; WTcoef_1: -1.7368; WTcoef_2: -1.3911; WTres_1: 0.0294; WTres_2: -0.0853; 
+Epoch 321; Avg_val_loss: 1.1905; WTcoef_1: -1.7286; WTcoef_2: -1.3875; WTres_1: 0.0231; WTres_2: -0.0772; 
+Epoch 331; Avg_val_loss: 1.1921; WTcoef_1: -1.7290; WTcoef_2: -1.3768; WTres_1: 0.0222; WTres_2: -0.0775; 
+Epoch 341; Avg_val_loss: 1.2031; WTcoef_1: -1.7199; WTcoef_2: -1.3688; WTres_1: 0.0206; WTres_2: -0.0849; 
+Epoch 351; Avg_val_loss: 1.1923; WTcoef_1: -1.7144; WTcoef_2: -1.3632; WTres_1: 0.0259; WTres_2: -0.0778; 
+Epoch 361; Avg_val_loss: 1.1916; WTcoef_1: -1.7188; WTcoef_2: -1.3580; WTres_1: 0.0240; WTres_2: -0.0819; 
+Epoch 371; Avg_val_loss: 1.1933; WTcoef_1: -1.7143; WTcoef_2: -1.3519; WTres_1: 0.0201; WTres_2: -0.0811; 
+Epoch 381; Avg_val_loss: 1.1967; WTcoef_1: -1.7085; WTcoef_2: -1.3445; WTres_1: 0.0299; WTres_2: -0.0794; 
+Epoch 391; Avg_val_loss: 1.1884; WTcoef_1: -1.7094; WTcoef_2: -1.3410; WTres_1: 0.0218; WTres_2: -0.0853; 
+Epoch 401; Avg_val_loss: 1.1919; WTcoef_1: -1.7062; WTcoef_2: -1.3404; WTres_1: 0.0190; WTres_2: -0.0763; 
+Epoch 411; Avg_val_loss: 1.1910; WTcoef_1: -1.7062; WTcoef_2: -1.3339; WTres_1: 0.0247; WTres_2: -0.0772; 
+Epoch 421; Avg_val_loss: 1.1873; WTcoef_1: -1.7026; WTcoef_2: -1.3340; WTres_1: 0.0214; WTres_2: -0.0787; 
+Epoch 431; Avg_val_loss: 1.1889; WTcoef_1: -1.7018; WTcoef_2: -1.3321; WTres_1: 0.0192; WTres_2: -0.0782; 
+Epoch 441; Avg_val_loss: 1.1887; WTcoef_1: -1.7020; WTcoef_2: -1.3285; WTres_1: 0.0236; WTres_2: -0.0776; 
+Epoch 451; Avg_val_loss: 1.1918; WTcoef_1: -1.6989; WTcoef_2: -1.3269; WTres_1: 0.0218; WTres_2: -0.0803; 
+Epoch 461; Avg_val_loss: 1.1945; WTcoef_1: -1.6982; WTcoef_2: -1.3227; WTres_1: 0.0230; WTres_2: -0.0808; 
+Epoch 471; Avg_val_loss: 1.1931; WTcoef_1: -1.6978; WTcoef_2: -1.3220; WTres_1: 0.0230; WTres_2: -0.0797; 
+Epoch 481; Avg_val_loss: 1.1880; WTcoef_1: -1.6970; WTcoef_2: -1.3208; WTres_1: 0.0212; WTres_2: -0.0794; 
+Stopping early: coefficients not changing and validation loss not decreasing.
+Done!
+Best model:
+{'fold': 1, 'seed': 1, 'grid_search': True, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Fitting model:
+{'fold': 6, 'seed': 1, 'grid_search': False, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Epoch 1; Avg_val_loss: 1.9473; WTcoef_1: 0.3786; WTcoef_2: -0.2190; WTres_1: 0.3754; WTres_2: 0.6699; 
+Epoch 11; Avg_val_loss: 1.3073; WTcoef_1: -0.8005; WTcoef_2: -1.6765; WTres_1: 0.0328; WTres_2: 0.0283; 
+Epoch 21; Avg_val_loss: 1.2463; WTcoef_1: -1.3743; WTcoef_2: -1.7723; WTres_1: 0.0335; WTres_2: -0.0780; 
+Epoch 31; Avg_val_loss: 1.2295; WTcoef_1: -1.6234; WTcoef_2: -1.7589; WTres_1: 0.0361; WTres_2: -0.0676; 
+Epoch 41; Avg_val_loss: 1.2151; WTcoef_1: -1.7597; WTcoef_2: -1.7735; WTres_1: 0.0190; WTres_2: -0.0894; 
+Epoch 51; Avg_val_loss: 1.2193; WTcoef_1: -1.8336; WTcoef_2: -1.7778; WTres_1: 0.0106; WTres_2: -0.0858; 
+Epoch 61; Avg_val_loss: 1.2121; WTcoef_1: -1.8651; WTcoef_2: -1.7588; WTres_1: 0.0233; WTres_2: -0.0835; 
+Epoch 71; Avg_val_loss: 1.2126; WTcoef_1: -1.9041; WTcoef_2: -1.7284; WTres_1: 0.0187; WTres_2: -0.0842; 
+Epoch 81; Avg_val_loss: 1.2030; WTcoef_1: -1.8990; WTcoef_2: -1.6985; WTres_1: 0.0311; WTres_2: -0.0781; 
+Epoch 91; Avg_val_loss: 1.2192; WTcoef_1: -1.8862; WTcoef_2: -1.7161; WTres_1: 0.0082; WTres_2: -0.0869; 
+Epoch 101; Avg_val_loss: 1.2118; WTcoef_1: -1.8807; WTcoef_2: -1.7031; WTres_1: 0.0193; WTres_2: -0.0778; 
+Epoch 111; Avg_val_loss: 1.2042; WTcoef_1: -1.8643; WTcoef_2: -1.6555; WTres_1: 0.0270; WTres_2: -0.0734; 
+Epoch 121; Avg_val_loss: 1.1989; WTcoef_1: -1.8737; WTcoef_2: -1.6489; WTres_1: 0.0351; WTres_2: -0.0741; 
+Epoch 131; Avg_val_loss: 1.2080; WTcoef_1: -1.8649; WTcoef_2: -1.6466; WTres_1: 0.0201; WTres_2: -0.0675; 
+Epoch 141; Avg_val_loss: 1.2036; WTcoef_1: -1.8622; WTcoef_2: -1.6151; WTres_1: 0.0253; WTres_2: -0.0885; 
+Epoch 151; Avg_val_loss: 1.2240; WTcoef_1: -1.8443; WTcoef_2: -1.5899; WTres_1: 0.0499; WTres_2: -0.0905; 
+Epoch 161; Avg_val_loss: 1.2137; WTcoef_1: -1.8360; WTcoef_2: -1.5770; WTres_1: 0.0365; WTres_2: -0.0887; 
+Epoch 171; Avg_val_loss: 1.2009; WTcoef_1: -1.8182; WTcoef_2: -1.5506; WTres_1: 0.0297; WTres_2: -0.0804; 
+Epoch 181; Avg_val_loss: 1.2134; WTcoef_1: -1.8109; WTcoef_2: -1.5815; WTres_1: 0.0080; WTres_2: -0.0612; 
+Epoch 191; Avg_val_loss: 1.2146; WTcoef_1: -1.8243; WTcoef_2: -1.5449; WTres_1: 0.0261; WTres_2: -0.1100; 
+Epoch 201; Avg_val_loss: 1.2006; WTcoef_1: -1.8074; WTcoef_2: -1.5313; WTres_1: 0.0375; WTres_2: -0.0745; 
+Epoch 211; Avg_val_loss: 1.1977; WTcoef_1: -1.8023; WTcoef_2: -1.5324; WTres_1: 0.0168; WTres_2: -0.0857; 
+Epoch 221; Avg_val_loss: 1.2007; WTcoef_1: -1.7747; WTcoef_2: -1.5239; WTres_1: 0.0268; WTres_2: -0.0771; 
+Epoch 231; Avg_val_loss: 1.1967; WTcoef_1: -1.7718; WTcoef_2: -1.5088; WTres_1: 0.0263; WTres_2: -0.0783; 
+Epoch 241; Avg_val_loss: 1.1942; WTcoef_1: -1.7667; WTcoef_2: -1.4844; WTres_1: 0.0246; WTres_2: -0.0893; 
+Epoch 251; Avg_val_loss: 1.2022; WTcoef_1: -1.7520; WTcoef_2: -1.4712; WTres_1: 0.0280; WTres_2: -0.0715; 
+Epoch 261; Avg_val_loss: 1.1915; WTcoef_1: -1.7515; WTcoef_2: -1.4800; WTres_1: 0.0220; WTres_2: -0.0841; 
+Epoch 271; Avg_val_loss: 1.2031; WTcoef_1: -1.7517; WTcoef_2: -1.4635; WTres_1: 0.0225; WTres_2: -0.0968; 
+Epoch 281; Avg_val_loss: 1.2006; WTcoef_1: -1.7445; WTcoef_2: -1.4575; WTres_1: 0.0239; WTres_2: -0.0808; 
+Epoch 291; Avg_val_loss: 1.1922; WTcoef_1: -1.7400; WTcoef_2: -1.4466; WTres_1: 0.0168; WTres_2: -0.0852; 
+Epoch 301; Avg_val_loss: 1.1945; WTcoef_1: -1.7405; WTcoef_2: -1.4386; WTres_1: 0.0180; WTres_2: -0.0877; 
+Epoch 311; Avg_val_loss: 1.1983; WTcoef_1: -1.7322; WTcoef_2: -1.4258; WTres_1: 0.0203; WTres_2: -0.0866; 
+Epoch 321; Avg_val_loss: 1.1999; WTcoef_1: -1.7311; WTcoef_2: -1.4269; WTres_1: 0.0169; WTres_2: -0.0928; 
+Epoch 331; Avg_val_loss: 1.1988; WTcoef_1: -1.7241; WTcoef_2: -1.4155; WTres_1: 0.0256; WTres_2: -0.0859; 
+Epoch 341; Avg_val_loss: 1.1946; WTcoef_1: -1.7204; WTcoef_2: -1.4132; WTres_1: 0.0205; WTres_2: -0.0880; 
+Epoch 351; Avg_val_loss: 1.1975; WTcoef_1: -1.7073; WTcoef_2: -1.4097; WTres_1: 0.0222; WTres_2: -0.0775; 
+Epoch 361; Avg_val_loss: 1.1954; WTcoef_1: -1.7086; WTcoef_2: -1.4020; WTres_1: 0.0224; WTres_2: -0.0833; 
+Epoch 371; Avg_val_loss: 1.1891; WTcoef_1: -1.7146; WTcoef_2: -1.4000; WTres_1: 0.0209; WTres_2: -0.0861; 
+Epoch 381; Avg_val_loss: 1.1956; WTcoef_1: -1.7049; WTcoef_2: -1.3896; WTres_1: 0.0200; WTres_2: -0.0900; 
+Epoch 391; Avg_val_loss: 1.2008; WTcoef_1: -1.7023; WTcoef_2: -1.3889; WTres_1: 0.0154; WTres_2: -0.0869; 
+Epoch 401; Avg_val_loss: 1.2001; WTcoef_1: -1.7006; WTcoef_2: -1.3862; WTres_1: 0.0203; WTres_2: -0.0865; 
+Epoch 411; Avg_val_loss: 1.2019; WTcoef_1: -1.6987; WTcoef_2: -1.3780; WTres_1: 0.0230; WTres_2: -0.0888; 
+Epoch 421; Avg_val_loss: 1.1938; WTcoef_1: -1.6952; WTcoef_2: -1.3768; WTres_1: 0.0223; WTres_2: -0.0876; 
+Epoch 431; Avg_val_loss: 1.1976; WTcoef_1: -1.6934; WTcoef_2: -1.3756; WTres_1: 0.0202; WTres_2: -0.0882; 
+Epoch 441; Avg_val_loss: 1.1963; WTcoef_1: -1.6910; WTcoef_2: -1.3758; WTres_1: 0.0186; WTres_2: -0.0851; 
+Epoch 451; Avg_val_loss: 1.1978; WTcoef_1: -1.6899; WTcoef_2: -1.3720; WTres_1: 0.0210; WTres_2: -0.0880; 
+Epoch 461; Avg_val_loss: 1.1974; WTcoef_1: -1.6879; WTcoef_2: -1.3737; WTres_1: 0.0190; WTres_2: -0.0879; 
+Stopping early: coefficients not changing and validation loss not decreasing.
+Done!
+Best model:
+{'fold': 1, 'seed': 1, 'grid_search': True, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Fitting model:
+{'fold': 7, 'seed': 1, 'grid_search': False, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Epoch 1; Avg_val_loss: 1.9526; WTcoef_1: 0.3426; WTcoef_2: -0.2138; WTres_1: 0.3552; WTres_2: 0.6773; 
+Epoch 11; Avg_val_loss: 1.2707; WTcoef_1: -0.7863; WTcoef_2: -1.6158; WTres_1: 0.0337; WTres_2: -0.0060; 
+Epoch 21; Avg_val_loss: 1.2347; WTcoef_1: -1.3390; WTcoef_2: -1.7544; WTres_1: 0.0344; WTres_2: -0.0617; 
+Epoch 31; Avg_val_loss: 1.2241; WTcoef_1: -1.5978; WTcoef_2: -1.8016; WTres_1: 0.0365; WTres_2: -0.0797; 
+Epoch 41; Avg_val_loss: 1.2128; WTcoef_1: -1.7174; WTcoef_2: -1.8042; WTres_1: 0.0335; WTres_2: -0.0725; 
+Epoch 51; Avg_val_loss: 1.2219; WTcoef_1: -1.7843; WTcoef_2: -1.7888; WTres_1: 0.0059; WTres_2: -0.0742; 
+Epoch 61; Avg_val_loss: 1.2318; WTcoef_1: -1.8162; WTcoef_2: -1.8065; WTres_1: 0.0040; WTres_2: -0.0553; 
+Epoch 71; Avg_val_loss: 1.2193; WTcoef_1: -1.8695; WTcoef_2: -1.7754; WTres_1: 0.0154; WTres_2: -0.0598; 
+Epoch 81; Avg_val_loss: 1.1991; WTcoef_1: -1.8662; WTcoef_2: -1.7429; WTres_1: 0.0182; WTres_2: -0.0687; 
+Epoch 91; Avg_val_loss: 1.2241; WTcoef_1: -1.8510; WTcoef_2: -1.7306; WTres_1: 0.0069; WTres_2: -0.0899; 
+Epoch 101; Avg_val_loss: 1.2145; WTcoef_1: -1.8470; WTcoef_2: -1.7130; WTres_1: 0.0124; WTres_2: -0.0754; 
+Epoch 111; Avg_val_loss: 1.2018; WTcoef_1: -1.8418; WTcoef_2: -1.6819; WTres_1: 0.0203; WTres_2: -0.0781; 
+Epoch 121; Avg_val_loss: 1.2039; WTcoef_1: -1.8363; WTcoef_2: -1.6624; WTres_1: 0.0306; WTres_2: -0.0944; 
+Epoch 131; Avg_val_loss: 1.2079; WTcoef_1: -1.8236; WTcoef_2: -1.6424; WTres_1: 0.0188; WTres_2: -0.0878; 
+Epoch 141; Avg_val_loss: 1.2069; WTcoef_1: -1.8040; WTcoef_2: -1.6203; WTres_1: 0.0329; WTres_2: -0.0629; 
+Epoch 151; Avg_val_loss: 1.2025; WTcoef_1: -1.8082; WTcoef_2: -1.5805; WTres_1: 0.0314; WTres_2: -0.0965; 
+Epoch 161; Avg_val_loss: 1.1967; WTcoef_1: -1.7807; WTcoef_2: -1.5838; WTres_1: 0.0190; WTres_2: -0.0897; 
+Epoch 171; Avg_val_loss: 1.2005; WTcoef_1: -1.7662; WTcoef_2: -1.5648; WTres_1: 0.0208; WTres_2: -0.0801; 
+Epoch 181; Avg_val_loss: 1.1984; WTcoef_1: -1.7601; WTcoef_2: -1.5375; WTres_1: 0.0171; WTres_2: -0.0641; 
+Epoch 191; Avg_val_loss: 1.1908; WTcoef_1: -1.7463; WTcoef_2: -1.5122; WTres_1: 0.0157; WTres_2: -0.0835; 
+Epoch 201; Avg_val_loss: 1.1994; WTcoef_1: -1.7304; WTcoef_2: -1.5053; WTres_1: 0.0171; WTres_2: -0.0708; 
+Epoch 211; Avg_val_loss: 1.2005; WTcoef_1: -1.7316; WTcoef_2: -1.4876; WTres_1: 0.0171; WTres_2: -0.0946; 
+Epoch 221; Avg_val_loss: 1.1928; WTcoef_1: -1.7194; WTcoef_2: -1.4784; WTres_1: 0.0228; WTres_2: -0.0896; 
+Epoch 231; Avg_val_loss: 1.1910; WTcoef_1: -1.7190; WTcoef_2: -1.4592; WTres_1: 0.0224; WTres_2: -0.0916; 
+Epoch 241; Avg_val_loss: 1.1937; WTcoef_1: -1.7092; WTcoef_2: -1.4458; WTres_1: 0.0190; WTres_2: -0.0875; 
+Epoch 251; Avg_val_loss: 1.1881; WTcoef_1: -1.6983; WTcoef_2: -1.4385; WTres_1: 0.0267; WTres_2: -0.0855; 
+Epoch 261; Avg_val_loss: 1.1928; WTcoef_1: -1.6961; WTcoef_2: -1.4243; WTres_1: 0.0208; WTres_2: -0.0860; 
+Epoch 271; Avg_val_loss: 1.1868; WTcoef_1: -1.6885; WTcoef_2: -1.4180; WTres_1: 0.0222; WTres_2: -0.0824; 
+Epoch 281; Avg_val_loss: 1.1942; WTcoef_1: -1.6748; WTcoef_2: -1.4117; WTres_1: 0.0187; WTres_2: -0.0839; 
+Epoch 291; Avg_val_loss: 1.1915; WTcoef_1: -1.6755; WTcoef_2: -1.4033; WTres_1: 0.0207; WTres_2: -0.0920; 
+Epoch 301; Avg_val_loss: 1.1937; WTcoef_1: -1.6688; WTcoef_2: -1.3931; WTres_1: 0.0209; WTres_2: -0.0804; 
+Epoch 311; Avg_val_loss: 1.1946; WTcoef_1: -1.6718; WTcoef_2: -1.3897; WTres_1: 0.0232; WTres_2: -0.0860; 
+Epoch 321; Avg_val_loss: 1.1918; WTcoef_1: -1.6643; WTcoef_2: -1.3860; WTres_1: 0.0213; WTres_2: -0.0881; 
+Epoch 331; Avg_val_loss: 1.1923; WTcoef_1: -1.6606; WTcoef_2: -1.3878; WTres_1: 0.0181; WTres_2: -0.0855; 
+Epoch 341; Avg_val_loss: 1.1891; WTcoef_1: -1.6579; WTcoef_2: -1.3793; WTres_1: 0.0210; WTres_2: -0.0881; 
+Epoch 351; Avg_val_loss: 1.1937; WTcoef_1: -1.6530; WTcoef_2: -1.3746; WTres_1: 0.0202; WTres_2: -0.0853; 
+Epoch 361; Avg_val_loss: 1.1943; WTcoef_1: -1.6565; WTcoef_2: -1.3699; WTres_1: 0.0170; WTres_2: -0.0891; 
+Epoch 371; Avg_val_loss: 1.1902; WTcoef_1: -1.6545; WTcoef_2: -1.3649; WTres_1: 0.0211; WTres_2: -0.0838; 
+Epoch 381; Avg_val_loss: 1.1968; WTcoef_1: -1.6503; WTcoef_2: -1.3630; WTres_1: 0.0188; WTres_2: -0.0883; 
+Epoch 391; Avg_val_loss: 1.1907; WTcoef_1: -1.6450; WTcoef_2: -1.3601; WTres_1: 0.0176; WTres_2: -0.0839; 
+Epoch 401; Avg_val_loss: 1.1898; WTcoef_1: -1.6449; WTcoef_2: -1.3568; WTres_1: 0.0171; WTres_2: -0.0852; 
+Epoch 411; Avg_val_loss: 1.1905; WTcoef_1: -1.6421; WTcoef_2: -1.3539; WTres_1: 0.0177; WTres_2: -0.0861; 
+Epoch 421; Avg_val_loss: 1.1901; WTcoef_1: -1.6418; WTcoef_2: -1.3479; WTres_1: 0.0197; WTres_2: -0.0861; 
+Stopping early: coefficients not changing and validation loss not decreasing.
+Done!
+Best model:
+{'fold': 1, 'seed': 1, 'grid_search': True, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Fitting model:
+{'fold': 8, 'seed': 1, 'grid_search': False, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Epoch 1; Avg_val_loss: 1.9428; WTcoef_1: 0.3408; WTcoef_2: -0.2071; WTres_1: 0.3696; WTres_2: 0.6445; 
+Epoch 11; Avg_val_loss: 1.2665; WTcoef_1: -0.7873; WTcoef_2: -1.6946; WTres_1: 0.0245; WTres_2: -0.0088; 
+Epoch 21; Avg_val_loss: 1.2356; WTcoef_1: -1.3223; WTcoef_2: -1.7939; WTres_1: 0.0202; WTres_2: -0.0434; 
+Epoch 31; Avg_val_loss: 1.2172; WTcoef_1: -1.6057; WTcoef_2: -1.8403; WTres_1: 0.0202; WTres_2: -0.0666; 
+Epoch 41; Avg_val_loss: 1.2200; WTcoef_1: -1.7245; WTcoef_2: -1.8188; WTres_1: 0.0151; WTres_2: -0.0548; 
+Epoch 51; Avg_val_loss: 1.2145; WTcoef_1: -1.7987; WTcoef_2: -1.8083; WTres_1: 0.0204; WTres_2: -0.0920; 
+Epoch 61; Avg_val_loss: 1.2198; WTcoef_1: -1.8272; WTcoef_2: -1.7696; WTres_1: 0.0065; WTres_2: -0.0636; 
+Epoch 71; Avg_val_loss: 1.2070; WTcoef_1: -1.8415; WTcoef_2: -1.7985; WTres_1: 0.0314; WTres_2: -0.0811; 
+Epoch 81; Avg_val_loss: 1.2088; WTcoef_1: -1.8730; WTcoef_2: -1.7766; WTres_1: 0.0262; WTres_2: -0.0803; 
+Epoch 91; Avg_val_loss: 1.2057; WTcoef_1: -1.8555; WTcoef_2: -1.7636; WTres_1: 0.0190; WTres_2: -0.0765; 
+Epoch 101; Avg_val_loss: 1.2020; WTcoef_1: -1.8293; WTcoef_2: -1.7666; WTres_1: 0.0311; WTres_2: -0.0852; 
+Epoch 111; Avg_val_loss: 1.1950; WTcoef_1: -1.8674; WTcoef_2: -1.7415; WTres_1: 0.0349; WTres_2: -0.0789; 
+Epoch 121; Avg_val_loss: 1.2077; WTcoef_1: -1.8590; WTcoef_2: -1.7328; WTres_1: 0.0245; WTres_2: -0.1001; 
+Epoch 131; Avg_val_loss: 1.2129; WTcoef_1: -1.8256; WTcoef_2: -1.7027; WTres_1: 0.0427; WTres_2: -0.0867; 
+Epoch 141; Avg_val_loss: 1.1936; WTcoef_1: -1.8285; WTcoef_2: -1.7076; WTres_1: 0.0292; WTres_2: -0.0816; 
+Epoch 151; Avg_val_loss: 1.1987; WTcoef_1: -1.8314; WTcoef_2: -1.6797; WTres_1: 0.0322; WTres_2: -0.0803; 
+Epoch 161; Avg_val_loss: 1.1955; WTcoef_1: -1.8220; WTcoef_2: -1.6637; WTres_1: 0.0356; WTres_2: -0.0865; 
+Epoch 171; Avg_val_loss: 1.1990; WTcoef_1: -1.8175; WTcoef_2: -1.6380; WTres_1: 0.0304; WTres_2: -0.1005; 
+Epoch 181; Avg_val_loss: 1.1904; WTcoef_1: -1.7854; WTcoef_2: -1.6377; WTres_1: 0.0146; WTres_2: -0.0727; 
+Epoch 191; Avg_val_loss: 1.1949; WTcoef_1: -1.7702; WTcoef_2: -1.6116; WTres_1: 0.0307; WTres_2: -0.0827; 
+Epoch 201; Avg_val_loss: 1.1898; WTcoef_1: -1.7571; WTcoef_2: -1.6041; WTres_1: 0.0267; WTres_2: -0.0816; 
+Epoch 211; Avg_val_loss: 1.1889; WTcoef_1: -1.7570; WTcoef_2: -1.5775; WTres_1: 0.0289; WTres_2: -0.0853; 
+Epoch 221; Avg_val_loss: 1.1859; WTcoef_1: -1.7505; WTcoef_2: -1.5713; WTres_1: 0.0212; WTres_2: -0.0901; 
+Epoch 231; Avg_val_loss: 1.1937; WTcoef_1: -1.7280; WTcoef_2: -1.5691; WTres_1: 0.0292; WTres_2: -0.0795; 
+Epoch 241; Avg_val_loss: 1.1963; WTcoef_1: -1.7227; WTcoef_2: -1.5496; WTres_1: 0.0223; WTres_2: -0.0651; 
+Epoch 251; Avg_val_loss: 1.1876; WTcoef_1: -1.7265; WTcoef_2: -1.5520; WTres_1: 0.0201; WTres_2: -0.0901; 
+Epoch 261; Avg_val_loss: 1.1921; WTcoef_1: -1.7168; WTcoef_2: -1.5273; WTres_1: 0.0328; WTres_2: -0.0792; 
+Epoch 271; Avg_val_loss: 1.1890; WTcoef_1: -1.7133; WTcoef_2: -1.5106; WTres_1: 0.0312; WTres_2: -0.0831; 
+Epoch 281; Avg_val_loss: 1.1899; WTcoef_1: -1.7081; WTcoef_2: -1.5132; WTres_1: 0.0302; WTres_2: -0.0837; 
+Epoch 291; Avg_val_loss: 1.1854; WTcoef_1: -1.7047; WTcoef_2: -1.5005; WTres_1: 0.0231; WTres_2: -0.0841; 
+Epoch 301; Avg_val_loss: 1.1894; WTcoef_1: -1.6964; WTcoef_2: -1.4862; WTres_1: 0.0196; WTres_2: -0.0875; 
+Epoch 311; Avg_val_loss: 1.1883; WTcoef_1: -1.6901; WTcoef_2: -1.4737; WTres_1: 0.0222; WTres_2: -0.0807; 
+Epoch 321; Avg_val_loss: 1.1897; WTcoef_1: -1.6882; WTcoef_2: -1.4739; WTres_1: 0.0143; WTres_2: -0.0887; 
+Epoch 331; Avg_val_loss: 1.1854; WTcoef_1: -1.6814; WTcoef_2: -1.4699; WTres_1: 0.0125; WTres_2: -0.0858; 
+Epoch 341; Avg_val_loss: 1.1868; WTcoef_1: -1.6782; WTcoef_2: -1.4626; WTres_1: 0.0212; WTres_2: -0.0837; 
+Epoch 351; Avg_val_loss: 1.1919; WTcoef_1: -1.6746; WTcoef_2: -1.4521; WTres_1: 0.0237; WTres_2: -0.0917; 
+Epoch 361; Avg_val_loss: 1.1875; WTcoef_1: -1.6689; WTcoef_2: -1.4488; WTres_1: 0.0212; WTres_2: -0.0836; 
+Epoch 371; Avg_val_loss: 1.1871; WTcoef_1: -1.6661; WTcoef_2: -1.4442; WTres_1: 0.0230; WTres_2: -0.0857; 
+Epoch 381; Avg_val_loss: 1.1912; WTcoef_1: -1.6683; WTcoef_2: -1.4396; WTres_1: 0.0241; WTres_2: -0.0884; 
+Epoch 391; Avg_val_loss: 1.1874; WTcoef_1: -1.6645; WTcoef_2: -1.4387; WTres_1: 0.0219; WTres_2: -0.0865; 
+Epoch 401; Avg_val_loss: 1.1884; WTcoef_1: -1.6617; WTcoef_2: -1.4338; WTres_1: 0.0256; WTres_2: -0.0852; 
+Epoch 411; Avg_val_loss: 1.1875; WTcoef_1: -1.6605; WTcoef_2: -1.4295; WTres_1: 0.0234; WTres_2: -0.0870; 
+Epoch 421; Avg_val_loss: 1.1823; WTcoef_1: -1.6592; WTcoef_2: -1.4271; WTres_1: 0.0199; WTres_2: -0.0860; 
+Epoch 431; Avg_val_loss: 1.1891; WTcoef_1: -1.6580; WTcoef_2: -1.4239; WTres_1: 0.0225; WTres_2: -0.0873; 
+Epoch 441; Avg_val_loss: 1.1853; WTcoef_1: -1.6555; WTcoef_2: -1.4208; WTres_1: 0.0239; WTres_2: -0.0834; 
+Stopping early: coefficients not changing and validation loss not decreasing.
+Done!
+Best model:
+{'fold': 1, 'seed': 1, 'grid_search': True, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Fitting model:
+{'fold': 9, 'seed': 1, 'grid_search': False, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Epoch 1; Avg_val_loss: 1.8843; WTcoef_1: 0.2947; WTcoef_2: -0.1952; WTres_1: 0.3785; WTres_2: 0.6454; 
+Epoch 11; Avg_val_loss: 1.2658; WTcoef_1: -0.8435; WTcoef_2: -1.6541; WTres_1: 0.0153; WTres_2: -0.0070; 
+Epoch 21; Avg_val_loss: 1.2439; WTcoef_1: -1.3599; WTcoef_2: -1.7861; WTres_1: -0.0009; WTres_2: -0.0585; 
+Epoch 31; Avg_val_loss: 1.2227; WTcoef_1: -1.6079; WTcoef_2: -1.8119; WTres_1: 0.0078; WTres_2: -0.0884; 
+Epoch 41; Avg_val_loss: 1.2187; WTcoef_1: -1.7583; WTcoef_2: -1.8069; WTres_1: 0.0305; WTres_2: -0.0779; 
+Epoch 51; Avg_val_loss: 1.2167; WTcoef_1: -1.8046; WTcoef_2: -1.8013; WTres_1: 0.0367; WTres_2: -0.0823; 
+Epoch 61; Avg_val_loss: 1.2206; WTcoef_1: -1.8607; WTcoef_2: -1.8093; WTres_1: 0.0287; WTres_2: -0.0967; 
+Epoch 71; Avg_val_loss: 1.2169; WTcoef_1: -1.8924; WTcoef_2: -1.7947; WTres_1: 0.0261; WTres_2: -0.0812; 
+Epoch 81; Avg_val_loss: 1.2208; WTcoef_1: -1.8974; WTcoef_2: -1.7696; WTres_1: 0.0360; WTres_2: -0.0914; 
+Epoch 91; Avg_val_loss: 1.2133; WTcoef_1: -1.8960; WTcoef_2: -1.7465; WTres_1: 0.0296; WTres_2: -0.0720; 
+Epoch 101; Avg_val_loss: 1.2110; WTcoef_1: -1.8888; WTcoef_2: -1.7401; WTres_1: 0.0256; WTres_2: -0.0629; 
+Epoch 111; Avg_val_loss: 1.2069; WTcoef_1: -1.8852; WTcoef_2: -1.7117; WTres_1: 0.0337; WTres_2: -0.0865; 
+Epoch 121; Avg_val_loss: 1.2489; WTcoef_1: -1.8643; WTcoef_2: -1.6855; WTres_1: 0.0686; WTres_2: -0.0738; 
+Epoch 131; Avg_val_loss: 1.2028; WTcoef_1: -1.8651; WTcoef_2: -1.7105; WTres_1: 0.0336; WTres_2: -0.0868; 
+Epoch 141; Avg_val_loss: 1.2115; WTcoef_1: -1.8467; WTcoef_2: -1.6864; WTres_1: 0.0351; WTres_2: -0.0643; 
+Epoch 151; Avg_val_loss: 1.2005; WTcoef_1: -1.8396; WTcoef_2: -1.6578; WTres_1: 0.0335; WTres_2: -0.0868; 
+Epoch 161; Avg_val_loss: 1.2034; WTcoef_1: -1.8162; WTcoef_2: -1.6506; WTres_1: 0.0255; WTres_2: -0.0826; 
+Epoch 171; Avg_val_loss: 1.1963; WTcoef_1: -1.8011; WTcoef_2: -1.6355; WTres_1: 0.0355; WTres_2: -0.0921; 
+Epoch 181; Avg_val_loss: 1.2105; WTcoef_1: -1.7884; WTcoef_2: -1.6109; WTres_1: 0.0471; WTres_2: -0.0802; 
+Epoch 191; Avg_val_loss: 1.1949; WTcoef_1: -1.7824; WTcoef_2: -1.6076; WTres_1: 0.0363; WTres_2: -0.0801; 
+Epoch 201; Avg_val_loss: 1.1951; WTcoef_1: -1.7743; WTcoef_2: -1.6007; WTres_1: 0.0226; WTres_2: -0.0865; 
+Epoch 211; Avg_val_loss: 1.1939; WTcoef_1: -1.7688; WTcoef_2: -1.5901; WTres_1: 0.0286; WTres_2: -0.0835; 
+Epoch 221; Avg_val_loss: 1.1934; WTcoef_1: -1.7522; WTcoef_2: -1.5720; WTres_1: 0.0253; WTres_2: -0.0845; 
+Epoch 231; Avg_val_loss: 1.2084; WTcoef_1: -1.7665; WTcoef_2: -1.5617; WTres_1: 0.0149; WTres_2: -0.0941; 
+Epoch 241; Avg_val_loss: 1.2043; WTcoef_1: -1.7615; WTcoef_2: -1.5527; WTres_1: 0.0174; WTres_2: -0.0951; 
+Epoch 251; Avg_val_loss: 1.1945; WTcoef_1: -1.7499; WTcoef_2: -1.5498; WTres_1: 0.0325; WTres_2: -0.0830; 
+Epoch 261; Avg_val_loss: 1.1972; WTcoef_1: -1.7289; WTcoef_2: -1.5352; WTres_1: 0.0319; WTres_2: -0.0773; 
+Epoch 271; Avg_val_loss: 1.2063; WTcoef_1: -1.7260; WTcoef_2: -1.5364; WTres_1: 0.0120; WTres_2: -0.0859; 
+Epoch 281; Avg_val_loss: 1.1936; WTcoef_1: -1.7198; WTcoef_2: -1.5232; WTres_1: 0.0232; WTres_2: -0.0799; 
+Epoch 291; Avg_val_loss: 1.1909; WTcoef_1: -1.7150; WTcoef_2: -1.5135; WTres_1: 0.0221; WTres_2: -0.0741; 
+Epoch 301; Avg_val_loss: 1.1997; WTcoef_1: -1.7162; WTcoef_2: -1.5076; WTres_1: 0.0167; WTres_2: -0.0836; 
+Epoch 311; Avg_val_loss: 1.1934; WTcoef_1: -1.6989; WTcoef_2: -1.4974; WTres_1: 0.0288; WTres_2: -0.0882; 
+Epoch 321; Avg_val_loss: 1.1954; WTcoef_1: -1.6998; WTcoef_2: -1.4950; WTres_1: 0.0219; WTres_2: -0.0819; 
+Epoch 331; Avg_val_loss: 1.1949; WTcoef_1: -1.7028; WTcoef_2: -1.4816; WTres_1: 0.0175; WTres_2: -0.0822; 
+Epoch 341; Avg_val_loss: 1.1948; WTcoef_1: -1.6980; WTcoef_2: -1.4754; WTres_1: 0.0258; WTres_2: -0.0863; 
+Epoch 351; Avg_val_loss: 1.1966; WTcoef_1: -1.6828; WTcoef_2: -1.4686; WTres_1: 0.0293; WTres_2: -0.0884; 
+Epoch 361; Avg_val_loss: 1.1982; WTcoef_1: -1.6879; WTcoef_2: -1.4665; WTres_1: 0.0177; WTres_2: -0.0830; 
+Epoch 371; Avg_val_loss: 1.1921; WTcoef_1: -1.6835; WTcoef_2: -1.4579; WTres_1: 0.0242; WTres_2: -0.0838; 
+Epoch 381; Avg_val_loss: 1.1940; WTcoef_1: -1.6762; WTcoef_2: -1.4508; WTres_1: 0.0237; WTres_2: -0.0799; 
+Epoch 391; Avg_val_loss: 1.1999; WTcoef_1: -1.6755; WTcoef_2: -1.4429; WTres_1: 0.0222; WTres_2: -0.0789; 
+Epoch 401; Avg_val_loss: 1.1930; WTcoef_1: -1.6760; WTcoef_2: -1.4417; WTres_1: 0.0241; WTres_2: -0.0793; 
+Epoch 411; Avg_val_loss: 1.1999; WTcoef_1: -1.6736; WTcoef_2: -1.4423; WTres_1: 0.0169; WTres_2: -0.0842; 
+Epoch 421; Avg_val_loss: 1.1955; WTcoef_1: -1.6698; WTcoef_2: -1.4358; WTres_1: 0.0228; WTres_2: -0.0858; 
+Epoch 431; Avg_val_loss: 1.1944; WTcoef_1: -1.6693; WTcoef_2: -1.4311; WTres_1: 0.0224; WTres_2: -0.0877; 
+Epoch 441; Avg_val_loss: 1.1912; WTcoef_1: -1.6678; WTcoef_2: -1.4270; WTres_1: 0.0233; WTres_2: -0.0869; 
+Epoch 451; Avg_val_loss: 1.1965; WTcoef_1: -1.6639; WTcoef_2: -1.4281; WTres_1: 0.0173; WTres_2: -0.0840; 
+Epoch 461; Avg_val_loss: 1.1948; WTcoef_1: -1.6678; WTcoef_2: -1.4221; WTres_1: 0.0195; WTres_2: -0.0880; 
+Epoch 471; Avg_val_loss: 1.1941; WTcoef_1: -1.6623; WTcoef_2: -1.4186; WTres_1: 0.0227; WTres_2: -0.0853; 
+Epoch 481; Avg_val_loss: 1.1965; WTcoef_1: -1.6618; WTcoef_2: -1.4125; WTres_1: 0.0212; WTres_2: -0.0822; 
+Epoch 491; Avg_val_loss: 1.1994; WTcoef_1: -1.6615; WTcoef_2: -1.4109; WTres_1: 0.0216; WTres_2: -0.0863; 
+Epoch 501; Avg_val_loss: 1.1916; WTcoef_1: -1.6617; WTcoef_2: -1.4084; WTres_1: 0.0216; WTres_2: -0.0871; 
+Epoch 511; Avg_val_loss: 1.1947; WTcoef_1: -1.6611; WTcoef_2: -1.4084; WTres_1: 0.0210; WTres_2: -0.0871; 
+Epoch 521; Avg_val_loss: 1.1961; WTcoef_1: -1.6589; WTcoef_2: -1.4062; WTres_1: 0.0196; WTres_2: -0.0850; 
+Stopping early: coefficients not changing and validation loss not decreasing.
+Done!
+Best model:
+{'fold': 1, 'seed': 1, 'grid_search': True, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Fitting model:
+{'fold': 10, 'seed': 1, 'grid_search': False, 'batch_size': 2048, 'learn_rate': 0.05, 'num_epochs': 1000, 'num_epochs_grid': 100, 'l1_regularization_factor': 0.0, 'l2_regularization_factor': 1e-06, 'training_resample': True, 'early_stopping': True, 'scheduler_gamma': 0.98, 'scheduler_epochs': 10}
+Epoch 1; Avg_val_loss: 1.9168; WTcoef_1: 0.3077; WTcoef_2: -0.1880; WTres_1: 0.3986; WTres_2: 0.6193; 
+Epoch 11; Avg_val_loss: 1.2492; WTcoef_1: -0.8029; WTcoef_2: -1.7229; WTres_1: 0.0359; WTres_2: -0.0175; 
+Epoch 21; Avg_val_loss: 1.2202; WTcoef_1: -1.3382; WTcoef_2: -1.8229; WTres_1: 0.0159; WTres_2: -0.0669; 
+Epoch 31; Avg_val_loss: 1.2372; WTcoef_1: -1.6127; WTcoef_2: -1.8626; WTres_1: -0.0022; WTres_2: -0.0555; 
+Epoch 41; Avg_val_loss: 1.2520; WTcoef_1: -1.7939; WTcoef_2: -1.8509; WTres_1: 0.0001; WTres_2: -0.1022; 
+Epoch 51; Avg_val_loss: 1.2388; WTcoef_1: -1.8364; WTcoef_2: -1.8381; WTres_1: 0.0439; WTres_2: -0.0420; 
+Epoch 61; Avg_val_loss: 1.2271; WTcoef_1: -1.8647; WTcoef_2: -1.8085; WTres_1: 0.0271; WTres_2: -0.0441; 
+Epoch 71; Avg_val_loss: 1.2204; WTcoef_1: -1.8949; WTcoef_2: -1.7743; WTres_1: 0.0446; WTres_2: -0.0615; 
+Epoch 81; Avg_val_loss: 1.2215; WTcoef_1: -1.8904; WTcoef_2: -1.7710; WTres_1: 0.0443; WTres_2: -0.0701; 
+Epoch 91; Avg_val_loss: 1.2142; WTcoef_1: -1.8918; WTcoef_2: -1.7697; WTres_1: 0.0377; WTres_2: -0.0973; 
+Epoch 101; Avg_val_loss: 1.2270; WTcoef_1: -1.9348; WTcoef_2: -1.7498; WTres_1: 0.0549; WTres_2: -0.1088; 
+Epoch 111; Avg_val_loss: 1.2034; WTcoef_1: -1.8966; WTcoef_2: -1.7318; WTres_1: 0.0279; WTres_2: -0.0976; 
+Epoch 121; Avg_val_loss: 1.2046; WTcoef_1: -1.8890; WTcoef_2: -1.7282; WTres_1: 0.0199; WTres_2: -0.0723; 
+Epoch 131; Avg_val_loss: 1.2143; WTcoef_1: -1.8787; WTcoef_2: -1.7030; WTres_1: 0.0463; WTres_2: -0.0864; 
+Epoch 141; Avg_val_loss: 1.2127; WTcoef_1: -1.8737; WTcoef_2: -1.7064; WTres_1: 0.0333; WTres_2: -0.0615; 
+Epoch 151; Avg_val_loss: 1.2116; WTcoef_1: -1.8563; WTcoef_2: -1.6805; WTres_1: 0.0485; WTres_2: -0.0922; 
+Epoch 161; Avg_val_loss: 1.2062; WTcoef_1: -1.8554; WTcoef_2: -1.6751; WTres_1: 0.0469; WTres_2: -0.0756; 
+Epoch 171; Avg_val_loss: 1.1949; WTcoef_1: -1.8529; WTcoef_2: -1.6566; WTres_1: 0.0257; WTres_2: -0.0887; 
+Epoch 181; Avg_val_loss: 1.2059; WTcoef_1: -1.8363; WTcoef_2: -1.6430; WTres_1: 0.0450; WTres_2: -0.0874; 
+Epoch 191; Avg_val_loss: 1.1969; WTcoef_1: -1.8195; WTcoef_2: -1.6336; WTres_1: 0.0242; WTres_2: -0.0926; 
+Epoch 201; Avg_val_loss: 1.2003; WTcoef_1: -1.8195; WTcoef_2: -1.6117; WTres_1: 0.0379; WTres_2: -0.0784; 
+Epoch 211; Avg_val_loss: 1.2005; WTcoef_1: -1.8139; WTcoef_2: -1.6120; WTres_1: 0.0164; WTres_2: -0.0792; 
+Epoch 221; Avg_val_loss: 1.1902; WTcoef_1: -1.7965; WTcoef_2: -1.5924; WTres_1: 0.0336; WTres_2: -0.0806; 
+Epoch 231; Avg_val_loss: 1.1931; WTcoef_1: -1.7975; WTcoef_2: -1.5868; WTres_1: 0.0272; WTres_2: -0.0807; 
+Epoch 241; Avg_val_loss: 1.1992; WTcoef_1: -1.7842; WTcoef_2: -1.5725; WTres_1: 0.0317; WTres_2: -0.0872; 
+Epoch 251; Avg_val_loss: 1.1942; WTcoef_1: -1.7792; WTcoef_2: -1.5662; WTres_1: 0.0271; WTres_2: -0.0826; 
+Epoch 261; Avg_val_loss: 1.1965; WTcoef_1: -1.7770; WTcoef_2: -1.5398; WTres_1: 0.0332; WTres_2: -0.0879; 
+Epoch 271; Avg_val_loss: 1.1930; WTcoef_1: -1.7595; WTcoef_2: -1.5367; WTres_1: 0.0325; WTres_2: -0.0781; 
+Epoch 281; Avg_val_loss: 1.1885; WTcoef_1: -1.7653; WTcoef_2: -1.5348; WTres_1: 0.0215; WTres_2: -0.0872; 
+Epoch 291; Avg_val_loss: 1.1948; WTcoef_1: -1.7561; WTcoef_2: -1.5173; WTres_1: 0.0367; WTres_2: -0.0885; 
+Epoch 301; Avg_val_loss: 1.1957; WTcoef_1: -1.7461; WTcoef_2: -1.5197; WTres_1: 0.0314; WTres_2: -0.0790; 
+Epoch 311; Avg_val_loss: 1.1872; WTcoef_1: -1.7485; WTcoef_2: -1.5067; WTres_1: 0.0301; WTres_2: -0.0863; 
+Epoch 321; Avg_val_loss: 1.1892; WTcoef_1: -1.7435; WTcoef_2: -1.5061; WTres_1: 0.0258; WTres_2: -0.0886; 
+Epoch 331; Avg_val_loss: 1.1936; WTcoef_1: -1.7524; WTcoef_2: -1.5008; WTres_1: 0.0254; WTres_2: -0.0929; 
+Epoch 341; Avg_val_loss: 1.1913; WTcoef_1: -1.7364; WTcoef_2: -1.4965; WTres_1: 0.0302; WTres_2: -0.0849; 
+Epoch 351; Avg_val_loss: 1.1916; WTcoef_1: -1.7388; WTcoef_2: -1.4920; WTres_1: 0.0282; WTres_2: -0.0880; 
+Epoch 361; Avg_val_loss: 1.1900; WTcoef_1: -1.7362; WTcoef_2: -1.4811; WTres_1: 0.0307; WTres_2: -0.0855; 
+Epoch 371; Avg_val_loss: 1.1886; WTcoef_1: -1.7333; WTcoef_2: -1.4827; WTres_1: 0.0256; WTres_2: -0.0820; 
+Epoch 381; Avg_val_loss: 1.1893; WTcoef_1: -1.7329; WTcoef_2: -1.4816; WTres_1: 0.0240; WTres_2: -0.0879; 
+Epoch 391; Avg_val_loss: 1.1915; WTcoef_1: -1.7294; WTcoef_2: -1.4746; WTres_1: 0.0316; WTres_2: -0.0878; 
+Epoch 401; Avg_val_loss: 1.1889; WTcoef_1: -1.7288; WTcoef_2: -1.4736; WTres_1: 0.0256; WTres_2: -0.0874; 
+Epoch 411; Avg_val_loss: 1.1899; WTcoef_1: -1.7264; WTcoef_2: -1.4719; WTres_1: 0.0281; WTres_2: -0.0879; 
+Epoch 421; Avg_val_loss: 1.1839; WTcoef_1: -1.7254; WTcoef_2: -1.4715; WTres_1: 0.0262; WTres_2: -0.0860; 
+Epoch 431; Avg_val_loss: 1.1899; WTcoef_1: -1.7216; WTcoef_2: -1.4675; WTres_1: 0.0250; WTres_2: -0.0842; 
+Epoch 441; Avg_val_loss: 1.1875; WTcoef_1: -1.7218; WTcoef_2: -1.4649; WTres_1: 0.0280; WTres_2: -0.0871; 
+Epoch 451; Avg_val_loss: 1.1917; WTcoef_1: -1.7212; WTcoef_2: -1.4655; WTres_1: 0.0264; WTres_2: -0.0837; 
+Stopping early: coefficients not changing and validation loss not decreasing.
+Done!
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@node-12-8-1>
+Subject: Job 553171: <grb2-rerun> in cluster <farm22> Done
+
+Job <grb2-rerun> was submitted from host <farm22-head1> by user <xl7> in cluster <farm22> at Fri May  9 16:27:36 2025
+Job was executed on host(s) <10*node-12-8-1>, in queue <normal>, as user <xl7> in cluster <farm22> at Fri May  9 16:30:45 2025
+</nfs/users/nfs_x/xl7> was used as the home directory.
+</lustre/scratch126/gengen/projects/alpha-allostery-global/git-p1-allo-seq-evo/data/paper_supplements/domains_andre/Data/fitness/GRB2-SH3/Abundance> was used as the working directory.
+Started at Fri May  9 16:30:45 2025
+Terminated at Fri May  9 18:44:52 2025
+Results reported at Fri May  9 18:44:52 2025
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+#BSUB -cwd /lustre/scratch126/gengen/projects/alpha-allostery-global/git-p1-allo-seq-evo/data/paper_supplements/domains_andre/Data/fitness/GRB2-SH3/Abundance
+#BSUB -o ./mochiRun.%J.out
+#BSUB -e ./mochiRun.%J.err
+#BSUB -J grb2-rerun
+#BSUB -G team354
+#BSUB -n 10 	# number of CPUs. Default: 1 # it doesn't require a lot of resources
+#BSUB -q "normal"
+#BSUB -R "select[mem>200000] rusage[mem=200000] span[hosts=1]" 	# RAM memory part 1. Default: 100MB
+#BSUB -M200000 # # RAM memory part 2. Default: 100MB
+#BSUB -W720 # time for the job HH:MM. 500 min
+
+module load HGI/softpack/groups/team354/mochi/0.9
+
+run_mochi.py  --model_design=model_design.txt 
+
+------------------------------------------------------------
+
+Successfully completed.
+
+Resource usage summary:
+
+    CPU time :                                   12380.64 sec.
+    Max Memory :                                 3051 MB
+    Average Memory :                             2772.72 MB
+    Total Requested Memory :                     200000.00 MB
+    Delta Memory :                               196949.00 MB
+    Max Swap :                                   1 MB
+    Max Processes :                              6
+    Max Threads :                                54
+    Run time :                                   8047 sec.
+    Turnaround time :                            8236 sec.
+
+The output (if any) is above this job summary.
+
+
+
+PS:
+
+Read file <./mochiRun.553171.err> for stderr output of this job.
+

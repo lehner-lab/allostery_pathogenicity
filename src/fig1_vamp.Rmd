@@ -1,0 +1,581 @@
+---
+title: "fig1_vamp"
+output: html_document
+date: "2025-06-17"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+library('ProjectTemplate')
+library(ggExtra)
+library(bio3d)
+library(ggrepel)
+load.project()
+```
+
+# VKOR
+```{r}
+vkor_ddgf <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/VKOR1_HUMAN_Chiasson_2020_abundance.csv", header = TRUE)
+vkor_ddga <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/VKOR1_HUMAN_Chiasson_2020_activity.csv", header = TRUE)
+vkor_esm <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_esm1v/Q9BQB6.csv")
+#nrow(vkor_ddgf) #2695
+#nrow(vkor_ddga) #697
+#nrow(vkor_esm) #3097
+
+vkor_df <- merge(vkor_ddgf, vkor_esm, by.x = "mutant", by.y = "variant")
+#nrow(vkor_df) #2695
+
+vkor_df <- vkor_df %>%
+  mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
+head(vkor_df)
+```
+
+```{r}
+oct_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/S22A1_HUMAN_Yee_2023_abundance.csv", header = TRUE)
+oct_esm <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_esm1v/O15245.csv")
+#nrow(oct_ddg) #9803
+#nrow(oct_esm) #10526
+
+# Reset index for oct_esm
+oct_esm$variant <- sapply(oct_esm$variant, function(x) {
+  prefix <- substr(x, 1, 1)                       # The letter before the number
+  number <- as.numeric(substr(x, 2, nchar(x) - 1)) - 1  # Adjusted number to be zero-indexed
+  suffix <- substr(x, nchar(x), nchar(x))         # The letter after the number
+  paste0(prefix, number, suffix)                  # Combine back into the new variant string
+})
+
+oct_df <- merge(oct_ddg, oct_esm, by.x = "mutant", by.y = "variant")
+#nrow(oct_df) #9803
+
+oct_df <- oct_df %>%
+  mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
+head(oct_df)
+```
+```{r}
+gck_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/HXK4_HUMAN_Gersing_2023_abundance.csv", header = TRUE)
+gck_esm <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_esm1v/P35557.csv")
+nrow(gck_ddg) #8396
+nrow(gck_esm) #8895
+
+gck_df <- merge(gck_ddg, gck_esm, by.x = "mutant", by.y = "variant")
+nrow(gck_df) #8396
+
+gck_df <- gck_df %>%
+  mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
+head(gck_df)
+```
+
+```{r}
+pten_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/PTEN_HUMAN_Matreyek_2021.csv", header = TRUE)
+pten_esm <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_esm1v/P60484.csv")
+pten_df <- merge(pten_ddg, pten_esm, by.x = "mutant", by.y = "variant")
+
+pten_df <- pten_df %>%
+  mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
+head(pten_df)
+```
+
+```{r}
+cyp2c9_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/CP2C9_HUMAN_Amorosi_2021_abundance.csv", header = TRUE)
+cyp2c9_esm <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_esm1v/P11712.csv")
+nrow(cyp2c9_ddg) #6370
+nrow(cyp2c9_esm) #9310
+
+cyp2c9_df <- merge(cyp2c9_ddg, cyp2c9_esm, by.x = "mutant", by.y = "variant")
+nrow(cyp2c9_df) #6370
+
+cyp2c9_df <- cyp2c9_df %>%
+  mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
+head(cyp2c9_df)
+```
+```{r}
+tpmt_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/TPMT_HUMAN_Matreyek_2018.csv", header = TRUE)
+tpmt_esm <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_esm1v/P51580.csv")
+nrow(tpmt_ddg) #3648
+nrow(tpmt_esm) #4655
+
+tpmt_df <- merge(tpmt_ddg, tpmt_esm, by.x = "mutant", by.y = "variant")
+nrow(tpmt_df) #3648
+
+tpmt_df <- tpmt_df %>%
+  mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
+head(tpmt_df)
+```
+```{r}
+nudt15_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/NUD15_HUMAN_Suiter_2020_all.csv", header = TRUE)
+nudt15_esm <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_esm1v/Q9NV35.csv")
+nudt15_ddg <- nudt15_ddg %>% dplyr::select(mutant, Average_abundance_score)  %>%
+  drop_na(mutant, Average_abundance_score)
+nrow(nudt15_ddg) #2924
+nrow(nudt15_esm) #3116
+
+nudt15_df <- merge(nudt15_ddg, nudt15_esm, by.x = "mutant", by.y = "variant")
+nrow(nudt15_df) #2922
+
+nudt15_df <- nudt15_df %>%
+  mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
+
+nudt15_df <- nudt15_df %>% rename( DMS_score = Average_abundance_score)
+head(nudt15_df)
+```
+```{r}
+prkn_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/PRKN_HUMAN_Clausen_2023.csv", header = TRUE)
+prkn_esm <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_esm1v/O60260.csv")
+nrow(prkn_ddg) #8756
+nrow(prkn_esm) #8835
+
+prkn_df <- merge(prkn_ddg, prkn_esm, by.x = "mutant", by.y = "variant")
+nrow(prkn_df) #8756
+
+prkn_df <- prkn_df %>%
+  mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
+head(prkn_df)
+```
+```{r}
+aspa_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/ASPA_mavedb/urn_mavedb_00000657-a-1_scores_abundance.csv", header = TRUE)
+aspa_esm <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_esm1v/P45381.csv")
+
+aspa_ddg <- aspa_ddg %>% dplyr::select("hgvs_pro", "score") %>%
+  filter(hgvs_pro != "p.=")
+
+nrow(aspa_ddg) #6151
+nrow(aspa_esm) #5947
+
+# Amino acid three-letter to one-letter code mapping
+aa_map <- c(
+  Ala = "A", Arg = "R", Asn = "N", Asp = "D", Cys = "C", 
+  Gln = "Q", Glu = "E", Gly = "G", His = "H", Ile = "I", 
+  Leu = "L", Lys = "K", Met = "M", Phe = "F", Pro = "P", 
+  Ser = "S", Thr = "T", Trp = "W", Tyr = "Y", Val = "V", Ter = "*"
+)
+
+# Function to convert hgvs_pro to T2A format
+convert_to_short_format <- function(hgvs_pro) {
+  # Skip if there's no change (p.=)
+  if (hgvs_pro == "p.=") return(NA)
+  
+  # Extract parts of the mutation using regex
+  matches <- regmatches(hgvs_pro, regexec("p\\.(\\w{3})(\\d+)(\\w{3})", hgvs_pro))
+  if (length(matches[[1]]) < 4) return(NA)  # Return NA if format doesn't match
+  
+  # Map three-letter codes to one-letter codes and format as "T2A"
+  wt_aa <- aa_map[matches[[1]][2]]
+  position <- matches[[1]][3]
+  mut_aa <- aa_map[matches[[1]][4]]
+  
+  paste0(wt_aa, position, mut_aa)
+}
+
+# Apply the conversion function to the hgvs_pro column
+aspa_ddg$variant <- sapply(aspa_ddg$hgvs_pro, convert_to_short_format)
+
+aspa_df <- merge(aspa_ddg, aspa_esm, by = "variant")
+aspa_df <- aspa_df %>%
+  mutate(mutation_position = as.numeric(str_extract(variant, "(?<=\\D)(\\d+)(?=\\D)")))
+aspa_df <- aspa_df %>% rename(DMS_score = score )
+
+nrow(aspa_df) #5843
+head(aspa_df)
+```
+
+```{r}
+# Wrapper function to fit linear model and calculate R² for each data frame
+calculate_r2_for_dfs <- function(dfs, x_var, y_var) {
+  # Initialize an empty list to store R² values
+  r2_values <- list()
+  
+  # Iterate over each data frame in the list
+  for (name in names(dfs)) {
+    df <- dfs[[name]]
+    
+    # Fit a linear model for y ~ x
+    model <- lm(as.formula(paste(y_var, "~", x_var)), data = df)
+    
+    # Calculate R² value
+    r2 <- summary(model)$r.squared
+    
+    # Store the R² value in the list with the data frame name
+    r2_values[[name]] <- r2
+  }
+  
+  # Return the list of R² values
+  return(r2_values)
+}
+
+# Example usage
+# Combine data frames into a named list
+combo_df <- list(vkor_df = vkor_df, oct_df = oct_df, gck_df = gck_df,
+                 pten_df = pten_df, cyp2c9_df = cyp2c9_df, tpmt_df = tpmt_df, 
+                 nudt15_df = nudt15_df, prkn_df = prkn_df, aspa_df = aspa_df)
+
+# Calculate R² for each data frame using the wrapper function
+r2_results <- calculate_r2_for_dfs(combo_df, x_var = "DMS_score", y_var = "ESM.1v")
+
+r2_df <- data.frame(
+  protein = names(r2_results),
+  r_squared = unlist(r2_results)
+)
+
+# Remove "_df" suffix from protein names and capitalize them
+r2_df$protein <- toupper(sub("_df$", "", r2_df$protein))
+
+# Add a column for protein types based on the provided categories
+r2_df <- r2_df %>%
+  mutate(type = case_when(
+    protein %in% c("CYP2C9", "GCK", "ASPA", "PTEN", "TPMT", "PRKN", "NUDT15", "VKOR") ~ "Enzyme",
+    protein %in% c("OCT") ~ "Transporter",
+    TRUE ~ "Other"
+  ))
+
+r2_df <- r2_df %>% arrange(desc(r_squared))
+r2_df
+```
+```{r}
+median(r2_df$r_squared)
+```
+
+
+```{r, fig.width=8, fig.height=4}
+p1 <- ggplot(r2_df, aes(y = reorder(protein, r_squared), x = r_squared, fill = type)) +
+  geom_bar(stat = "identity") +
+  labs(title = "VAMP-seq Datasets: 9 Full-length Human Proteins", 
+       subtitle = "Linear regression",
+       y = "Protein", x = "R squared") +
+  theme_classic(base_size = 14) +
+  scale_fill_brewer(palette = "Set3") +
+  theme(axis.text.y = element_text(size = 12),
+        axis.text.x = element_text(size = 12),
+        legend.position = "right") +
+  xlim(0, 1) +
+  scale_fill_manual(values = c("Enzyme" = "darkolivegreen3", "Transporter" = "darkorchid2")) +
+  theme(axis.text.x = element_text(size = 12, angle = 45, hjust = 1)) +
+  geom_text(aes(label = round(r_squared, 3)), vjust = -0.4,
+            hjust = 0.5, size = 5, color = "black") +
+  coord_flip()
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig1_vamp_r2.pdf", 
+       plot = p1, width = 8, height = 4, dpi = 300)
+p1
+```
+```{r}
+vkor_clinvar <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/Q9BQB6_clinvar_VKOR.csv")
+vkor_clinvar_clean <- vkor_clinvar %>% dplyr::select(variant, clinvar_clinical_significance)
+table(vkor_clinvar_clean$clinvar_clinical_significance)
+```
+
+```{r}
+vkor_df_merged <- merge(vkor_df, vkor_clinvar, by.x="mutant", by.y="variant")
+vkor_df_merged <- vkor_df_merged %>% filter(clinvar_clinical_significance %in% c("benign", "likely_benign",
+                                                                                 "pathogenic", "likely_pathogenic"))
+vkor_df_merged <- vkor_df_merged %>% dplyr::select(mutant, DMS_score, DMS_score_bin, ESM.1v, clinvar_clinical_significance)
+
+vkor_df_merged <- vkor_df_merged %>%
+  dplyr::mutate(stability = case_when(
+    DMS_score_bin == 0 ~ "destabilizing",
+    DMS_score_bin == 1 ~ "WT-like",
+    TRUE ~ as.character(DMS_score_bin)  # Convert integer to character
+  ))
+vkor_df_merged
+```
+
+```{r}
+oct_clinvar <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/O15245_clinvar_OCT1.csv")
+nrow(oct_clinvar) #10526
+oct_clinvar %>% filter(clinvar_clinical_significance %in% c("benign", "likely_benign","pathogenic", "likely_pathogenic"))
+```
+
+```{r}
+oct_df_merged <- merge(oct_df, oct_clinvar, by.x = "mutant", by.y="variant")
+nrow(oct_df_merged) #9803
+table(oct_df_merged$clinvar_clinical_significance)
+```
+
+```{r}
+gck_clinvar <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/P35557_clinvar_GCK.csv")
+table(gck_clinvar$clinvar_clinical_significance)
+```
+```{r}
+gck_df_merged <- merge(gck_df, gck_clinvar, by.x="mutant", by.y="variant")
+gck_df_merged <- gck_df_merged %>% filter(clinvar_clinical_significance %in% c("benign", "likely_benign",
+                                                              "pathogenic", "likely_pathogenic"))
+
+gck_df_merged <- gck_df_merged %>% dplyr::select(mutant, DMS_score, DMS_score_bin, ESM.1v, clinvar_clinical_significance)
+gck_df_merged <- gck_df_merged %>%
+  dplyr::mutate(stability = case_when(
+    DMS_score_bin == 0 ~ "destabilizing",
+    DMS_score_bin == 1 ~ "WT-like",
+    TRUE ~ as.character(DMS_score_bin)  # Convert integer to character
+  ))
+
+table(gck_df_merged$clinvar_clinical_significance)
+```
+
+```{r}
+pten_clinvar <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/P60484_clinvar_PTEN.csv")
+nrow(pten_clinvar) #7657
+table(pten_clinvar$clinvar_clinical_significance)
+```
+```{r}
+pten_df_merged <- merge(pten_df, pten_clinvar, by.x="mutant", by.y="variant")
+nrow(pten_df_merged)
+pten_df_merged <- pten_df_merged %>% filter(clinvar_clinical_significance %in% c("benign", "likely_benign",
+                                                                                 "pathogenic", "likely_pathogenic"))
+
+pten_df_merged <- pten_df_merged %>% dplyr::select(mutant, DMS_score, DMS_score_bin, ESM.1v, clinvar_clinical_significance)
+nrow(pten_df_merged)
+
+pten_df_merged <- pten_df_merged %>%
+  dplyr::mutate(stability = case_when(
+    DMS_score_bin == 0 ~ "destabilizing",
+    DMS_score_bin == 1 ~ "WT-like",
+    TRUE ~ as.character(DMS_score_bin)  # Convert integer to character
+  ))
+
+table(pten_df_merged$clinvar_clinical_significance)
+```
+```{r}
+CYP2C9_clinvar <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/P11712_clinvar_CYP2C9.csv")
+nrow(CYP2C9_clinvar) #9310
+table(CYP2C9_clinvar$clinvar_clinical_significance)
+```
+```{r}
+CYP2C9_df_merged <- merge(cyp2c9_df, CYP2C9_clinvar, by.x="mutant", by.y="variant")
+CYP2C9_df_merged <- CYP2C9_df_merged %>% filter(clinvar_clinical_significance %in% c("benign", "likely_benign",
+                                                                                     "pathogenic", "likely_pathogenic"))
+
+CYP2C9_df_merged <- CYP2C9_df_merged %>% dplyr::select(mutant, DMS_score, DMS_score_bin, ESM.1v, clinvar_clinical_significance)
+
+CYP2C9_df_merged <- CYP2C9_df_merged %>%
+  dplyr::mutate(stability = case_when(
+    DMS_score_bin == 0 ~ "destabilizing",
+    DMS_score_bin == 1 ~ "WT-like",
+    TRUE ~ as.character(DMS_score_bin)  # Convert integer to character
+  ))
+table(CYP2C9_df_merged$clinvar_clinical_significance)
+```
+
+```{r}
+TPMT_clinvar <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/P51580_clinvar_TPMT.csv")
+nrow(TPMT_clinvar) #4655
+table(TPMT_clinvar$clinvar_clinical_significance)
+#         likely_benign           VUS 
+# 4645             3             7 
+```
+
+```{r}
+TPMT_df_merged <- merge(tpmt_df, TPMT_clinvar, by.x="mutant", by.y="variant")
+TPMT_df_merged <- TPMT_df_merged %>% filter(clinvar_clinical_significance %in% c("benign", "likely_benign",
+                                                                                 "pathogenic", "likely_pathogenic"))
+
+TPMT_df_merged <- TPMT_df_merged %>% dplyr::select(mutant, DMS_score, DMS_score_bin, ESM.1v,  clinvar_clinical_significance)
+
+TPMT_df_merged <- TPMT_df_merged %>%
+  dplyr::mutate(stability = case_when(
+    DMS_score_bin == 0 ~ "destabilizing",
+    DMS_score_bin == 1 ~ "WT-like",
+    TRUE ~ as.character(DMS_score_bin)  # Convert integer to character
+  ))
+table(TPMT_df_merged$clinvar_clinical_significance)
+```
+
+```{r}
+NUDT15_clinvar <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/Q9NV35_clinvar_NUDT15.csv")
+nrow(NUDT15_clinvar) #3116
+table(NUDT15_clinvar$clinvar_clinical_significance)
+```
+```{r}
+PRKN_clinvar <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/O60260_clinvar_PRKN.csv")
+nrow(PRKN_clinvar) #8835
+table(PRKN_clinvar$clinvar_clinical_significance)
+```
+```{r}
+prkn_df_merged <- merge(prkn_df, PRKN_clinvar, by.x="mutant", by.y="variant")
+prkn_df_merged <- prkn_df_merged %>% filter(clinvar_clinical_significance %in% c("benign", "likely_benign",
+                                                                                 "pathogenic", "likely_pathogenic"))
+
+prkn_df_merged <- prkn_df_merged %>% dplyr::select(mutant, DMS_score, DMS_score_bin, ESM.1v, clinvar_clinical_significance)
+
+prkn_df_merged <- prkn_df_merged %>%
+  dplyr::mutate(stability = case_when(
+    DMS_score_bin == 0 ~ "destabilizing",
+    DMS_score_bin == 1 ~ "WT-like",
+    TRUE ~ as.character(DMS_score_bin)  # Convert integer to character
+  ))
+table(prkn_df_merged$clinvar_clinical_significance)
+```
+
+```{r}
+ASPA_clinvar <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/P45381_clinvar_ASPA.csv")
+nrow(ASPA_clinvar) #5947
+
+table(ASPA_clinvar$clinvar_clinical_significance)
+```
+```{r}
+aspa_df_merged <- merge(aspa_df, ASPA_clinvar, by.x="variant", by.y="variant")
+
+aspa_df_merged <- aspa_df_merged %>% filter(clinvar_clinical_significance %in% c("benign", "likely_benign",
+                                                                                 "pathogenic", "likely_pathogenic"))
+aspa_df_merged <- aspa_df_merged %>% dplyr::select(variant, DMS_score,  ESM.1v, clinvar_clinical_significance)
+
+aspa_df_merged <- aspa_df_merged %>%
+  dplyr::mutate(stability = case_when(
+    DMS_score <= 0.5 ~ "destabilizing",
+    DMS_score > 0.5 ~ "WT-like",
+    TRUE ~ as.character(DMS_score)  # Convert integer to character
+  ))
+
+aspa_df_merged <- aspa_df_merged %>%
+  dplyr::mutate(DMS_score_bin = case_when(
+    DMS_score <= 0.5 ~ 1,
+    DMS_score > 0.5 ~ 0
+  )) %>% rename (mutant = variant)
+
+table(aspa_df_merged$clinvar_clinical_significance)
+```
+
+```{r}
+colnames(TPMT_df_merged)
+```
+
+
+```{r}
+final_df <- rbind(vkor_df_merged,
+                  gck_df_merged,
+                  pten_df_merged,
+                  CYP2C9_df_merged,
+                  TPMT_df_merged, 
+                  prkn_df_merged,
+                  aspa_df_merged)
+nrow(final_df) #292
+table(final_df$clinvar_clinical_significance)
+```
+```{r}
+final_summary_df <- final_df %>%
+  mutate(clinvar_clinical_significance = case_when(
+    clinvar_clinical_significance %in% c("likely_benign", "benign") ~ "benign",
+    clinvar_clinical_significance %in% c("likely_pathogenic", "pathogenic") ~ "pathogenic",
+    TRUE ~ clinvar_clinical_significance  # Keep other categories unchanged
+  )) %>%
+  # Group by the new clinical significance categories and stability
+  group_by(clinvar_clinical_significance, stability) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  # Recalculate percentages after merging
+  group_by(clinvar_clinical_significance) %>%
+  mutate(percent = (count / sum(count)) * 100) %>%
+  ungroup()
+
+final_summary_df$stability <- factor(final_summary_df$stability, levels = c("WT-like", "destabilizing"))
+final_summary_df$clinvar_clinical_significance <- factor(final_summary_df$clinvar_clinical_significance, levels = c("benign", "pathogenic"))
+final_summary_df
+```
+```{r}
+p2 <- ggplot(final_summary_df, aes(x = clinvar_clinical_significance, y = percent, fill = stability)) +
+  geom_bar(stat = "identity", position = "stack", width = 0.7) +
+  geom_text(aes(label = paste0(round(percent, 1), "% (", count, ")")), 
+            position = position_stack(vjust = 0.5), size = 4) +  # Center labels in stacks
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "VAMP-seq Datasets: 7 Full-length Proteins", subtitle = "292 ClinVar variants",
+       x = NULL, y = "Variant percentage (%)", fill = NULL) +
+  theme_classic() +
+  theme(
+    text = element_text(size = 14),
+    plot.title = element_text(size = 14, hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    axis.text.x = element_text(face = "bold"),
+    legend.position = "none"
+  ) + ylim(0,100)
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig1_vamp_clinivar.pdf", 
+       plot = p2, width = 4, height = 4, dpi = 300)
+p2
+```
+
+
+```{r}
+# # # vamp
+# clinvar_clinical_significance.  stability.  count.  percent
+# benign	WT-like	21	           87.50000	
+# benign	destabilizing	3	       12.50000	
+# pathogenic	WT-like	117	       43.65672	
+# pathogenic	destabilizing	151	 56.34328	
+# 
+# # patho 21+3 = 24
+# # benign 117+151 = 268
+# 
+# # Create expanded binary vectors
+# y_true <- c(
+#   rep(1, 151),  # pathogenic destabilizing
+#   rep(1, 117),  # pathogenic non-destabilizing
+#   rep(0, 3),   # benign destabilizing
+#   rep(0, 21)   # benign non-destabilizing
+# )
+# 
+# # Predicted labels or scores: 1 for destabilizing, 0 for not
+# y_pred <- c(
+#   rep(1, 151),  # pathogenic destabilizing
+#   rep(0, 117),  # pathogenic non-destabilizing
+#   rep(1, 3),   # benign destabilizing
+#   rep(0, 21)   # benign non-destabilizing
+# )
+# 
+# # ROC AUC
+# roc_obj <- roc(y_true, y_pred)
+# roc_auc <- auc(roc_obj)
+# 
+# # PR AUC
+# pr_obj <- pr.curve(scores.class0 = y_pred[y_true == 1],
+#                    scores.class1 = y_pred[y_true == 0],
+#                    curve = TRUE)
+# pr_auc <- pr_obj$auc.integral
+# 
+# # Print results
+# cat("ROC-AUC:", round(roc_auc, 4), "\n")
+# #ROC-AUC: 0.7192
+# cat("PR-AUC:", round(pr_auc, 4), "\n")
+# #PR-AUC: 0.964
+```
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+```
+
+
+
+
+
+
+
+```{r}
+
+```
+
+
+
+
+
+

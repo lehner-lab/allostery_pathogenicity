@@ -501,8 +501,64 @@ sum(!is.na(all_r2$adj_r2))  #17420
 fwrite(all_var_r2, file.path("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/00.human_proteome_results/all_var_lm_r2.csv"))
 
 
+########################################################################################
+# Define directories
+filtered_dir <- "/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/00.human_proteome_results/unzipped/meta_clinvar_all_csv"
+esm1v_dir <- "/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/00.human_proteome_inputs/unzipped/all_ESM1v"
+output_dir <- "/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/00.human_proteome_results/unzipped/meta_clinvar_all_csv_with_esm1v"
+
+# Ensure output directory exists
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
+}
+
+# List all filtered ClinVar CSV files
+filtered_files <- list.files(filtered_dir, pattern = "*.csv", full.names = TRUE)
+length(filtered_files) #20144
+
+# List all ESM1v CSV files and create a mapping of UniProt IDs
+esm1v_files <- list.files(esm1v_dir, pattern = "*.csv", full.names = TRUE)
+esm1v_map <- setNames(esm1v_files, str_replace(basename(esm1v_files), ".csv$", ""))
+
+# Process each filtered ClinVar CSV file
+for (file in filtered_files) {
+  # Extract UniProt ID from the filename
+  uniprot_id <- str_replace(basename(file), "_clinvar.csv$", "")
+  
+  print(paste("Processing:", uniprot_id))
+  
+  # Read filtered ClinVar CSV file
+  df_clinvar <- read.csv(file, stringsAsFactors = FALSE)
+  df_clinvar <- df_clinvar %>% dplyr::select(variant, Model, Dataset, ddG_pred, new_position, wildtype, mutation,
+                         exposure_rasa, spot_disorder, clinvar_clinical_significance, chain, uniprot, 
+                         aa_sequence)
+  
+  # Find the corresponding ESM1v file
+  if (uniprot_id %in% names(esm1v_map)) {
+    esm1v_file <- esm1v_map[[uniprot_id]]
+    df_esm1v <- read.csv(esm1v_file, stringsAsFactors = FALSE)
+    
+    # Merge ESM1v scores with the filtered ClinVar data
+    df_merged <- df_clinvar %>%
+      left_join(df_esm1v, by = "variant")  # Ensure correct merging by variant
+    
+    print(paste("Merged ESM1v data for:", uniprot_id))
+  } else {
+    df_merged <- df_clinvar
+    print(paste("No ESM1v file found for:", uniprot_id))
+  }
+  
+  # Save the merged file
+  output_file <- file.path(output_dir, paste0(uniprot_id, "_filtered_with_esm1v.csv"))
+  write.csv(df_merged, output_file, row.names = FALSE)
+  
+  print(paste("Saved:", output_file))
+}
+
+print("All files processed successfully.")
 
 
+########################################################################################
 
 
 

@@ -1,6 +1,6 @@
 ---
 title: "1.hpc_fig1"
-output: pdf_document
+output: html_document
 date: "2025-06-16"
 ---
 
@@ -10,13 +10,16 @@ library(lme4)
 library(data.table)
 library(future.apply)
 library(performance)
+library(dplyr)
+library(ggplot2)
+library(ggsignif)
 
 # Set up parallelization
 future::plan(multisession)
 ```
 
 ```{r}
-all_var_r2 <- read.csv("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/00.human_proteome_results/all_var_lm_r2.csv")
+all_var_r2 <- read.csv("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/git_allostery_pathogenicity/data/proteome_meta/all_var_lm_r2.csv")
 all_var_r2 <- all_var_r2 %>% filter(!is.na(adj_r2))
 nrow(all_var_r2) #19804
 median(all_var_r2$adj_r2, na.rm = TRUE) #0.2243766
@@ -25,7 +28,7 @@ IQR(all_var_r2$adj_r2, na.rm = FALSE) #0.1730944
 quantile(all_var_r2$adj_r2, 0.25, na.rm = FALSE) #0.1250503 
 quantile(all_var_r2$adj_r2, 0.75, na.rm = FALSE) #0.2981447
 
-core_var_r2 <- read.csv("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/00.human_proteome_results/core_lm_r2.csv")
+core_var_r2 <- read.csv("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/git_allostery_pathogenicity/data/proteome_meta/core_lm_r2.csv")
 nrow(core_var_r2) #17420
 sum(!is.na(core_var_r2$adj_r2)) #17420
 median(core_var_r2$adj_r2, na.rm = TRUE) #0.1581737
@@ -362,7 +365,7 @@ summary_df$clinvar_clinical_significance <- factor(summary_df$clinvar_clinical_s
 nrow(clinvar_all_var) #113994
 length(unique(clinvar_all_var$uniprot)) #12336
 
-ggplot(summary_df, aes(x = clinvar_clinical_significance, y = percent, fill = stability)) +
+p7 <- ggplot(summary_df, aes(x = clinvar_clinical_significance, y = percent, fill = stability)) +
   geom_bar(stat = "identity", position = "stack", width = 0.7) +  # Stacked bars
   geom_text(aes(label = paste0(round(percent, 1), "% (", count, ")")), 
             position = position_stack(vjust = 0.5), size = 4) +  # Center labels in stacks
@@ -375,7 +378,10 @@ ggplot(summary_df, aes(x = clinvar_clinical_significance, y = percent, fill = st
         plot.subtitle = element_text(size = 14, hjust = 0),
         axis.text.y = element_text(size = 12) ,
         axis.text.x = element_text(size = 12) ,
-        axis.title.y = element_text(size = 14))            
+        axis.title.y = element_text(size = 14))        
+
+ggsave("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/git_allostery_pathogenicity/figs/panels/fig1_all_var_clinvar_barplot.pdf", plot = p7, width = 4, height = 4, dpi = 300)
+p7
 ```
 
 ```{r}
@@ -505,7 +511,7 @@ summary_df$clinvar_clinical_significance <- factor(summary_df$clinvar_clinical_s
 nrow(clinvar_core_fil) #30455
 length(unique(clinvar_core_fil$uniprot)) #5286
 
-ggplot(summary_df, aes(x = clinvar_clinical_significance, y = percent, fill = stability)) +
+p8 <- ggplot(summary_df, aes(x = clinvar_clinical_significance, y = percent, fill = stability)) +
   geom_bar(stat = "identity", position = "stack", width = 0.7) +  # Stacked bars
   geom_text(aes(label = paste0(round(percent, 1), "% (", count, ")")), 
             position = position_stack(vjust = 0.5), size = 4) +  # Center labels in stacks
@@ -519,6 +525,9 @@ ggplot(summary_df, aes(x = clinvar_clinical_significance, y = percent, fill = st
         axis.text.y = element_text(size = 12) ,
         axis.text.x = element_text(size = 12) ,
         axis.title.y = element_text(size = 14))            
+
+ggsave("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/git_allostery_pathogenicity/figs/panels/fig1_core_var_clinvar_barplot.pdf", plot = p8, width = 4, height = 4, dpi = 300)
+p8
 ```
 
 ```{r}

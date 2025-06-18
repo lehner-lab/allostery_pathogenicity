@@ -78,7 +78,7 @@ pdz3_final_df_ddg_2plot <- pdz3_final_df_ddg_2plot[!is.na(pdz3_final_df_ddg_2plo
 nrow(pdz3_final_df_ddg_2plot) #1567
 head(pdz3_final_df_ddg_2plot)
 
-pdz3_final_df_ddg_2plot <- pdz3_final_df_ddg_2plot %>% dplyr::select(id_eve, f_ddg_pred, f_ddg_pred_sd,
+pdz3_final_df_ddg_2plot <- pdz3_final_df_ddg_2plot %>% dplyr::select(id_eve, f_ddg_pred, f_ddg_pred_sd, Pos_ref.x,
                                                                      ESM1v.x, b_ddg_pred, b_ddg_pred_sd,
                                                                      orthosteric,class) %>%
   dplyr::rename(ESM1v = ESM1v.x)
@@ -91,6 +91,12 @@ pdz3_final_df_ddg_2plot$allosteric[pdz3_final_df_ddg_2plot$b_ddg_pred >= mean(pd
 pdz3_final_df_ddg_2plot$allosteric[pdz3_final_df_ddg_2plot$orthosteric == TRUE] <- FALSE
 table(pdz3_final_df_ddg_2plot$allosteric)
 head(pdz3_final_df_ddg_2plot)
+
+pdz3_final_df_ddg_2plot %>%
+  filter(allosteric == TRUE) %>%
+  count(Pos_ref.x) %>%
+  filter(n > 10) %>% pull(Pos_ref.x)
+#312 314 318 329 330 336 338 341 347 357 359 360 362 363 367 375 386 388
 ```
 
 
@@ -1541,7 +1547,7 @@ sh3_final_df_ddg_2plot <- sh3_final_df_ddg_2plot[!is.na(sh3_final_df_ddg_2plot$b
 nrow(sh3_final_df_ddg_2plot) #756
 head(sh3_final_df_ddg_2plot)
 
-sh3_final_df_ddg_2plot <- sh3_final_df_ddg_2plot %>% dplyr::select(id_ref, f_ddg_pred, f_ddg_pred_sd,
+sh3_final_df_ddg_2plot <- sh3_final_df_ddg_2plot %>% dplyr::select(id_ref, f_ddg_pred, f_ddg_pred_sd,Pos_ref.x,
                                                                      ESM1v.x, b_ddg_pred, b_ddg_pred_sd,
                                                                      orthosteric,class) %>%
   dplyr::rename(ESM1v = ESM1v.x)
@@ -1555,6 +1561,11 @@ sh3_final_df_ddg_2plot$allosteric[sh3_final_df_ddg_2plot$orthosteric == TRUE] <-
 table(sh3_final_df_ddg_2plot$allosteric)
 #FALSE  TRUE 
 #  703    53 
+
+sh3_final_df_ddg_2plot %>%
+  filter(allosteric == TRUE) %>%
+  count(Pos_ref.x) %>% filter(n>=5)
+# 173 183 203
 ```
 
 ```{r}

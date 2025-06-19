@@ -1,6 +1,6 @@
 ---
 title: "fig5"
-output: pdf_document
+output: html_document
 date: "2025-06-13"
 ---
 ```{r setup, echo=FALSE}
@@ -228,7 +228,6 @@ max(median_residuals$median_residuals) #2.551111
 
 pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/GCK/1v4s.pdb")
 data <- median_residuals
-head(data)
 
 # Create a new B-factor vector initialized with the current B-factors from the PDB
 new_b_factors <- pdb$atom$b
@@ -311,8 +310,8 @@ p1 <- ggMarginal(
   fill = "lightgrey"
 )
 
-patho_df <- gck_df %>% filter(!is.na(Germline.classification))
-#nrow(patho_df) #277
+patho_df <- gck_df %>% filter(clean_condition %in% c("HH", "MODY", "Monogenic diabetes"))
+nrow(patho_df) #224
 
 p2 <- ggplot(patho_df, aes(x = DMS_score_abundance, y = DMS_score_activity, color = residuals)) +
   geom_point(size = 2, shape = 17) +
@@ -467,9 +466,10 @@ p1
 
 ```{r}
 # 1. Set up
-set.seed(123)
+set.seed(11)
 n_boot <- 1000
-match_window <- 0.05
+match_window <- 0.5
+
 n_patho <- nrow(patho_df)
 
 # 2. Get abundance/residuals from gck_patho
@@ -512,12 +512,13 @@ boot_df <- data.frame(
   residuals = apply(bootstrap_matrix, 1, median, na.rm = TRUE)
 )
 
-# Combine with patho residuals
+# 7. Combine with pathogenic residuals
 plot_df <- bind_rows(
   patho_df %>% dplyr::select(group, residuals),
   boot_df
 )
 
+# 8. Labels for plot
 label_df <- plot_df %>%
   group_by(group) %>%
   summarise(
@@ -525,13 +526,12 @@ label_df <- plot_df %>%
     median_val = median(residuals),
     y_max = max(residuals),
     .groups = "drop"
-  )
-
-label_df <- label_df %>%
+  ) %>%
   mutate(n_label = case_when(
     group == "Random abundance-matched" ~ "bootstrapped 1000 times",
     TRUE ~ paste0("n = ", n)
   ))
+
 
 # Plot
 p_fast <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
@@ -556,7 +556,7 @@ p_fast <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
   labs(
     x = "",
     y = "Activity-abundance residuals",
-    title = ""
+    title = "All Variants"
   ) +
   theme_classic(base_size = 14) +
   scale_fill_manual(values = c("Pathogenic" = "cornflowerblue", "Random abundance-matched" = "darkolivegreen3")) +
@@ -564,13 +564,21 @@ p_fast <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
   geom_signif(comparisons = list(c("Pathogenic", "Random abundance-matched")),
               map_signif_level = FALSE,
               test = "wilcox.test",
-              tip_length = 0.01)
+              tip_length = 0.01) 
+
 
 p_fast
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig5_violin1.pdf", 
        plot = p_fast, width = 3, height = 4, dpi = 300)
 p_fast
+
 ```
+
+
+```{r}
+hist(boot_df$residuals, breaks = 30, main = "Bootstrap medians", xlab = "Residuals")
+```
+
 
 ```{r}
 nrow(gnomad_df) #268
@@ -606,7 +614,6 @@ median_df <- combined_df %>%
     median_residual = median(residuals),
     n = n()
   )
-median_df
 
 combined_df$var_class2 <- factor(
   combined_df$var_class2,
@@ -1353,7 +1360,7 @@ p24 <- ggplot(merged_df, aes(x = min_dist_to_ligand, y = abs(residuals))) +
   theme_classic() +
   labs(
     title = "GCK: per-mutation allosteric decay",
-    subtitle = "4417 mutations with residuals >= 0",
+    subtitle = "4417 mutations with residuals <= 0",
     x = "Minimal distance to glucose",
     y = "LOESS residual",
     color = ""
@@ -1407,18 +1414,20 @@ summary(lm_model)
 ```{r}
 nrow(merged_df) #4417
 
-merged_df <- merge(gck_df, fil_protein_ca, by.x="mutation_position", by.y = "resno", all.x = TRUE)
+#merged_df <- merge(gck_df, fil_protein_ca, by.x="mutation_position", by.y = "resno", all.x = TRUE)
 #nrow(merged_df) #8255
 
-merged_df <- merged_df %>% dplyr::select(-sequence)
-nrow(merged_df)
+#merged_df <- merged_df %>% dplyr::select(-sequence)
+merged_df <- gck_df
+nrow(merged_df) #8255
 
-merged_df <- merged_df[!is.na(merged_df$min_dist_to_ligand),]
-nrow(merged_df) #7969
+#merged_df <- merged_df[!is.na(merged_df$min_dist_to_ligand),]
+#nrow(merged_df) #7969
 
 merged_df$pathogenic_status <- ifelse(
-  merged_df$clinvar_clinical_significance %in% c(
-    "pathogenic", "likely_pathogenic"),
+  merged_df$clean_condition %in% c(
+    "HH", "MODY",
+    "Monogenic diabetes"),
   "Pathogenic", "Other"
 )
 
@@ -1426,20 +1435,21 @@ merged_df_int <- merged_df %>% filter(mutation_position %in% active_positions)
 nrow(merged_df_int) #1031
 table(merged_df_int$pathogenic_status)
 # Other Pathogenic 
-#        1009         22
+#        977       54
 
 merged_df_out <- merged_df %>% filter(!mutation_position %in% active_positions)
-nrow(merged_df_out) #6938
+nrow(merged_df_out) #7224
 table(merged_df_out$pathogenic_status)
      # Other Pathogenic 
-     #  6829        109 
+     #  7054        170
+table(merged_df$clean_condition)
 ```
 
 ```{r}
 # 1. Set up
 set.seed(123)
 n_boot <- 1000
-match_window <- 0.05
+match_window <- 0.5
 n_patho <- nrow(merged_df_int %>% filter(pathogenic_status == "Pathogenic"))
 
 # 2. Get abundance/residuals from pten_patho
@@ -1538,17 +1548,13 @@ p_fast <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
 
 p_fast
 ```
-```{r}
-merged_df_out
-table(merged_df_out$clinvar_clinical_significance)
-```
 
 
 ```{r}
 # 1. Set up
-set.seed(123)
+set.seed(11)
 n_boot <- 1000
-match_window <- 0.05
+match_window <- 0.5
 n_patho <- nrow(merged_df_out %>% filter(pathogenic_status == "Pathogenic"))
 
 # 2. Get abundance/residuals from pten_patho

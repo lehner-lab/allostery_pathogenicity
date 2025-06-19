@@ -1,6 +1,6 @@
 ---
 title: "fig4"
-output: pdf_document
+output: html_document
 date: "2025-06-12"
 ---
 
@@ -420,7 +420,7 @@ ggplot(pten_df, aes(x = DMS_score_abundance, y = DMS_score_activity, color = res
 # 1. Set up
 set.seed(123)
 n_boot <- 1000
-match_window <- 0.05
+match_window <- 0.5
 n_patho <- nrow(pten_patho)
 
 # 2. Get abundance/residuals from pten_patho
@@ -507,7 +507,7 @@ p_fast <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
   labs(
     x = "",
     y = "Activity-abundance residuals",
-    title = ""
+    title = "All Variants"
   ) +
   theme_classic(base_size = 14) +
   scale_fill_manual(values = c("Pathogenic" = "cornflowerblue", "Random abundance-matched" = "darkolivegreen3")) +
@@ -998,10 +998,10 @@ merged_df <- merge(pten_df_clean, fil_protein_ca, by.x="mutation_position", by.y
 nrow(merged_df)
 head(merged_df)
 
-merged_df <- merged_df %>% dplyr::select(-sequence)
-nrow(merged_df)
+#merged_df <- merged_df %>% dplyr::select(-sequence)
+#nrow(merged_df)
 
-merged_df <- merged_df %>% filter(residuals >= 0)
+merged_df <- merged_df %>% filter(residuals <= 0)
 nrow(merged_df) #2449
 
 all_positions <- c(
@@ -1036,7 +1036,7 @@ binding_positions <- c(
 
 ```{r}
 merged_df <- merge(pten_df_clean, fil_protein_ca, by.x="mutation_position", by.y = "resno", all.x = TRUE)
-merged_df <- merged_df %>% dplyr::select(-sequence)
+#merged_df <- merged_df %>% dplyr::select(-sequence)
 nrow(merged_df) #4839
 head(merged_df)
 
@@ -1171,7 +1171,7 @@ p1
 ```
 ```{r}
 merged_df <- merge(pten_df_clean, fil_protein_ca, by.x="mutation_position", by.y = "resno", all.x = TRUE)
-merged_df <- merged_df %>% dplyr::select(-sequence)
+#merged_df <- merged_df %>% dplyr::select(-sequence)
 
 merged_df <- merged_df %>% filter(!is.na(min_dist_to_ligand))
 merged_df <- merged_df %>% filter(residuals <= 0)
@@ -1260,7 +1260,7 @@ p23 <- ggplot(merged_df_residue, aes(x = min_dist_to_ligand, y = abs(loess_resid
                   aes(label = mutation_position, color = site_type), vjust = -0.5, size = 3) +
     geom_text_repel(data = subset(merged_df_residue, mutation_position %in% c(1:14)) ,
                   aes(label = mutation_position, color = site_type), vjust = -0.5, size = 3) +
-  geom_text_repel(data = merged_df_residue %>% filter (loess_residual_avg <= y_cutoff) %>% filter (min_dist_to_ligand > 16.42677),
+  geom_text_repel(data = merged_df_residue %>% filter (abs(loess_residual_avg) >= y_cutoff) %>% filter (min_dist_to_ligand > 16.42677),
                   aes(label = mutation_position, color = site_type), vjust = 0.5, size = 3) +
   geom_ribbon(data = fit_df_residue,
             aes(x = min_dist_to_ligand, ymin = lower, ymax = upper),
@@ -1475,10 +1475,11 @@ summary(lm_model)
 # F-statistic: 190.5 on 1 and 2001 DF,  p-value: < 2.2e-16
 ```
 ```{r}
-merged_df <- merge(pten_df_clean, fil_protein_ca, by.x="mutation_position", by.y = "resno", all.x = TRUE)
-merged_df <- merged_df %>% dplyr::select(-sequence)
+#merged_df <- merge(pten_df_clean, fil_protein_ca, by.x="mutation_position", by.y = "resno", all.x = TRUE)
+#merged_df <- merged_df %>% dplyr::select(-sequence)
 
-merged_df <- merged_df %>% filter(!is.na(min_dist_to_ligand))
+#merged_df <- merged_df %>% filter(!is.na(min_dist_to_ligand))
+merged_df <- pten_df_clean
 merged_df$pathogenic_status <- ifelse(
   merged_df$clinvar_clinical_significance %in% c("pathogenic",
                                            "likely_pathogenic"),
@@ -1486,23 +1487,23 @@ merged_df$pathogenic_status <- ifelse(
 )
 nrow(merged_df)
 merged_df_int <- merged_df %>% filter(mutation_position %in% all_positions)
-nrow(merged_df_int) #1279
+nrow(merged_df_int) #4839
 table(merged_df_int$pathogenic_status)
  # Other Pathogenic 
- #      1224         55 
+ #      1325         60 
 
 merged_df_out <- merged_df %>% filter(!mutation_position %in% all_positions)
-nrow(merged_df_out) #2459
+nrow(merged_df_out) #1385
 table(merged_df_out$pathogenic_status)
      # Other Pathogenic 
-     #  2404         55 
+     #  3399         55
 ```
 
 ```{r}
 # 1. Set up
 set.seed(123)
 n_boot <- 1000
-match_window <- 0.05
+match_window <- 0.5
 n_patho <- nrow(merged_df_int %>% filter(pathogenic_status == "Pathogenic"))
 
 # 2. Get abundance/residuals from pten_patho
@@ -1609,7 +1610,7 @@ p_fast
 # 1. Set up
 set.seed(123)
 n_boot <- 1000
-match_window <- 0.05
+match_window <- 0.5
 n_patho <- nrow(merged_df_out %>% filter(pathogenic_status == "Pathogenic"))
 
 # 2. Get abundance/residuals from pten_patho

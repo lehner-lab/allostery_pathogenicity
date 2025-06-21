@@ -205,6 +205,8 @@ cor.test(test_merged_df_residue_other$comp_residual_avg, test_merged_df_residue_
 ```{r, fig.width=16, fig.height=4}
 nrow(test_merged_df_residue) #379
 cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_residual_avg, method="spearman") #-0.3419481
+range(test_merged_df_residue$comp_residual_avg) #-8.81836 10.13934
+range(test_merged_df_residue$exp_residual_avg) #-1.861488  4.034455
 p1 <- ggplot(test_merged_df_residue, aes(x = exp_residual_avg , y = comp_residual_avg, color = site_type)) +
   geom_point(size = 2, alpha = 0.5) +
   labs(
@@ -221,7 +223,7 @@ p1 <- ggplot(test_merged_df_residue, aes(x = exp_residual_avg , y = comp_residua
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  xlim(-3,2) + ylim(-5,5)
+  xlim(-2,5) + ylim(-9,11)
 
 
 nrow(test_merged_df_residue_active) #34
@@ -243,7 +245,7 @@ p2 <- ggplot(test_merged_df_residue_active, aes(x = exp_residual_avg , y = comp_
   geom_text_repel(aes(label = new_position)) +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  xlim(-3,2) + ylim(-5,5)
+  xlim(-2,5) + ylim(-9,11)
 
 
 nrow(test_merged_df_residue_glu) #78
@@ -265,7 +267,7 @@ p3 <- ggplot(test_merged_df_residue_glu, aes(x = exp_residual_avg , y = comp_res
   geom_text_repel(aes(label = new_position)) +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  xlim(-3,2) + ylim(-5,5)
+  xlim(-2,5) + ylim(-9,11)
 
 nrow(test_merged_df_residue_other) #267
 cor.test(test_merged_df_residue_other$comp_residual_avg, test_merged_df_residue_other$exp_residual_avg, method="spearman") #-0.4095121
@@ -287,7 +289,7 @@ p4 <- ggplot(test_merged_df_residue_other, aes(x = exp_residual_avg , y = comp_r
   geom_text_repel(data = test_merged_df_residue_other %>% filter(new_position %in% c(444:456)), aes(label = new_position)) +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  xlim(-3,2) + ylim(-5,5)
+  xlim(-2,5) + ylim(-9,11)
 
 p1 <- ggMarginal(
   p1,
@@ -510,7 +512,7 @@ p1 <- ggplot(test_merged_df_residue, aes(x = exp_residual_avg , y = comp_residua
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  xlim(-2,2) + ylim(-5,5)
+  xlim(-2,2) + ylim(-8,5)
 
 
 nrow(test_merged_df_residue_binding) #13
@@ -532,7 +534,7 @@ p2 <- ggplot(test_merged_df_residue_binding, aes(x = exp_residual_avg , y = comp
   geom_text_repel(aes(label = pos_match)) +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  xlim(-2,2) + ylim(-5,5)
+  xlim(-2,2) + ylim(-8,5)
 
 
 nrow(test_merged_df_residue_allo) #18
@@ -554,7 +556,7 @@ p3 <- ggplot(test_merged_df_residue_allo, aes(x = exp_residual_avg , y = comp_re
   geom_text_repel(aes(label = pos_match)) +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  xlim(-3,2) + ylim(-5,5)
+  xlim(-2,2) + ylim(-8,5)
 
 nrow(test_merged_df_residue_other) #53
 cor.test(test_merged_df_residue_other$comp_residual_avg, test_merged_df_residue_other$exp_residual_avg, method="spearman") #-0.2018223
@@ -575,7 +577,7 @@ p4 <- ggplot(test_merged_df_residue_other, aes(x = exp_residual_avg , y = comp_r
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  xlim(-2,2) + ylim(-5,5)
+  xlim(-2,2) + ylim(-8,5)
 
 p1 <- ggMarginal(
   p1,
@@ -814,8 +816,8 @@ p1 <- ggplot(test_merged_df_residue, aes(x = exp_residual_avg , y = comp_residua
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  xlim(-2,2) + ylim(-5,5)
-
+  xlim(-2,2) + ylim(-7,5)
+p1
 
 nrow(test_merged_df_residue_binding) #13
 cor.test(test_merged_df_residue_binding$comp_residual_avg, test_merged_df_residue_binding$exp_residual_avg, method="spearman") #-0.6483516
@@ -836,8 +838,8 @@ p2 <- ggplot(test_merged_df_residue_binding, aes(x = exp_residual_avg , y = comp
   geom_text_repel(aes(label = Pos_ref)) +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  xlim(-2,2) + ylim(-5,5)
-
+  xlim(-2,2) + ylim(-7,5)
+p2
 
 nrow(test_merged_df_residue_allo) #3
 p3 <- ggplot(test_merged_df_residue_allo, aes(x = exp_residual_avg , y = comp_residual_avg, color = site_type)) +
@@ -857,7 +859,7 @@ p3 <- ggplot(test_merged_df_residue_allo, aes(x = exp_residual_avg , y = comp_re
   geom_text_repel(aes(label = Pos_ref)) +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  xlim(-3,2) + ylim(-5,5)
+  xlim(-2,2) + ylim(-7,5)
 
 nrow(test_merged_df_residue_other) #40
 
@@ -877,7 +879,7 @@ p4 <- ggplot(test_merged_df_residue_other, aes(x = exp_residual_avg , y = comp_r
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  xlim(-2,2) + ylim(-5,5)
+  xlim(-2,2) + ylim(-7,5)
 
 p1 <- ggMarginal(
   p1,

@@ -1174,10 +1174,10 @@ merged_df <- merge(pten_df_clean, fil_protein_ca, by.x="mutation_position", by.y
 #merged_df <- merged_df %>% dplyr::select(-sequence)
 
 merged_df <- merged_df %>% filter(!is.na(min_dist_to_ligand))
-merged_df <- merged_df %>% filter(residuals <= 0)
+merged_df_neg <- merged_df %>% filter(residuals <= 0)
 nrow(merged_df)
 
-merged_df_residue <- merged_df %>%
+merged_df_residue <- merged_df_neg %>%
   group_by(mutation_position) %>%
   summarise(
     loess_residual_avg = median(residuals, na.rm = TRUE))
@@ -1203,15 +1203,40 @@ exp_model
 # Number of iterations to convergence: 6 
 # Achieved convergence tolerance: 3.505e-06
 ```
-```{r, fig.width=5, fig.height=5}
+```{r}
+a <- coef(exp_model)[["a"]]
+b <- coef(exp_model)[["b"]]
 
-a <- 2.54954
-b <- 0.04794 
+merged_df_neg <- merged_df_neg %>%
+  mutate(expected_res = a * exp(-b * min_dist_to_ligand),
+         residual = abs(residuals) - expected_res)
+
+# One-sided Wilcoxon signed-rank test for each residue
+wilcox_test_results <- merged_df_neg %>%
+  group_by(mutation_position) %>%
+  summarise(
+    p_wilcox = tryCatch(wilcox.test(residual, mu = 0, alternative = "greater")$p.value, error = function(e) NA_real_),
+    .groups = "drop"
+  ) %>%
+  mutate(p_adj = p.adjust(p_wilcox, method = "fdr")) 
+
+merged_df_residue <- left_join(merged_df_residue, wilcox_test_results, by = "mutation_position") %>%
+  mutate(
+    hotspot = !is.na(p_adj) & p_adj < 0.05,
+    hotspot_label = ifelse(hotspot, as.character(mutation_position), NA)
+  )
+
+merged_df_residue %>% filter(hotspot == TRUE) %>% pull(mutation_position)
+#115  23  25  35  38  56  57  61  92 130 159 165 171
+```
+
+
+```{r, fig.width=5, fig.height=5}
 half_d <- log(2) / b  
 half_d #14.45864
 
-y_cutoff <- a  * exp(- b * half_d)
-y_cutoff
+#y_cutoff <- a  * exp(- b * half_d)
+#y_cutoff
 
 x_vals <- seq(min(merged_df_residue$min_dist_to_ligand),
               max(merged_df_residue$min_dist_to_ligand), length.out = 200)
@@ -1240,7 +1265,7 @@ nrow(merged_df_residue) #280
 
 
 merged_df_residue$site_type <- "Non-orthosteric site"
-merged_df_residue$site_type[abs(merged_df_residue$loess_residual_avg) <= y_cutoff] <- "Null"
+#merged_df_residue$site_type[abs(merged_df_residue$loess_residual_avg) <= y_cutoff] <- "Null"
 merged_df_residue$site_type[merged_df_residue$mutation_position %in% binding_positions] <- "Binding site"
 merged_df_residue$site_type[merged_df_residue$mutation_position %in% active_positions] <- "Active site"
 
@@ -1250,18 +1275,20 @@ max(merged_df_residue %>% filter (site_type == "Active site") %>% pull(min_dist_
 
 # Plot with fitted curve
 p23 <- ggplot(merged_df_residue, aes(x = min_dist_to_ligand, y = abs(loess_residual_avg))) +
+  geom_point(aes(color = site_type), size = 1) +
   # First, plot NULL points separately with alpha = 0.2
-  geom_point(data = subset(merged_df_residue, site_type == "Null"),
-             aes(color = site_type), size = 1, alpha = 0.7) +
+  #geom_point(data = subset(merged_df_residue, site_type == "Null"),
+  #           aes(color = site_type), size = 1, alpha = 0.7) +
   # Then plot the rest
-  geom_point(data = subset(merged_df_residue, site_type != "Null"),
-             aes(color = site_type), size = 1) +
-  geom_text_repel(data = subset(merged_df_residue, mutation_position %in% c(123:130)) ,
-                  aes(label = mutation_position, color = site_type), vjust = -0.5, size = 3) +
-    geom_text_repel(data = subset(merged_df_residue, mutation_position %in% c(1:14)) ,
-                  aes(label = mutation_position, color = site_type), vjust = -0.5, size = 3) +
-  geom_text_repel(data = merged_df_residue %>% filter (abs(loess_residual_avg) >= y_cutoff) %>% filter (min_dist_to_ligand > 16.42677),
-                  aes(label = mutation_position, color = site_type), vjust = 0.5, size = 3) +
+  #geom_point(data = subset(merged_df_residue, site_type != "Null"),
+  #           aes(color = site_type), size = 1) +
+  #geom_text_repel(data = subset(merged_df_residue, mutation_position %in% c(123:130)) ,
+  #                aes(label = mutation_position, color = site_type), vjust = -0.5, size = 3) +
+  #geom_text_repel(data = subset(merged_df_residue, mutation_position %in% c(1:14)) ,
+  #                aes(label = mutation_position, color = site_type), vjust = -0.5, size = 3) +
+  geom_text_repel(data = merged_df_residue %>% filter(hotspot) %>% filter (site_type != "Binding site"), aes(label = hotspot_label,color = site_type), size = 3.5, max.overlaps = 50) +
+  #geom_text_repel(data = merged_df_residue %>% filter (abs(loess_residual_avg) >= y_cutoff) %>% filter (min_dist_to_ligand > 16.42677),
+  #                aes(label = mutation_position, color = site_type), vjust = 0.5, size = 3) +
   geom_ribbon(data = fit_df_residue,
             aes(x = min_dist_to_ligand, ymin = lower, ymax = upper),
             fill = "grey70", alpha = 0.3, inherit.aes = FALSE) +
@@ -1275,18 +1302,18 @@ p23 <- ggplot(merged_df_residue, aes(x = min_dist_to_ligand, y = abs(loess_resid
   )) +
   theme_classic() +
   geom_vline(xintercept = 16.42677, linetype = "dashed", color = "slategrey") +
-  geom_hline(yintercept = y_cutoff, linetype = "dashed", color = "slategrey") +
+  #geom_hline(yintercept = y_cutoff, linetype = "dashed", color = "slategrey") +
   labs(
     title = "PTEN: per-residue allosteric decay",
     subtitle = "280 residues",
     x = "Minimal distance to TLA",
-    y = "Median residual",
+    y = "|Median activity-abundance residual|",
     color = ""
-  )  + theme(legend.position = "bottom") +
-    annotate("text",  x = Inf, y = Inf,
-             hjust = 1, vjust = 1,
-           label = "y = a * exp (b * x)\na = 2.54954 \nb = - 0.04794",
-           size = 4, color = "black", hjust = 0) + theme(legend.position = "none")
+  )  + theme(legend.position = "none")
+    # annotate("text",  x = Inf, y = Inf,
+    #          hjust = 1, vjust = 1,
+    #        label = "y = a * exp (b * x)\na = 2.54954 \nb = - 0.04794",
+    #        size = 4, color = "black", hjust = 0) 
 
 
 p23 <- ggMarginal(
@@ -1329,12 +1356,16 @@ summary(lm_model)
 
 
 ```{r}
-merged_df <- merged_df %>% filter(residuals <= 0)
-nrow(merged_df) #2003
+merged_df <- merge(pten_df_clean, fil_protein_ca, by.x="mutation_position", by.y = "resno", all.x = TRUE)
+#merged_df <- merged_df %>% dplyr::select(-sequence)
+
+merged_df <- merged_df %>% filter(!is.na(min_dist_to_ligand))
+merged_df_neg <- merged_df %>% filter(residuals <= 0)
+nrow(merged_df_neg) #2003
 
 # Fit exponential decay: y = a * exp(-b * x) + c
 exp_model <- nls(abs(residuals) ~ a * exp(-b * min_dist_to_ligand),
-                 data = merged_df,
+                 data = merged_df_neg,
                  start = list(a = 1, b = 0.1))
 exp_model
 # Nonlinear regression model
@@ -1347,29 +1378,48 @@ exp_model
 # Number of iterations to convergence: 6 
 # Achieved convergence tolerance: 9.093e-07
 ```
+```{r}
+a <- coef(exp_model)[["a"]]
+b <- coef(exp_model)[["b"]]
+
+merged_df_neg <- merged_df_neg %>%
+  mutate(
+    expected_res = a * exp(-b * min_dist_to_ligand),
+    observed_abs_res = abs(residuals),
+    interpolated_upper = approx(x = fit_df_residue$min_dist_to_ligand,
+                                y = fit_df_residue$upper,
+                                xout = min_dist_to_ligand,
+                                rule = 2)$y,
+    sig_above_curve = observed_abs_res > interpolated_upper
+  )
+
+# 4. Get mutations significantly above the curve
+significant_mutations <- merged_df_neg %>%
+  filter(sig_above_curve) 
+
+# Preview
+#significant_mutations %>% pull(mutant)
+```
 
 
 ```{r}
-a <- 2.99859
-b <- 0.04776  
 half_d <- log(2) / b  
 half_d #14.51313
 
-y_cutoff <- a  * exp(-b    * half_d)
-y_cutoff
+#y_cutoff <- a  * exp(-b    * half_d)
 
-merged_df$site_type <- "Non-orthosteric site"
-merged_df$site_type[abs(merged_df$residuals) <= y_cutoff] <- "Null"
-merged_df$site_type[merged_df$mutation_position %in% active_positions] <- "Active site"
-merged_df$site_type[merged_df$mutation_position %in% binding_positions] <- "Binding site"
+merged_df_neg$site_type <- "Non-orthosteric site"
+#merged_df$site_type[abs(merged_df$residuals) <= y_cutoff] <- "Null"
+merged_df_neg$site_type[merged_df_neg$mutation_position %in% active_positions] <- "Active site"
+merged_df_neg$site_type[merged_df_neg$mutation_position %in% binding_positions] <- "Binding site"
 
-x_vals <- seq(min(merged_df$min_dist_to_ligand),
-              max(merged_df$min_dist_to_ligand), length.out = 200)
+x_vals <- seq(min(merged_df_neg$min_dist_to_ligand),
+              max(merged_df_neg$min_dist_to_ligand), length.out = 200)
 
 # --- Bootstrapping for confidence intervals ---
 set.seed(11)
 boot_params <- replicate(1000, {
-  samp <- merged_df[sample(nrow(merged_df), replace = TRUE), ]
+  samp <- merged_df_neg[sample(nrow(merged_df_neg), replace = TRUE), ]
   fit <- try(nlsLM(abs(residuals) ~ a * exp(-b * min_dist_to_ligand),
                    data = samp, start = list(a = 1, b = 0.1)), silent = TRUE)
   if (inherits(fit, "try-error")) c(NA, NA) else coef(fit)
@@ -1385,58 +1435,43 @@ fit_df_residue <- data.frame(
   upper = apply(boot_preds, 1, quantile, probs = 0.975)
 )
 
-merged_df$pathogenic_status <- ifelse(
-  merged_df$clinvar_clinical_significance %in% c("pathogenic",
-                                           "likely_pathogenic"),
+merged_df_neg$pathogenic_status <- ifelse(
+  merged_df_neg$clinvar_clinical_significance %in% c("pathogenic", "likely_pathogenic"),
   "Pathogenic", "Other"
 )
 
+table(merged_df_neg$pathogenic_status)
 # Plot
-p21 <- ggplot(merged_df, aes(x = min_dist_to_ligand, y = abs(residuals))) +
-  # Base layer: all points
+p21 <- ggplot(merged_df_neg, aes(x = min_dist_to_ligand, y = abs(residuals))) +
   geom_point(aes(color = site_type, alpha = pathogenic_status, shape = pathogenic_status), size = 2) +
-  
-  # Loess fit line
   geom_ribbon(data = fit_df_residue,
-            aes(x = min_dist_to_ligand, ymin = lower, ymax = upper),
-            fill = "grey70", alpha = 0.3, inherit.aes = FALSE) +
-  geom_line(data = fit_df_residue, aes(x = min_dist_to_ligand, y = abs(residuals)),
-          inherit.aes = FALSE, color = "black", size = 1) +
-  
-  # Repelled text labels for selected mutations
+              aes(x = min_dist_to_ligand, ymin = lower, ymax = upper),
+              fill = "grey70", alpha = 0.3, inherit.aes = FALSE) +
+  geom_line(data = fit_df_residue,
+            aes(x = min_dist_to_ligand, y = residuals),
+            inherit.aes = FALSE, color = "black", size = 1) +
   geom_text_repel(
-    data = subset(merged_df, pathogenic_status == "Pathogenic" & min_dist_to_ligand > 16.42677 & residuals < y_cutoff & site_type == "Non-orthosteric site"),
-    aes(label = mutant,color = site_type),
-    size = 3, 
-    max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3
+    data = merged_df_neg %>% filter(sig_above_curve) %>% filter(pathogenic_status == "Pathogenic") %>% filter(site_type != "Binding site"),
+    aes(label = mutant, color = site_type),
+    size = 3, max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3
   ) +
-  
-  # Manual color palette for site type
   scale_color_manual(values = c(
-    "Null" = "grey",
     "Non-orthosteric site" = "darkgreen",
     "Binding site" = "cyan",
     "Active site" = "orange"
   )) +
-  
-  # Transparency scale
   scale_alpha_manual(values = c("Other" = 0.1, "Pathogenic" = 1)) +
-  
-  # Reference lines
   geom_vline(xintercept = 16.42677, linetype = "dashed", color = "slategrey") +
-  geom_hline(yintercept = y_cutoff, linetype = "dashed", color = "slategrey") +
   theme_classic() +
   labs(
     title = "Per-mutation Allosteric Decay",
-    subtitle = "2003 mutations with positive residuals",
+    subtitle = paste(nrow(merged_df_neg), "mutations with positive residuals"),
     x = "Minimal distance to active sites (TLA)",
-    y = "LOESS residual",
+    y = "|LOESS residual|",
     color = ""
-  ) + theme(legend.position = "bottom") + guides(color = "none", alpha = "none") +
-    annotate("text",  x = Inf, y = Inf,
-             hjust = 1, vjust = 1,
-           label = "y = a * exp (b * x)\na = 2.99859 \nb = - 0.04776",
-           size = 4, color = "black", hjust = 0) + theme(legend.position = "none")
+  ) +
+  theme(legend.position = "none") +
+  guides(color = "none", alpha = "none")
 
 p21 <- ggMarginal(
   p21,
@@ -1453,6 +1488,339 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig4_d
        plot = p21, width = 5, height = 5, dpi = 300)
 p21
 ```
+```{r}
+p_legend <- ggplot(merged_df_neg, aes(x = min_dist_to_ligand, y = abs(residuals))) +
+  geom_point(aes(color = site_type, alpha = pathogenic_status, shape = pathogenic_status), size = 2) +
+  geom_ribbon(data = fit_df_residue,
+              aes(x = min_dist_to_ligand, ymin = lower, ymax = upper),
+              fill = "grey70", alpha = 0.3, inherit.aes = FALSE) +
+  geom_line(data = fit_df_residue,
+            aes(x = min_dist_to_ligand, y = residuals),
+            inherit.aes = FALSE, color = "black", size = 1) +
+  geom_text_repel(
+    data = merged_df_neg %>% filter(sig_above_curve) %>% filter(pathogenic_status == "Pathogenic") %>% filter(site_type != "Binding site"),
+    aes(label = mutant, color = site_type),
+    size = 3, max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3
+  ) +
+  scale_color_manual(values = c(
+    "Non-orthosteric site" = "darkgreen",
+    "Binding site" = "cyan",
+    "Active site" = "orange"
+  )) +
+  scale_alpha_manual(values = c("Other" = 0.1, "Pathogenic" = 1)) +
+  geom_vline(xintercept = 16.42677, linetype = "dashed", color = "slategrey") +
+  theme_classic() +
+  labs(
+    title = "Per-mutation Allosteric Decay",
+    subtitle = paste(nrow(merged_df_neg), "mutations with positive residuals"),
+    x = "Minimal distance to active sites (TLA)",
+    y = "|LOESS residual|",
+    color = ""
+  ) +
+  theme(legend.position = "bottom") +
+  guides(color = "none", alpha = "none") 
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig4_decay_legend.pdf", 
+       plot = p_legend, width = 5, height = 5, dpi = 300)
+```
+
+
+```{r}
+# merged_df_neg$pathogenic_status <- ifelse(
+#   merged_df_neg$clinvar_clinical_significance %in% c("pathogenic", "likely_pathogenic"),
+#   "Pathogenic", "Other"
+# )
+# 
+# merged_df_neg$curve_residual <- merged_df_neg$observed_abs_res - merged_df_neg$expected_res
+# 
+# merged_df_neg_patho_nonortho <- merged_df_neg %>% filter(pathogenic_status == "Pathogenic") %>%
+#   filter(site_type == "Non-orthosteric site")
+# nrow(merged_df_neg_patho_nonortho) #57
+# 
+# merged_df_neg_non_patho_nonortho <- merged_df_neg %>% filter(pathogenic_status != "Pathogenic") %>%
+#   filter(site_type == "Non-orthosteric site")
+# nrow(merged_df_neg_non_patho_nonortho) #1232
+# 
+# wilcox.test(merged_df_neg_patho_nonortho$curve_residual, merged_df_neg_non_patho_nonortho$curve_residual)
+```
+```{r}
+# # 1. Combine data
+# plot_df <- bind_rows(
+#   merged_df_neg_patho_nonortho %>%
+#     mutate(group = "Pathogenic"),
+#   merged_df_neg_non_patho_nonortho %>%
+#     mutate(group = "Non-pathogenic")
+# )
+# 
+# # 2. Summary stats for labeling
+# label_df <- plot_df %>%
+#   group_by(group) %>%
+#   summarise(
+#     n_label = paste0("n = ", n()),
+#     median_val = median(curve_residual, na.rm = TRUE)
+#   )
+# plot_df$group <- factor(plot_df$group, levels = c("Pathogenic", "Non-pathogenic"))
+# 
+# # 3. Plot
+# p_violin <- ggplot(plot_df, aes(x = group, y = curve_residual, fill = group)) +
+#   geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
+#   geom_boxplot(width = 0.5, outlier.shape = NA, alpha = 0.6, color = "lightgrey")  +
+#   stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
+#   stat_summary(fun = median, geom = "point", shape = 23, size = 2.5,
+#                fill = "black", color = "black", stroke = 0.7) +
+# 
+#   # Add n labels
+#   geom_text(
+#     data = label_df,
+#     aes(x = group, y = max(plot_df$curve_residual, na.rm = TRUE) + 0.2, label = n_label),
+#     inherit.aes = FALSE,
+#     size = 4
+#   ) +
+# 
+#   # Add median labels
+#   geom_text(
+#     data = label_df,
+#     aes(x = group, y = median_val + 0.5, label = sprintf("%.2f", median_val)),
+#     inherit.aes = FALSE,
+#     size = 6
+#   ) +
+# 
+#   labs(
+#     x = "",
+#     y = "Residual to exponential curve",
+#     title = "Non-orthosteric Variants",
+#     subtitle = "With negative activity-abundance residuals"
+#   ) +
+#   theme_classic(base_size = 14) +
+#   scale_fill_manual(values = c(
+#     "Pathogenic" = "indianred3",
+#     "Non-pathogenic" = "tan3"
+#   )) +
+#   theme(legend.position = "none") +
+# 
+#   # Wilcoxon significance
+#   geom_signif(comparisons = list(c("Pathogenic", "Non-pathogenic")),
+#               map_signif_level = FALSE,
+#               test = "wilcox.test",
+#               tip_length = 0.01)
+# 
+# # Show plot
+# p_violin
+```
+
+```{r}
+# merged_df_neg_patho_ortho <- merged_df_neg %>% filter(pathogenic_status == "Pathogenic") %>%
+#   filter(site_type != "Non-orthosteric site")
+# nrow(merged_df_neg_patho_ortho) #57
+# merged_df_neg_non_patho_ortho <- merged_df_neg %>% filter(pathogenic_status != "Pathogenic") %>%
+#   filter(site_type != "Non-orthosteric site")
+# nrow(merged_df_neg_non_patho_ortho) #657
+# wilcox.test(merged_df_neg_patho_ortho$curve_residual, merged_df_neg_non_patho_ortho$curve_residual)
+```
+```{r}
+# # 1. Combine data
+# plot_df2 <- bind_rows(
+#   merged_df_neg_patho_ortho %>%
+#     mutate(group = "Pathogenic"),
+#   merged_df_neg_non_patho_ortho %>%
+#     mutate(group = "Non-pathogenic")
+# )
+# 
+# # 2. Summary stats for labeling
+# label_df2 <- plot_df2 %>%
+#   group_by(group) %>%
+#   summarise(
+#     n_label = paste0("n = ", n()),
+#     median_val = median(curve_residual, na.rm = TRUE)
+#   )
+# plot_df2$group <- factor(plot_df2$group, levels = c("Pathogenic", "Non-pathogenic"))
+# 
+# # 3. Plot
+# p_violin2 <- ggplot(plot_df2, aes(x = group, y = curve_residual, fill = group)) +
+#   geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
+#   geom_boxplot(width = 0.5, outlier.shape = NA, alpha = 0.6, color = "lightgrey")  +
+#   stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
+#   stat_summary(fun = median, geom = "point", shape = 23, size = 2.5,
+#                fill = "black", color = "black", stroke = 0.7) +
+# 
+#   # Add n labels
+#   geom_text(
+#     data = label_df2,
+#     aes(x = group, y = max(plot_df2$curve_residual, na.rm = TRUE) + 0.2, label = n_label),
+#     inherit.aes = FALSE,
+#     size = 4
+#   ) +
+# 
+#   # Add median labels
+#   geom_text(
+#     data = label_df2,
+#     aes(x = group, y = median_val + 0.5, label = sprintf("%.2f", median_val)),
+#     inherit.aes = FALSE,
+#     size = 6
+#   ) +
+# 
+#   labs(
+#     x = "",
+#     y = "Residual to exponential curve",
+#     title = "PTEN: Orthosteric Variants",
+#     subtitle = "With negative activity-abundance residuals"
+#   ) +
+#   theme_classic(base_size = 14) +
+#   scale_fill_manual(values = c(
+#     "Pathogenic" = "indianred3",
+#     "Non-pathogenic" = "tan3"
+#   )) +
+#   theme(legend.position = "none") +
+# 
+#   # Wilcoxon significance
+#   geom_signif(comparisons = list(c("Pathogenic", "Non-pathogenic")),
+#               map_signif_level = FALSE,
+#               test = "wilcox.test",
+#               tip_length = 0.01)
+# 
+# # Show plot
+# p_violin2
+```
+```{r,fig.width=3, fig.height=6}
+# plot <- plot_grid(p_violin2, p_violin, ncol = 1, nrow =2)
+# ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig4_violin6.pdf", 
+#        plot = plot, width = 3, height = 6, dpi = 300)
+# plot
+```
+```{r}
+# merged_df_neg_patho <- merged_df_neg %>%
+#   filter(
+#     pathogenic_status == "Pathogenic" |
+#     mutant %in% (pten_somatic$mutant)
+#   )
+# nrow(merged_df_neg_patho)
+# table(merged_df_neg_patho$sig_above_curve)
+# 
+# merged_df_neg_patho_ortho <- merged_df_neg %>%
+#   filter(
+#     pathogenic_status == "Pathogenic" |
+#     mutant %in% (pten_somatic$mutant)
+#   )  %>% filter(site_type != "Non-orthosteric site")
+# table(merged_df_neg_patho_ortho$sig_above_curve)
+# 
+# merged_df_neg_patho_nonortho <- merged_df_neg %>%
+#   filter(
+#     pathogenic_status == "Pathogenic" |
+#     mutant %in% (pten_somatic$mutant)
+#   ) %>% filter(site_type == "Non-orthosteric site")
+# table(merged_df_neg_patho_nonortho$sig_above_curve)
+```
+```{r}
+# plot_df <- merged_df_neg %>%
+#   filter(
+#     pathogenic_status == "Pathogenic" |
+#     mutant %in% (pten_somatic$mutant)
+#   ) %>%
+#   mutate(
+#     group = ifelse(site_type == "Non-orthosteric site", "Non-orthosteric", "Orthosteric"),
+#     group = factor(group, levels = c("Orthosteric", "Non-orthosteric"))
+#   ) %>%
+#   group_by(group, sig_above_curve) %>%
+#   summarise(count = n(), .groups = "drop") %>%
+#   group_by(group) %>%
+#   mutate(percentage = 100 * count / sum(count))
+# 
+# # Plot
+# p2 <- ggplot(plot_df, aes(x = group, y = percentage, fill = sig_above_curve)) +
+#   geom_col(width = 0.6) +
+#   geom_text(
+#     aes(label = sprintf("%d (%.0f%%)", count, percentage)),
+#     position = position_stack(vjust = 0.5),
+#     size = 4
+#   ) +
+#   scale_y_continuous(limits = c(0, 100), expand = c(0, 0)) +
+#   scale_fill_manual(
+#     values = c("TRUE" = "indianred3", "FALSE" = "grey80"),
+#     labels = c("Not above the exponential curve", "Above the exponential curve")
+#   ) +
+#   labs(
+#     x = "",
+#     y = "Variant percentage (%)",
+#     title = "PTEN: 114 ClinVar Pathogenic/Somatic Vatiants",
+#     subtitle = "With negative activity-abundance residuals",
+#     fill = ""
+#   ) +
+#   theme_classic(base_size = 14) + theme(legend.position = "bottom")
+# ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig4_boxplot1.pdf", 
+#        plot = p2, width = 4, height = 5, dpi = 300)
+# p2
+```
+```{r}
+# merged_df_neg_non_patho <- merged_df_neg %>%
+#   filter(
+#     pathogenic_status != "Pathogenic" &
+#     !mutant %in% na.omit(pten_somatic$mutant)
+#   )
+# 
+# nrow(merged_df_neg_non_patho)
+# table(merged_df_neg_non_patho$sig_above_curve)
+# 
+# merged_df_neg_non_patho_ortho <- merged_df_neg %>%
+#   filter(
+#     pathogenic_status != "Pathogenic" &
+#     !mutant %in% na.omit(pten_somatic$mutant)
+#   ) %>% filter(site_type != "Non-orthosteric site")
+# table(merged_df_neg_non_patho_ortho$sig_above_curve)
+# 
+# merged_df_neg_non_patho_nonortho <- merged_df_neg %>%
+#   filter(
+#     pathogenic_status != "Pathogenic" &
+#     !mutant %in% na.omit(pten_somatic$mutant)
+#   )%>% filter(site_type == "Non-orthosteric site")
+# table(merged_df_neg_non_patho_nonortho$sig_above_curve)
+```
+
+```{r}
+# plot_df <- merged_df_neg %>%
+#   filter(
+#     pathogenic_status != "Pathogenic" &
+#     !mutant %in% na.omit(pten_somatic$mutant)
+#   ) %>%
+#   mutate(
+#     group = ifelse(site_type == "Non-orthosteric site", "Non-orthosteric", "Orthosteric"),
+#     group = factor(group, levels = c("Orthosteric", "Non-orthosteric"))
+#   ) %>%
+#   group_by(group, sig_above_curve) %>%
+#   summarise(count = n(), .groups = "drop") %>%
+#   group_by(group) %>%
+#   mutate(percentage = 100 * count / sum(count))
+# 
+# # Plot
+# p3 <- ggplot(plot_df, aes(x = group, y = percentage, fill = sig_above_curve)) +
+#   geom_col(width = 0.6) +
+#   geom_text(
+#     aes(label = sprintf("%d (%.0f%%)", count, percentage)),
+#     position = position_stack(vjust = 0.5),
+#     size = 4
+#   ) +
+#   scale_y_continuous(limits = c(0, 100), expand = c(0, 0)) +
+#   scale_fill_manual(
+#     values = c("TRUE" = "indianred3", "FALSE" = "grey80"),
+#     labels = c("Not above the exponential curve", "Above the exponential curve")
+#   ) +
+#   labs(
+#     x = "",
+#     y = "Variant percentage (%)",
+#     title = "PTEN: 1889 Non-pathogenic/somatic Vatiants",
+#     subtitle = "With negative activity-abundance residuals",
+#     fill = ""
+#   ) +
+#   theme_classic(base_size = 14) + theme(legend.position = "bottom")
+# ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig4_boxplot2.pdf", 
+#        plot = p3, width = 4, height = 5, dpi = 300)
+# p3
+```
+
+```{r}
+
+```
+
+
 ```{r}
 lm_model <- lm(log(abs(residuals)) ~ min_dist_to_ligand, data = merged_df)
 summary(lm_model)

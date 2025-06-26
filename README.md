@@ -13,4 +13,4 @@ Raw and processed datasets for the human proteome-wide analysis can be accessed 
 - [Zenodo: Proteome-wide raw data](https://zenodo.org/uploads/15586553)  
 - [Zenodo: Proteome-wide meta data](https://zenodo.org/uploads/15681969)
 
-For any feedback or requests, please get in touch with me via email: xl7@sanger.ac.uk.
+🧑‍🔧 For any feedback or requests, please get in touch via pull requests or via email: xl7@sanger.ac.uk.

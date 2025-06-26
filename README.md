@@ -1,4 +1,4 @@
-## 🧑‍💻 Analysis Scripts for Liao & Lehner, 2025
+## 📑 Analysis Scripts for Liao & Lehner, 2025
 
 This repository contains the R scripts and metadata used to reproduce main figures in the following preprint:
 

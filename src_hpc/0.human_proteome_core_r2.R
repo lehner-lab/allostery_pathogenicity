@@ -43,7 +43,6 @@ process_proteins_parallel <- function(ddg_dir, var_dir, output_dir) {
     
     # Filter relevant columns from var_df (use only existing ones safely)
     keep_cols <- c("uniprot", "variant", "exposure_ss", "exposure_rasa", "spot_disorder",
-                   "func_esms_residue_class", "func_esms_variant_class",
                    "clinvar_clinical_significance", "aa_sequence")
     
     keep_cols <- keep_cols[keep_cols %in% names(var_df)]

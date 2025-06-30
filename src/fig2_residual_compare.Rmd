@@ -1,0 +1,1004 @@
+---
+title: "fig2_residual_compare"
+output: pdf_document
+date: "2025-06-17"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+library('ProjectTemplate')
+library(ggExtra)
+library(bio3d)
+library(ggrepel)
+load.project()
+```
+
+```{r}
+pten_abundance <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/PTEN_HUMAN_Matreyek_2021.csv", header = TRUE)
+pten_activity <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/PTEN_HUMAN_Mighell_2018.csv", header = TRUE)
+
+pten_esm <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ESM1v/P60484.csv")
+nrow(pten_abundance) #5083
+nrow(pten_activity) #7260
+nrow(pten_esm) #7657
+
+pten_df <- merge(pten_abundance, pten_esm, by.x = "mutant", by.y = "variant") 
+pten_df <- pten_df %>% dplyr::select (mutant, DMS_score, DMS_score_bin, ESM.1v) %>% 
+  dplyr::rename(DMS_score_abundance = DMS_score,
+                DMS_score_bin_abundance = DMS_score_bin)
+pten_df <- merge(pten_df, pten_activity, by = "mutant") 
+pten_df <- pten_df %>% dplyr::rename(DMS_score_activity = DMS_score,
+                                     DMS_score_bin_activity = DMS_score_bin) %>% 
+  dplyr::select (mutant, DMS_score_abundance, DMS_score_bin_abundance, ESM.1v,
+                 DMS_score_activity, DMS_score_bin_activity)
+
+
+pten_df <- pten_df %>%
+  mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
+nrow(pten_df) #4839
+head(pten_df)
+```
+
+```{r}
+analyze_ddg_vs_esm1v <- function(ddg_file, esm_file, protein_name = "Protein") {
+  # Load data
+  test_ddg <- fread(ddg_file)
+  test_esm <- fread(esm_file)
+  
+  # Prepare ESM1v column
+  colnames(test_esm)[2] <- "ESM1v"
+  
+  # Construct variant column in ddg data
+  test_ddg[, new_position := pos + 1]
+  test_ddg[, variant := paste0(wtAA, new_position, mutAA)]
+  
+  # Merge on variant
+  test_df <- merge(test_ddg, test_esm, by = "variant")
+  
+  # Rename ddG column
+  test_df <- test_df %>% dplyr::rename(ddG_pred = `ddG (kcal/mol)`)
+  
+  # Spearman correlation
+  spearman_rho <- cor.test(test_df$ddG_pred, test_df$ESM1v, method = "spearman")
+  rho_value <- round(spearman_rho$estimate, 2)
+  
+  # Plot
+  p <- ggplot(test_df, aes(x = ddG_pred, y = ESM1v)) +
+    geom_bin2d(bins = 100) +
+    scale_fill_continuous(type = "viridis") +
+    theme_classic() +
+    labs(
+      x = "Predicted ddGf",
+      y = "ESM1v",
+      title = protein_name,
+      subtitle = paste("Spearman's rho =", rho_value)
+    ) +
+    theme(
+      text = element_text(size = 12),
+      legend.position = "right"
+    )
+  
+  # Output
+  list(
+    spearman_rho = spearman_rho,
+    plot = p,
+    merged_data = test_df
+  )
+}
+pten_pred <- analyze_ddg_vs_esm1v(
+  ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/PTEN/AF-P60484-F1-model_v4.csv",
+  esm_file = "/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P60484.csv",
+  protein_name = "PTEN"
+)
+
+test_merged_df <- merge(pten_df, pten_pred$merged_data, by.x="mutant", by.y="variant")
+nrow(test_merged_df) #4839
+head(test_merged_df)
+```
+
+```{r}
+all_positions <- c(
+  88:98,    # WPD loop
+  160:171,  # TI loop
+  123:130,  # P loop
+  35:49,    # Arginine loop
+  200:212,  # CBR1
+  226:238,  # CBR2
+  258:268,  # CBR3
+  327:335,   # Cα2 loop
+  151:174, # membrane-binding alpha-helix
+  1:15 # PBM motif 
+)
+
+fil_test_merged_df <- test_merged_df %>%
+  filter(!mutation_position %in% all_positions)
+
+# Fit a loess model using the filtered data
+loess_fit <- loess(DMS_score_activity ~ DMS_score_abundance, data = fil_test_merged_df, span = 0.7, family = "symmetric")
+
+# Predict fitted values for ALL data points using the loess model trained on fil_gck_df
+test_merged_df$fitted_exp <- predict(loess_fit, newdata = test_merged_df)
+
+# Calculate residuals for ALL points
+test_merged_df$residuals_exp <- test_merged_df$fitted_exp - test_merged_df$DMS_score_activity
+range(test_merged_df$residuals_exp) #-4.754293  5.157748
+
+# Fit a loess model using the filtered data
+loess_fit_comp <- loess(ESM1v ~ ddG_pred, data = fil_test_merged_df, span = 0.7, family = "symmetric")
+
+# Predict fitted values for ALL data points using the loess model trained on fil_gck_df
+test_merged_df$fitted_comp <- predict(loess_fit_comp, newdata = test_merged_df)
+
+# Calculate residuals for ALL points
+test_merged_df$residuals_comp <- test_merged_df$ESM1v - test_merged_df$fitted_comp
+sum(is.na(test_merged_df$residuals_comp)) #4
+head(test_merged_df)
+```
+
+
+```{r}
+test_merged_df_residue <- test_merged_df %>%
+  group_by(new_position) %>%
+  summarise(
+    comp_residual_avg = median(residuals_comp, na.rm = TRUE),
+    exp_residual_avg = median(residuals_exp, na.rm = TRUE))
+
+cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_residual_avg, method="spearman")
+# data:  test_merged_df_residue$comp_residual_avg and test_merged_df_residue$exp_residual_avg
+# S = 12175844, p-value = 1.048e-11
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.3419481
+
+active_positions <- c(
+  88:98,    # WPD loop
+  159:171,  # TI loop
+  123:130,  # P loop
+  35:49   # Arginine loop
+)
+
+binding_positions <- c(
+  200:212,  # CBR1
+  226:238,  # CBR2
+  258:268,  # CBR3
+  327:335,   # Cα2 loop
+  151:174, # membrane-binding alpha-helix
+  1:15 # PBM motif 
+)
+
+test_merged_df_residue$site_type <- "Non-orthosteric site"
+test_merged_df_residue$site_type[test_merged_df_residue$new_position %in% active_positions] <- "Active site"
+test_merged_df_residue$site_type[test_merged_df_residue$new_position %in% binding_positions] <- "Binding site"
+
+test_merged_df_residue_active <- test_merged_df_residue %>% filter(site_type == "Active site")
+nrow(test_merged_df_residue_active) #34
+cor.test(test_merged_df_residue_active$comp_residual_avg, test_merged_df_residue_active$exp_residual_avg, method="spearman")
+# data:  test_merged_df_residue_active$comp_residual_avg and test_merged_df_residue_active$exp_residual_avg
+# S = 8262, p-value = 0.1337
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.2623377
+
+test_merged_df_residue_glu <- test_merged_df_residue %>% filter(site_type == "Binding site")
+nrow(test_merged_df_residue_glu) #78
+cor.test(test_merged_df_residue_glu$comp_residual_avg, test_merged_df_residue_glu$exp_residual_avg, method="spearman")
+# data:  test_merged_df_residue_glu$comp_residual_avg and test_merged_df_residue_glu$exp_residual_avg
+# S = 114172, p-value = 5.638e-05
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.4437714
+
+test_merged_df_residue_other <- test_merged_df_residue %>% filter(site_type == "Non-orthosteric site")
+nrow(test_merged_df_residue_other) #267
+cor.test(test_merged_df_residue_other$comp_residual_avg, test_merged_df_residue_other$exp_residual_avg, method="spearman")
+# data:  test_merged_df_residue_other$comp_residual_avg and test_merged_df_residue_other$exp_residual_avg
+# S = 3979324, p-value = 2.755e-05
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.2543908
+```
+```{r, fig.width=16, fig.height=4}
+nrow(test_merged_df_residue) #379
+cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_residual_avg, method="spearman") #-0.3419481
+range(test_merged_df_residue$comp_residual_avg) #-8.81836 10.13934
+range(test_merged_df_residue$exp_residual_avg) #-1.861488  4.034455
+p1 <- ggplot(test_merged_df_residue, aes(x = exp_residual_avg , y = comp_residual_avg, color = site_type)) +
+  geom_point(size = 2, alpha = 0.5) +
+  labs(
+    title = "PTEN: 379 residues",
+    subtitle = "Spearman's rho = -0.34",
+    x = "Experimental median activity-abundance residual",
+    y = "Predicted median ESM1v-TMPNN ddGf residual",
+    color = "") +
+  theme_classic() +
+    scale_color_manual(values = c(
+    "Non-orthosteric site" = "darkgreen",
+    "Binding site" = "cyan",
+    "Active site" = "orange"
+  )) + theme(legend.position = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  xlim(-2,5) + ylim(-9,11)
+
+
+nrow(test_merged_df_residue_active) #34
+cor.test(test_merged_df_residue_active$comp_residual_avg, test_merged_df_residue_active$exp_residual_avg, method="spearman") #-0.2623377
+p2 <- ggplot(test_merged_df_residue_active, aes(x = exp_residual_avg , y = comp_residual_avg, color = site_type)) +
+  geom_point(size = 2, alpha = 0.7) +
+  labs(
+    title = "34 Active sites",
+    subtitle = "Spearman's rho = -0.26",
+    x = "Experimental median activity-abundance residual",
+    y = "Predicted median ESM1v-TMPNN ddGf residual",
+    color = "") +
+  theme_classic() +
+    scale_color_manual(values = c(
+    "Non-orthosteric site" = "darkgreen",
+    "Binding site" = "cyan",
+    "Active site" = "orange"
+  )) + theme(legend.position = "none") +
+  geom_text_repel(aes(label = new_position)) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  xlim(-2,5) + ylim(-9,11)
+
+
+nrow(test_merged_df_residue_glu) #78
+cor.test(test_merged_df_residue_glu$comp_residual_avg, test_merged_df_residue_glu$exp_residual_avg, method="spearman") #-0.4437714
+p3 <- ggplot(test_merged_df_residue_glu, aes(x = exp_residual_avg , y = comp_residual_avg, color = site_type)) +
+  geom_point(size = 2, alpha = 0.7) +
+  labs(
+    title = "78 Binding sites",
+    subtitle = "Spearman's rho = -0.44",
+    x = "Experimental median activity-abundance residual",
+    y = "Predicted median ESM1v-TMPNN ddGf residual",
+    color = "") +
+  theme_classic() +
+    scale_color_manual(values = c(
+    "Non-orthosteric site" = "darkgreen",
+    "Binding site" = "cyan",
+    "Active site" = "orange"
+  )) + theme(legend.position = "none") +
+  geom_text_repel(aes(label = new_position)) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  xlim(-2,5) + ylim(-9,11)
+
+nrow(test_merged_df_residue_other) #267
+cor.test(test_merged_df_residue_other$comp_residual_avg, test_merged_df_residue_other$exp_residual_avg, method="spearman") #-0.4095121
+
+p4 <- ggplot(test_merged_df_residue_other, aes(x = exp_residual_avg , y = comp_residual_avg, color = site_type)) +
+  geom_point(size = 2, alpha = 0.3) +
+  labs(
+    title = "267 non-orthosteric sites",
+    subtitle = "Spearman's rho = -0.25",
+    x = "Experimental median activity-abundance residual",
+    y = "Predicted median ESM1v-TMPNN ddGf residual",
+    color = "") +
+  theme_classic() +
+    scale_color_manual(values = c(
+    "Non-orthosteric site" = "darkgreen",
+    "Binding site" = "cyan",
+    "Active site" = "orange"
+  )) + theme(legend.position = "none") +
+  geom_text_repel(data = test_merged_df_residue_other %>% filter(new_position %in% c(444:456)), aes(label = new_position)) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  xlim(-2,5) + ylim(-9,11)
+
+p1 <- ggMarginal(
+  p1,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+
+p2 <- ggMarginal(
+  p2,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+p3 <- ggMarginal(
+  p3,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+p4 <- ggMarginal(
+  p4,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+
+p5 <- plot_grid(p1,p2,p3,p4, ncol=4,nrow=1)
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_corr_pten.pdf", 
+       plot = p5, width = 12, height = 3, dpi = 300)
+p5
+```
+```{r, fig.width=5, fig.height=5}
+cor.test(test_merged_df$ddG_pred, test_merged_df$DMS_score_abundance, method = "spearman")#-0.5187133
+
+p6 <- ggplot(test_merged_df, aes(x = DMS_score_abundance, y = ddG_pred) ) +
+  geom_bin2d(bins = 100) +
+  scale_fill_continuous(type = "viridis") +
+  theme_classic() +
+  labs(
+    x = "Measured abundance",
+    y = "Predicted ddGf",
+    title = "PTEN",
+    subtitle = "Spearman's rho = -0.52"
+  ) +
+  theme(
+    text = element_text(size = 12),
+    legend.position = ("bottom")
+  )
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_pten_v1.pdf", 
+       plot = p6, width = 3, height = 4, dpi = 300)
+p6
+```
+```{r, fig.width=5, fig.height=5}
+cor.test(test_merged_df$ESM1v, test_merged_df$DMS_score_activity, method = "spearman")#0.4811662 
+
+p7 <- ggplot(test_merged_df, aes(x = DMS_score_activity, y = ESM1v) ) +
+  geom_bin2d(bins = 100) +
+  scale_fill_continuous(type = "viridis") +
+  theme_classic() +
+  labs(
+    x = "Measured activity",
+    y = "ESM1v pathogenicity",
+    title = "PTEN",
+    subtitle = "Spearman's rho = 0.48"
+  ) +
+  theme(
+    text = element_text(size = 12),
+    legend.position = ("bottom")
+  )
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_pten_v2.pdf", 
+       plot = p7, width = 3, height = 4, dpi = 300)
+p7
+```
+```{r}
+pdz3_final_df_ddg <- read_csv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/pdz3_ddg_cleaned_mochi_refit.csv')
+pdz3_final_df_ddgb <- pdz3_final_df_ddg %>% filter(trait_name == "Binding") %>% 
+  dplyr::rename(b_ddg_pred = ddg,
+                b_ddg_pred_sd = std_ddg)
+nrow(pdz3_final_df_ddgb) #1567
+head(pdz3_final_df_ddgb)
+```
+
+```{r}
+test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/PSD95/ThermoMPNN_inference_AF-P78352-F1-model_v4.csv")
+test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P78352.csv")
+  
+colnames(test_esm)[2] <- "ESM1v"
+  
+test_ddg[, new_position := position + 1]
+test_ddg[, variant := paste0(wildtype, new_position, mutation)]
+  
+test_df <- merge(test_ddg, test_esm, by = "variant")
+
+pred_seq <-  ali_process_sequence(test_df, "new_position", "wildtype")
+exp_seq <- ali_process_sequence(pdz3_final_df_ddgb, "pos_am", "WT_aa")
+ali_find_sequence_overlap(pred_seq, exp_seq ,"sequence")
+#sequence starts at index 311 in the reference sequence
+
+test_df %>% filter(new_position == 311)
+pdz3_final_df_ddgb %>% filter (pos_am == 1)
+pdz3_final_df_ddgb$pos_match <- pdz3_final_df_ddgb$pos_am + 310
+pdz3_final_df_ddgb$variant_match <- paste0(pdz3_final_df_ddgb$wt_aa, 
+                                           pdz3_final_df_ddgb$pos_match, 
+                                           pdz3_final_df_ddgb$mt_aa)
+
+test_merged_df <- merge(pdz3_final_df_ddgb, test_df, by.x="variant_match", by.y="variant")
+nrow(test_merged_df) #1567
+head(test_merged_df)
+```
+
+```{r}
+paper_anno <- read.csv("../data/cleaned_ddg/pdz3_ddg_cleaned.csv")
+head(paper_anno)
+table(paper_anno$orthosteric)
+ortho_list <- unique(paper_anno %>% filter(orthosteric == TRUE) %>% pull(pos_am))
+##setdiff(unique(pdz3_out %>% filter(scHAmin_ligand < 4.3) %>% pull(Pos)), unique(merged_df_pdz3 %>% filter(orthosteric == TRUE) %>% pull (Pos_ref.x)))
+ortho_list <- append(ortho_list, c(322, 323, 324 ,325, 326, 327, 328, 331, 339, 372, 376, 379, 380))
+
+fil_test_merged_df <- test_merged_df %>%
+  filter(!Pos_ref %in% ortho_list)
+
+# Fit a loess model using the filtered data
+loess_fit_comp <- loess(ESM1v.x ~ ddG_pred, data = fil_test_merged_df, span = 0.7, family = "symmetric")
+
+# Predict fitted values for ALL data points using the loess model trained on fil_gck_df
+test_merged_df$fitted_comp <- predict(loess_fit_comp, newdata = test_merged_df)
+
+# Calculate residuals for ALL points
+test_merged_df$residuals_comp <- test_merged_df$ESM1v.x - test_merged_df$fitted_comp
+sum(is.na(test_merged_df$residuals_comp)) #6
+head(test_merged_df)
+```
+
+
+```{r}
+test_merged_df_residue <- test_merged_df %>%
+  group_by(pos_match) %>%
+  summarise(
+    comp_residual_avg = median(residuals_comp, na.rm = TRUE),
+    exp_residual_avg = median(b_ddg_pred, na.rm = TRUE))
+
+cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_residual_avg, method="spearman")
+# data:  test_merged_df_residue$comp_residual_avg and test_merged_df_residue$exp_residual_avg
+# S = 137004, p-value = 0.0003053
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.3871013
+length(ortho_list)
+allo_pos <- c(312, 314, 318, 329, 330, 336, 338, 341, 347, 357, 359, 360, 362, 363, 367, 375, 386, 388)
+length(allo_pos)
+
+test_merged_df_residue$site_type <- "Non-orthosteric site"
+test_merged_df_residue$site_type[test_merged_df_residue$pos_match %in% allo_pos] <- "Allosteric site"
+test_merged_df_residue$site_type[test_merged_df_residue$pos_match %in% ortho_list] <- "Binding site"
+
+test_merged_df_residue_binding <- test_merged_df_residue %>% filter(site_type == "Binding site")
+nrow(test_merged_df_residue_binding) #13
+cor.test(test_merged_df_residue_binding$comp_residual_avg, test_merged_df_residue_binding$exp_residual_avg, method="spearman")
+# data:  test_merged_df_residue_binding$comp_residual_avg and test_merged_df_residue_binding$exp_residual_avg
+# S = 428, p-value = 0.566
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.1758242 
+
+test_merged_df_residue_allo <- test_merged_df_residue %>% filter(site_type == "Allosteric site")
+nrow(test_merged_df_residue_allo) #18
+cor.test(test_merged_df_residue_allo$comp_residual_avg, test_merged_df_residue_allo$exp_residual_avg, method="spearman")
+# data:  test_merged_df_residue_allo$comp_residual_avg and test_merged_df_residue_allo$exp_residual_avg
+# S = 1362, p-value = 0.09613
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.4055728 
+
+test_merged_df_residue_other <- test_merged_df_residue %>% filter(site_type == "Non-orthosteric site")
+nrow(test_merged_df_residue_other) #53
+cor.test(test_merged_df_residue_other$comp_residual_avg, test_merged_df_residue_other$exp_residual_avg, method="spearman")
+# data:  test_merged_df_residue_other$comp_residual_avg and test_merged_df_residue_other$exp_residual_avg
+# S = 29810, p-value = 0.147
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.2018223
+```
+```{r, fig.width=16, fig.height=4}
+nrow(test_merged_df_residue) #84
+cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_residual_avg, method="spearman") #-0.3871013 
+p1 <- ggplot(test_merged_df_residue, aes(x = exp_residual_avg , y = comp_residual_avg, color = site_type)) +
+  geom_point(size = 2, alpha = 0.5) +
+  labs(
+    title = "PSD-95-PDZ3: 84 residues",
+    subtitle = "Spearman's rho = -0.39",
+    x = "Experimental median ddGb",
+    y = "Predicted median ESM1v-TMPNN ddGf residual",
+    color = "") +
+  theme_classic() +
+    scale_color_manual(values = c(
+    "Non-orthosteric site" = "darkgreen",
+    "Allosteric site" = "cyan",
+    "Binding site" = "orange"
+  )) + theme(legend.position = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  xlim(-2,2) + ylim(-8,5)
+
+
+nrow(test_merged_df_residue_binding) #13
+cor.test(test_merged_df_residue_binding$comp_residual_avg, test_merged_df_residue_binding$exp_residual_avg, method="spearman") #-0.1758242
+p2 <- ggplot(test_merged_df_residue_binding, aes(x = exp_residual_avg , y = comp_residual_avg, color = site_type)) +
+  geom_point(size = 2, alpha = 0.7) +
+  labs(
+    title = "13 Binding sites",
+    subtitle = "Spearman's rho = -0.18",
+    x = "Experimental median ddGb",
+    y = "Predicted median ESM1v-TMPNN ddGf residual",
+    color = "") +
+  theme_classic() +
+    scale_color_manual(values = c(
+    "Non-orthosteric site" = "darkgreen",
+    "Allosteric site" = "cyan",
+    "Binding site" = "orange"
+  )) + theme(legend.position = "none") +
+  geom_text_repel(aes(label = pos_match)) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  xlim(-2,2) + ylim(-8,5)
+
+
+nrow(test_merged_df_residue_allo) #18
+cor.test(test_merged_df_residue_allo$comp_residual_avg, test_merged_df_residue_allo$exp_residual_avg, method="spearman") #-0.4055728
+p3 <- ggplot(test_merged_df_residue_allo, aes(x = exp_residual_avg , y = comp_residual_avg, color = site_type)) +
+  geom_point(size = 2, alpha = 0.7) +
+  labs(
+    title = "19 Allosteric sites",
+    subtitle = "Spearman's rho = -0.41",
+    x = "Experimental median ddGb",
+    y = "Predicted median ESM1v-TMPNN ddGf residual",
+    color = "") +
+  theme_classic() +
+    scale_color_manual(values = c(
+    "Non-orthosteric site" = "darkgreen",
+    "Allosteric site" = "cyan",
+    "Binding site" = "orange"
+  )) + theme(legend.position = "none") +
+  geom_text_repel(aes(label = pos_match)) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  xlim(-2,2) + ylim(-8,5)
+
+nrow(test_merged_df_residue_other) #53
+cor.test(test_merged_df_residue_other$comp_residual_avg, test_merged_df_residue_other$exp_residual_avg, method="spearman") #-0.2018223
+
+p4 <- ggplot(test_merged_df_residue_other, aes(x = exp_residual_avg , y = comp_residual_avg, color = site_type)) +
+  geom_point(size = 2, alpha = 0.3) +
+  labs(
+    title = "53 non-orthosteric sites",
+    subtitle = "Spearman's rho = -0.20",
+    x = "Experimental median ddGb",
+    y = "Predicted median ESM1v-TMPNN ddGf residual",
+    color = "") +
+  theme_classic() +
+    scale_color_manual(values = c(
+    "Non-orthosteric site" = "darkgreen",
+    "Allosteric site" = "cyan",
+    "Binding site" = "orange"
+  )) + theme(legend.position = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  xlim(-2,2) + ylim(-8,5)
+
+p1 <- ggMarginal(
+  p1,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+
+p2 <- ggMarginal(
+  p2,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+p3 <- ggMarginal(
+  p3,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+p4 <- ggMarginal(
+  p4,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+
+p5 <- plot_grid(p1,p2,p3,p4, ncol=4,nrow=1)
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_corr_pdz3.pdf", 
+       plot = p5, width = 12, height = 3, dpi = 300)
+p5
+```
+```{r, fig.width=5, fig.height=5}
+cor.test(test_merged_df$ESM1v.x, test_merged_df$b_ddg_pred, method = "spearman")#-0.5573928 
+
+p7 <- ggplot(test_merged_df, aes(x = b_ddg_pred, y = ESM1v.x) ) +
+  geom_bin2d(bins = 100) +
+  scale_fill_continuous(type = "viridis") +
+  theme_classic() +
+  labs(
+    x = "Measured ddGb",
+    y = "ESM1v pathogenicity",
+    title = "PSD-95-PDZ3",
+    subtitle = "Spearman's rho = -0.56"
+  ) +
+  theme(
+    text = element_text(size = 12),
+    legend.position = ("bottom")
+  )
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_pdz3_v2.pdf", 
+       plot = p7, width = 3, height = 4, dpi = 300)
+p7
+```
+
+```{r, fig.width=5, fig.height=5}
+pdz3_final_df_ddgf <- pdz3_final_df_ddg %>% filter(trait_name == "Folding") %>% 
+  dplyr::rename(f_ddg_pred = ddg,
+                f_ddg_pred_sd = std_ddg)
+
+pdz3_final_df_ddgf$pos_match <- pdz3_final_df_ddgf$pos_am + 310
+pdz3_final_df_ddgf$variant_match <- paste0(pdz3_final_df_ddgf$wt_aa, 
+                                           pdz3_final_df_ddgf$pos_match, 
+                                           pdz3_final_df_ddgf$mt_aa)
+
+test_merged_df <- merge(test_merged_df, pdz3_final_df_ddgf, by =  "variant_match")
+
+cor.test(test_merged_df$ddG_pred, test_merged_df$f_ddg_pred, method = "spearman")#0.5212277
+
+p6 <- ggplot(test_merged_df, aes(x = f_ddg_pred, y = ddG_pred) ) +
+  geom_bin2d(bins = 100) +
+  scale_fill_continuous(type = "viridis") +
+  theme_classic() +
+  labs(
+    x = "Measured ddGf",
+    y = "Predicted ddGf",
+    title = "PSD-95-PDZ3",
+    subtitle = "Spearman's rho = 0.52"
+  ) +
+  theme(
+    text = element_text(size = 12),
+    legend.position = ("bottom")
+  )
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_pdz3_v1.pdf", 
+       plot = p6, width = 3, height = 4, dpi = 300)
+p6
+```
+```{r}
+sh3_final_df_ddgb <- read_tsv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domains_andre/GRB2-SH3/Abundance/mochi_project/task_1/weights/weights_Binding.txt')
+sh3_final_df_ddgb <- sh3_final_df_ddgb %>% dplyr::select(id_ref, Pos_ref, `mean_kcal/mol`, `std_kcal/mol`)
+dim(sh3_final_df_ddgb) #757   4
+
+sh3_final_df_ddgb <- sh3_final_df_ddgb %>%
+  mutate(wt_aa = str_extract(id_ref, '^[A-Za-z]+'),
+         mt_aa = str_extract(id_ref, '[A-Za-z]+$')) %>%
+  rename(old_id = id_ref) %>%
+  rename(old_Pos = Pos_ref) %>%
+    rename(b_ddg_pred = `mean_kcal/mol`) %>%
+  rename(b_ddg_pred_sd = `std_kcal/mol`) %>%
+  mutate(Pos_ref = as.numeric(old_Pos) + 158) %>%
+  mutate(id_ref = paste0(wt_aa, Pos_ref, mt_aa))
+
+sh3_final_df_ddgb <- sh3_final_df_ddgb %>% filter(old_id != "WT")
+head(sh3_final_df_ddgb)
+```
+
+
+```{r}
+test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/GRB2/ThermoMPNN_inference_AF-P62993-F1-model_v4.csv")
+test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P62993.csv")
+  
+colnames(test_esm)[2] <- "ESM1v"
+  
+test_ddg[, new_position := position + 1]
+test_ddg[, variant := paste0(wildtype, new_position, mutation)]
+  
+test_df <- merge(test_ddg, test_esm, by = "variant")
+
+pred_seq <-  ali_process_sequence(test_df, "new_position", "wildtype")
+exp_seq <- ali_process_sequence(sh3_final_df_ddgb, "old_Pos", "wt_aa")
+ali_find_sequence_overlap(pred_seq, exp_seq ,"sequence")
+#"sequence starts at index 159 in the reference sequence."
+nrow(sh3_final_df_ddgb) #756
+test_merged_df <- merge(sh3_final_df_ddgb, test_df, by.x="id_ref", by.y="variant")
+nrow(test_merged_df) #756
+head(test_merged_df)
+```
+
+```{r}
+paper_anno <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/sh3_ddg_cleaned.csv")
+table(paper_anno$orthosteric)
+head(paper_anno)
+ortho_list <- unique(paper_anno %>% filter(orthosteric == TRUE) %>% pull(Pos_real))
+
+ortho_list<- append(ortho_list, c(170 ,192 ,195 ,204 ,209))
+length(ortho_list)
+
+fil_test_merged_df <- test_merged_df %>%
+  filter(!Pos_ref %in% ortho_list)
+
+# Fit a loess model using the filtered data
+loess_fit_comp <- loess(ESM1v ~ ddG_pred, data = fil_test_merged_df, span = 0.7, family = "symmetric")
+
+# Predict fitted values for ALL data points using the loess model trained on fil_gck_df
+test_merged_df$fitted_comp <- predict(loess_fit_comp, newdata = test_merged_df)
+
+# Calculate residuals for ALL points
+test_merged_df$residuals_comp <- test_merged_df$ESM1v - test_merged_df$fitted_comp
+sum(is.na(test_merged_df$residuals_comp)) #0
+head(test_merged_df)
+```
+
+```{r}
+test_merged_df_residue <- test_merged_df %>%
+  group_by(Pos_ref) %>%
+  summarise(
+    comp_residual_avg = median(residuals_comp, na.rm = TRUE),
+    exp_residual_avg = median(b_ddg_pred, na.rm = TRUE))
+
+cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_residual_avg, method="spearman")
+# data:  test_merged_df_residue$comp_residual_avg and test_merged_df_residue$exp_residual_avg
+# S = 43682, p-value = 0.0001388
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.4928913 
+
+allo_pos <- c(173, 183, 203)
+length(allo_pos)
+
+test_merged_df_residue$site_type <- "Non-orthosteric site"
+test_merged_df_residue$site_type[test_merged_df_residue$Pos_ref %in% allo_pos] <- "Allosteric site"
+test_merged_df_residue$site_type[test_merged_df_residue$Pos_ref %in% ortho_list] <- "Binding site"
+
+test_merged_df_residue_binding <- test_merged_df_residue %>% filter(site_type == "Binding site")
+nrow(test_merged_df_residue_binding) #13
+cor.test(test_merged_df_residue_binding$comp_residual_avg, test_merged_df_residue_binding$exp_residual_avg, method="spearman")
+# data:  test_merged_df_residue_binding$comp_residual_avg and test_merged_df_residue_binding$exp_residual_avg
+# S = 600, p-value = 0.01958
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.6483516 
+
+test_merged_df_residue_allo <- test_merged_df_residue %>% filter(site_type == "Allosteric site")
+nrow(test_merged_df_residue_allo) #3
+cor.test(test_merged_df_residue_allo$comp_residual_avg, test_merged_df_residue_allo$exp_residual_avg, method="spearman")
+# data:  test_merged_df_residue_allo$comp_residual_avg and test_merged_df_residue_allo$exp_residual_avg
+# S = 2, p-value = 1
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+# rho 
+# 0.5
+
+test_merged_df_residue_other <- test_merged_df_residue %>% filter(site_type == "Non-orthosteric site")
+nrow(test_merged_df_residue_other) #40
+cor.test(test_merged_df_residue_other$comp_residual_avg, test_merged_df_residue_other$exp_residual_avg, method="spearman")
+# data:  test_merged_df_residue_other$comp_residual_avg and test_merged_df_residue_other$exp_residual_avg
+# S = 11518, p-value = 0.6204
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.0804878 
+```
+```{r, fig.width=16, fig.height=4}
+nrow(test_merged_df_residue) #56
+cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_residual_avg, method="spearman") #-0.4928913
+p1 <- ggplot(test_merged_df_residue, aes(x = exp_residual_avg , y = comp_residual_avg, color = site_type)) +
+  geom_point(size = 2, alpha = 0.5) +
+  labs(
+    title = "GRB2-SH3: 56 residues",
+    subtitle = "Spearman's rho = -0.49",
+    x = "Experimental median ddGb",
+    y = "Predicted median ESM1v-TMPNN ddGf residual",
+    color = "") +
+  theme_classic() +
+    scale_color_manual(values = c(
+    "Non-orthosteric site" = "darkgreen",
+    "Allosteric site" = "cyan",
+    "Binding site" = "orange"
+  )) + theme(legend.position = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  xlim(-2,2) + ylim(-7,5)
+p1
+
+nrow(test_merged_df_residue_binding) #13
+cor.test(test_merged_df_residue_binding$comp_residual_avg, test_merged_df_residue_binding$exp_residual_avg, method="spearman") #-0.6483516
+p2 <- ggplot(test_merged_df_residue_binding, aes(x = exp_residual_avg , y = comp_residual_avg, color = site_type)) +
+  geom_point(size = 2, alpha = 0.7) +
+  labs(
+    title = "13 Binding sites",
+    subtitle = "Spearman's rho = -0.65",
+    x = "Experimental median ddGb",
+    y = "Predicted median ESM1v-TMPNN ddGf residual",
+    color = "") +
+  theme_classic() +
+    scale_color_manual(values = c(
+    "Non-orthosteric site" = "darkgreen",
+    "Allosteric site" = "cyan",
+    "Binding site" = "orange"
+  )) + theme(legend.position = "none") +
+  geom_text_repel(aes(label = Pos_ref)) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  xlim(-2,2) + ylim(-7,5)
+p2
+
+nrow(test_merged_df_residue_allo) #3
+p3 <- ggplot(test_merged_df_residue_allo, aes(x = exp_residual_avg , y = comp_residual_avg, color = site_type)) +
+  geom_point(size = 2, alpha = 0.7) +
+  labs(
+    title = "3 Allosteric sites",
+    subtitle = "",
+    x = "Experimental median ddGb",
+    y = "Predicted median ESM1v-TMPNN ddGf residual",
+    color = "") +
+  theme_classic() +
+    scale_color_manual(values = c(
+    "Non-orthosteric site" = "darkgreen",
+    "Allosteric site" = "cyan",
+    "Binding site" = "orange"
+  )) + theme(legend.position = "none") +
+  geom_text_repel(aes(label = Pos_ref)) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  xlim(-2,2) + ylim(-7,5)
+
+nrow(test_merged_df_residue_other) #40
+
+p4 <- ggplot(test_merged_df_residue_other, aes(x = exp_residual_avg , y = comp_residual_avg, color = site_type)) +
+  geom_point(size = 2, alpha = 0.3) +
+  labs(
+    title = "40 non-orthosteric sites",
+    subtitle = "",
+    x = "Experimental median ddGb",
+    y = "Predicted median ESM1v-TMPNN ddGf residual",
+    color = "") +
+  theme_classic() +
+    scale_color_manual(values = c(
+    "Non-orthosteric site" = "darkgreen",
+    "Allosteric site" = "cyan",
+    "Binding site" = "orange"
+  )) + theme(legend.position = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  xlim(-2,2) + ylim(-7,5)
+
+p1 <- ggMarginal(
+  p1,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+
+p2 <- ggMarginal(
+  p2,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+p3 <- ggMarginal(
+  p3,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+p4 <- ggMarginal(
+  p4,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+
+p5 <- plot_grid(p1,p2,p3,p4, ncol=4,nrow=1)
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_corr_sh3.pdf", 
+       plot = p5, width = 12, height = 3, dpi = 300)
+p5
+```
+
+```{r, fig.width=5, fig.height=5}
+cor.test(test_merged_df$ESM1v, test_merged_df$b_ddg_pred, method = "spearman")#-0.3187791 
+
+p7 <- ggplot(test_merged_df, aes(x = b_ddg_pred, y = ESM1v) ) +
+  geom_bin2d(bins = 100) +
+  scale_fill_continuous(type = "viridis") +
+  theme_classic() +
+  labs(
+    x = "Measured ddGb",
+    y = "ESM1v pathogenicity",
+    title = "GRB2-SH3",
+    subtitle = "Spearman's rho = -0.32"
+  ) +
+  theme(
+    text = element_text(size = 12),
+    legend.position = ("bottom")
+  )
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_sh3_v2.pdf", 
+       plot = p7, width = 3, height = 4, dpi = 300)
+p7
+```
+
+```{r, fig.width=5, fig.height=5}
+sh3_final_df_ddgf <- read_tsv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domains_andre/GRB2-SH3/Abundance/mochi_project/task_1/weights/weights_Folding.txt')
+sh3_final_df_ddgf <- sh3_final_df_ddgf %>% dplyr::select(id_ref, Pos_ref, `mean_kcal/mol`, `std_kcal/mol`)
+sh3_final_df_ddgf <- sh3_final_df_ddgf %>%
+  mutate(wt_aa = str_extract(id_ref, '^[A-Za-z]+'),
+         mt_aa = str_extract(id_ref, '[A-Za-z]+$')) %>%
+  rename(old_id = id_ref) %>%
+  rename(old_Pos = Pos_ref) %>%
+  rename(f_ddg_pred = `mean_kcal/mol`) %>%
+  rename(f_ddg_pred_sd = `std_kcal/mol`) %>%
+  mutate(Pos_ref = as.numeric(old_Pos) + 158) %>%
+  mutate(id_ref = paste0(wt_aa, Pos_ref, mt_aa))
+
+test_merged_df <- merge(test_merged_df, sh3_final_df_ddgf, by =  "id_ref")
+nrow(test_merged_df) #756
+
+cor.test(test_merged_df$ddG_pred, test_merged_df$f_ddg_pred, method = "spearman")#0.7719137
+
+p6 <- ggplot(test_merged_df, aes(x = f_ddg_pred, y = ddG_pred) ) +
+  geom_bin2d(bins = 100) +
+  scale_fill_continuous(type = "viridis") +
+  theme_classic() +
+  labs(
+    x = "Measured ddGf",
+    y = "Predicted ddGf",
+    title = "GRB2-SH3",
+    subtitle = "Spearman's rho = 0.77"
+  ) +
+  theme(
+    text = element_text(size = 12),
+    legend.position = ("bottom")
+  )
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_sh3_v1.pdf", 
+       plot = p6, width = 3, height = 4, dpi = 300)
+p6
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+```
+

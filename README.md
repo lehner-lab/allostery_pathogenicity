@@ -1,17 +1,16 @@
-Allostery is a Major Determinant of Clinical Variant Pathogenicity and Sequence Evolution
+## 📑 Analysis Scripts for Liao & Lehner, 2025
 
+This repository contains the R scripts and metadata used to reproduce main figures in the following preprint:
 
-To load your new project, you'll first need to `setwd()` into the directory
-where this README file is located. Then you need to run the following two
-lines of R code:
+**[Allostery is a widespread cause of loss-of-function variant pathogenicity (bioRxiv, 2025)](https://doi.org/10.1101/2025.06.20.660737)**  
 
-	library('ProjectTemplate')
-	load.project()
+---
 
-After you enter the second line of code, you'll see a series of automated
-messages as ProjectTemplate goes about doing its work. This work involves:
-* Reading in the global configuration file contained in `config`.
-* Loading any R packages you listed in the configuration file.
-* Reading in any datasets stored in `data` or `cache`.
-* Preprocessing your data using the files in the `munge` directory.
+### 📂 Data Access
 
+Raw and processed datasets for the human proteome-wide analysis can be accessed from the associated Zenodo records:
+
+- [Zenodo: Proteome-wide raw data](https://zenodo.org/uploads/15586553)  
+- [Zenodo: Proteome-wide meta data](https://zenodo.org/uploads/15681969)
+
+🧑‍🔧 For any feedback or requests, please get in touch via pull requests or via email: xl7@sanger.ac.uk.

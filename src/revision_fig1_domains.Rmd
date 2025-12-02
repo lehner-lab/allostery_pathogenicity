@@ -1,0 +1,457 @@
+---
+title: "revision_fig1_domains.Rmd"
+output: html_document
+date: "2025-12-02"
+---
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+library('ProjectTemplate')
+library(ggExtra)
+library(bio3d)
+library(ggrepel)
+library(jsonlite)
+library(httr)
+library(stringr)
+load.project()
+```
+
+```{r}
+# Load and preprocess data
+domainome_data <- read_tsv("/Users/xl7/Documents/0.Projects/00.large_supplements/domainome/Extended_data_Table_5_aPCA_vs_variant_effect_predictors.txt")
+setDT(domainome_data)
+
+# Initial dimensions
+cat("Initial rows:", nrow(domainome_data), "\n")  # 607081
+cat("Initial unique domains:", length(unique(domainome_data$domain_ID)), "\n")  # 522
+
+head(domainome_data)
+```
+
+```{r}
+# Remove rows with missing values
+domainome_data <- domainome_data[!is.na(AlphaMissense) & 
+                                 !is.na(scaled_fitness)]
+cat("Filtered rows:", nrow(domainome_data), "\n")  # 518686 
+cat("Filtered unique domains:", length(unique(domainome_data$domain_ID)), "\n")  # 502 
+
+# Transform AM score back to logits
+# Define a small value epsilon
+epsilon <- 1e-10
+domainome_data[, AM_clamped := pmin(pmax(AlphaMissense, epsilon), 1 - epsilon)]
+domainome_data[, AM_logit := log(AM_clamped / (1 - AM_clamped))]
+
+# Extract mutation information
+domainome_data <- domainome_data %>%
+  mutate(
+    mut_id = str_extract(uniprot_ID_mutation, "(?<=_).*"),
+    mutation_position = as.numeric(str_extract(mut_id, "(?<=\\D)(\\d+)(?=\\D)"))
+  )
+
+# Split data by domain
+domain_list <- split(domainome_data, by = "domain_ID")
+
+# Compute R-squared for each domain
+r_squared_values <- sapply(domain_list, function(df) {
+  if (nrow(df) >= 3) {  # Skip domains with fewer than 3 points
+    summary(lm(AM_logit ~ scaled_fitness, data = df))$adj.r.squared
+  } else {
+    NA
+  }
+}, USE.NAMES = TRUE)
+
+# Convert to data frame
+r_squared_df <- data.frame(
+  domain = names(r_squared_values),
+  adj.r.squared = r_squared_values
+) %>% na.omit()
+
+# Compute average R²
+median_r_squared <- median(r_squared_df$adj.r.squared)
+median_r_squared #0.1782415
+```
+
+Megascale
+```{r}
+# We use path.expand to handle the "~" in the path correctly
+data_dir <- path.expand("~/Documents/0.Projects/00.large_supplements/ProteinGym_v1.1/DMS_ProteinGym_substitutions")
+
+# Get a list of all files with "Tsuboyama" in the name
+file_list <- list.files(
+  path = data_dir, 
+  pattern = "Tsuboyama.*\\.csv$", # Regex: contains Tsuboyama and ends in .csv
+  full.names = TRUE
+)
+
+# Define a function to read a single file and add the ID column
+read_and_label_protein <- function(file_path) {
+  
+  # Extract just the filename (remove the directory path)
+  file_name <- basename(file_path)
+  
+  # Logic to get the prefix:
+  # Split the string by "_"
+  # Example: "PITX2_HUMAN_Tsuboyama_2023_2L7M.csv"
+  # becomes vector: c("PITX2", "HUMAN", "Tsuboyama", "2023", "2L7M.csv")
+  parts <- str_split(file_name, "_")[[1]]
+  
+  # Combine the first two parts (Index 1 and 2) to get "PITX2_HUMAN"
+  protein_id <- paste(parts[1], parts[2], sep = "_")
+  
+  # Read the CSV
+  # show_col_types = FALSE keeps the console output clean
+  df <- read_csv(file_path, show_col_types = FALSE)
+  
+  # Add the new column
+  df <- df %>%
+    mutate(protein_name = protein_id) %>%
+    relocate(protein_name, .before = 1) # Optional: move name to first column
+  
+  return(df)
+}
+
+# Map the function over the file list and combine into one DataFrame
+# map_dfr automatically binds the rows of the resulting dataframes together
+combined_df <- map_dfr(file_list, read_and_label_protein)
+
+head(combined_df)
+```
+
+```{r}
+unique_proteins <- unique(combined_df$protein_name)
+
+# We query by 'id' (Entry Name) and ask for the 'accession' field
+get_uniprot_accession <- function(protein_name) {
+  
+  # Construct the API URL
+  # We use tryCatch to prevent the script from crashing if one ID is invalid or network fails
+  tryCatch({
+    base_url <- "https://rest.uniprot.org/uniprotkb/search"
+    query <- paste0("query=id:", protein_name) # id: specifically targets Entry Name
+    fields <- "fields=accession"
+    format <- "format=json"
+    
+    url <- paste(base_url, paste(query, fields, format, sep = "&"), sep = "?")
+    
+    # Fetch and parse JSON
+    # stream_in is overkill here, fromJSON works for simple endpoints
+    result <- fromJSON(url)
+    
+    # Extract Accession
+    if (length(result$results) > 0) {
+      accession <- result$results$primaryAccession
+      return(tibble(protein_name = protein_name, uniprot_id = accession))
+    } else {
+      warning(paste("No ID found for:", protein_name))
+      return(tibble(protein_name = protein_name, uniprot_id = NA))
+    }
+    
+  }, error = function(e) {
+    warning(paste("Error fetching:", protein_name, "-", e$message))
+    return(tibble(protein_name = protein_name, uniprot_id = NA))
+  })
+}
+
+# Loop through the proteins and fetch IDs
+# We use map_dfr to create a clean mapping dataframe
+# Adding a progress bar since web requests can take a second
+id_mapping_df <- map_dfr(unique_proteins, get_uniprot_accession, .progress = TRUE)
+table(id_mapping_df$protein_name)
+
+id_mapping_df %>% filter (protein_name %in% c("ARGR_ECOLI", "NUSG_MYCTU", "NUSA_ECOLI",
+                                              "RBP1_HUMAN", "RFAH_ECOLI", "YAIA_ECOLI"))
+
+id_mapping_df_fil <- id_mapping_df %>% filter(!uniprot_id %in% c("P15282",
+                                                                 "P03003",
+                                                                 "P65589", "P96930",
+                                                                 "P29374", "P26614",
+                                                                 "YAIA_ECOLI"))
+id_mapping_df_fil <- id_mapping_df_fil %>%
+  filter(str_detect(protein_name, "_HUMAN"))
+
+id_mapping_df_fil #22
+```
+
+```{r}
+combined_df_fil <- combined_df %>% 
+  filter (protein_name %in% unique(id_mapping_df_fil$protein_name)) %>%
+  filter (!str_detect(mutant, ":"))
+
+combined_df_fil  <- combined_df_fil %>%
+  mutate(
+    position = as.numeric(str_extract(mutant, "\\d+"))
+  )
+
+combined_df_fil
+```
+
+```{r}
+# Define the function to fetch a single sequence
+get_uniprot_sequence <- function(id) {
+  # Base URL for UniProt FASTA format
+  url <- paste0("https://rest.uniprot.org/uniprotkb/", id, ".fasta")
+  
+  # Try to fetch the data
+  tryCatch({
+    response <- GET(url)
+    
+    # Check if request was successful (Status 200)
+    if (status_code(response) == 200) {
+      # Get content as text
+      content_text <- content(response, "text", encoding = "UTF-8")
+      
+      # Split by newlines
+      lines <- str_split(content_text, "\n")[[1]]
+      
+      # Remove the first line (the FASTA header starting with >) and empty lines
+      seq_lines <- lines[!str_detect(lines, "^>")]
+      seq_lines <- seq_lines[seq_lines != ""]
+      
+      # Combine remaining lines into a single string
+      full_sequence <- paste(seq_lines, collapse = "")
+      return(full_sequence)
+      
+    } else {
+      warning(paste("Failed to fetch:", id, "- Status:", status_code(response)))
+      return(NA)
+    }
+  }, error = function(e) {
+    warning(paste("Error fetching:", id, "-", e$message))
+    return(NA)
+  })
+}
+
+id_mapping_df_fil_with_sequences <- id_mapping_df_fil %>%
+  rowwise() %>%
+  mutate(sequence = get_uniprot_sequence(uniprot_id)) %>%
+  ungroup() # Remove rowwise grouping
+
+id_mapping_df_fil_with_sequences
+```
+
+```{r}
+domain_wt <- combined_df_fil %>% filter (position == 1) %>%
+  distinct(protein_name, .keep_all = TRUE)
+
+domain_wt <- domain_wt %>%
+  rowwise() %>% # We process one row at a time to handle string replacement correctly
+  mutate(
+    # Step A: Extract the Original Amino Acid (The first letter of the mutant string)
+    # e.g., from "Y1A", we get "Y"
+    original_aa = str_sub(mutant, 1, 1),
+    
+    # Step B: Create the WT sequence
+    # We take the mutated sequence, go to 'position', and inject the 'original_aa'
+    wt_sequence = {
+      s <- mutated_sequence
+      str_sub(s, position, position) <- original_aa
+      s
+    }
+  ) %>%
+  ungroup()
+
+domain_wt <- domain_wt %>% dplyr::select(protein_name, wt_sequence)
+seq_mapping <- merge(domain_wt, id_mapping_df_fil_with_sequences, by = "protein_name")
+seq_mapping
+```
+
+```{r}
+seq_mapping <- seq_mapping %>% dplyr::rename(full_sequence = sequence,
+                                             domain_sequence = wt_sequence)
+
+# Define the logic to find indices
+# str_locate returns a matrix with 'start' and 'end' columns
+locations <- str_locate(seq_mapping$full_sequence, seq_mapping$domain_sequence)
+
+# Add the columns to the dataframe
+seq_mapping <- seq_mapping %>%
+  mutate(
+    start_index = locations[, "start"],
+    end_index = locations[, "end"]
+  )
+
+nrow(seq_mapping) #22
+seq_mapping <- na.omit(seq_mapping)
+nrow(seq_mapping) #13 --> dropped 9 rows with non-matching sequence 
+seq_mapping <- seq_mapping %>% dplyr::select(protein_name, uniprot_id, start_index)
+seq_mapping
+```
+```{r}
+unique(seq_mapping$uniprot_id)
+# "P48052" "O00257" "P31689" "P29323" "Q00688" "Q5VST9" "Q8TE49" "Q13526" "O75400" "P54725" "O94993" "O95155" "O95071"
+```
+
+
+```{r}
+combined_df_fil <- combined_df_fil %>% filter (protein_name %in% unique(seq_mapping$protein_name))
+combined_df_fil <- combined_df_fil %>% left_join(seq_mapping, by = "protein_name")
+combined_df_fil$pos_uniprot <- combined_df_fil$position + combined_df_fil$start_index - 1
+
+combined_df_fil <- combined_df_fil %>%
+  mutate(
+    mutant_ref = str_replace(
+      string = mutant, 
+      pattern = "\\d+", 
+      replacement = as.character(pos_uniprot)
+    )
+  )
+
+combined_df_fil
+```
+
+```{r}
+# Get a list of all files with "Tsuboyama" in the name
+file_list <- list.files(
+  path = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/megascale_am", 
+  pattern = "*.csv", 
+  full.names = TRUE
+)
+
+# Define a function to read a single file and add the ID column
+read_and_label_protein <- function(file_path) {
+  
+  # Extract just the filename (remove the directory path)
+  file_name <- basename(file_path)
+  
+  # Split using literal dot: use fixed = TRUE OR escape the dot
+  parts <- str_split(file_name, "\\.", simplify = TRUE)
+
+  # Take the first part → e.g., "O00257"
+  protein_id <- parts[1]
+  
+  # Read the CSV
+  # show_col_types = FALSE keeps the console output clean
+  df <- read_csv(file_path, show_col_types = FALSE)
+  
+    # Add the new column
+  df <- df %>%
+    mutate(protein_name = protein_id) %>%
+    relocate(protein_name, .before = 1) # Optional: move name to first column
+  
+  return(df)
+}
+
+# Map the function over the file list and combine into one DataFrame
+# map_dfr automatically binds the rows of the resulting dataframes together
+am_df <- map_dfr(file_list, read_and_label_protein)
+
+# Transform AM score back to logits
+# Define a small value epsilon
+epsilon <- 1e-10
+am_df$AM_clamped <- pmin(pmax(am_df$am_pathogenicity, epsilon), 1 - epsilon)
+am_df$AM_logit <- log(am_df$AM_clamped / (1 - am_df$AM_clamped))
+am_df
+```
+
+```{r}
+nrow(combined_df_fil) # 13683
+
+mega_combined <- merge(
+  combined_df_fil,
+  am_df,
+  by.x = c("uniprot_id", "mutant_ref"),
+  by.y = c("protein_name", "protein_variant")
+)
+ 
+mega_combined #13683
+```
+
+
+```{r}
+# Split data by domain
+mega_domain_list <- split(mega_combined, mega_combined$uniprot_id)
+
+# Compute R-squared for each domain
+mega_r_squared_values <- sapply(mega_domain_list, function(df) {
+  if (nrow(df) >= 3) {  # Skip domains with fewer than 3 points
+    summary(lm(AM_logit ~ DMS_score, data = df))$adj.r.squared
+  } else {
+    NA
+  }
+}, USE.NAMES = TRUE)
+
+# Convert to data frame
+mega_r_squared_df <- data.frame(
+  domain = names(mega_r_squared_values),
+  adj.r.squared = mega_r_squared_values
+) %>% na.omit()
+
+# Compute average R²
+median_mega_r_squared <- median(mega_r_squared_df$adj.r.squared)
+median_mega_r_squared #0.2242278
+```
+
+```{r, fig.width=5, fig.height=4}
+# Create a combined dataframe for plotting
+r2_combined <- bind_rows(
+  r_squared_df %>% mutate(source = "Domainome 1.0"),
+  mega_r_squared_df %>% mutate(source = "Mega-scale")
+)
+
+# Count summaries
+n_domainome <- length(unique(r_squared_df$domain))
+n_var_domainome <- nrow(domainome_data)
+
+n_mega <- length(unique(mega_r_squared_df$domain))
+n_var_mega <- nrow(mega_combined)
+
+# Median R²s
+med_domainome <- median(r_squared_df$adj.r.squared) #0.1782415
+med_mega <- median(mega_r_squared_df$adj.r.squared) #0.2242278
+
+# Rename column to standardize
+r2_combined <- r2_combined  %>%
+  mutate(source = factor(source, levels = c("Domainome 1.0", "Mega-scale")))
+
+# Plot
+p1 <- ggplot(r2_combined, aes(x = source, y = adj.r.squared, fill = source)) +
+  geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
+  geom_boxplot(width = 0.5, outlier.shape = NA, color = "grey", alpha = 0.7) +
+  #stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
+  geom_point(stat = "summary", fun = median, shape = 18, size = 4, color = "black") +
+  geom_text(aes(label = paste0("Median R²: ", round(..y.., 3))),
+            stat = "summary", fun = median, vjust = -1, size = 4.5) +
+  annotate("text", x = 1, y = 0.87, label = paste0(n_domainome, " domains\n", format(n_var_domainome, big.mark = ","), " variants"), size = 4.5) +
+  annotate("text", x = 2, y = 0.87, label = paste0(n_mega, " domains\n", format(n_var_mega, big.mark = ","), " variants"), size = 4.5) +
+  scale_y_continuous(limits = c(-0.1, 1), expand = c(0, 0.01)) +
+  labs(
+    title = "Protein Domains",
+    subtitle = paste(n_domainome + n_mega, "domains"),
+    x = NULL,
+    y = expression("R² between abundance and AlphaMissense logits")
+  ) +
+  scale_fill_manual(values = c("#82b3a6", "#8ecf63")) +
+  theme_classic(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    plot.subtitle = element_text(size = 13),
+    legend.position = "none"
+  )
+p1
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig1_domains_r2.pdf", 
+       plot = p1, width = 5, height = 4, dpi = 500)
+p1
+```
+
+
+
+
+```{r}
+library(ProteinGymR)
+am_data <- am_scores()
+unique(am_data$DMS_id)
+```
+
+
+
+
+
+
+
+
+
+
+
+

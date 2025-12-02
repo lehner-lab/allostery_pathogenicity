@@ -433,11 +433,47 @@ ggsave("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_p
 p6
 ```
 
-
 ```{r}
+# Vector of UniProt prefixes
+ids <- unique(c("P48052", "O00257", "P31689", "P29323", "Q00688", "Q5VST9",
+                "Q8TE49", "Q13526", "O75400", "P54725", "O94993" ,"O95155", "O95071"))
 
+# Source directory (where your CSVs live)
+src_dir <- "/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/00.human_proteome_unzipped/all_AM"
+
+# Destination directory
+dest_dir <- "/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/git_allostery_pathogenicity/data/revision/megascale_am"
+
+# Loop over each prefix and copy matching files
+for (id in ids) {
+    # construct source file pattern
+    files_to_copy <- list.files(src_dir, pattern = paste0("^", id, ".*\\.csv$"), full.names = TRUE)
+
+    # copy them
+    file.copy(files_to_copy, dest_dir, overwrite = TRUE)
+}
 ```
 
+```{r}
+# Vector of UniProt prefixes
+ids <- unique(c("O15245", "O60260", "P08100", "P11712", "P15382", "P35557", "P45381",
+                "P51580", "P60484", "Q9BQB6", "Q9NV35"))
+
+# Source directory (where your CSVs live)
+src_dir <- "/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/00.human_proteome_unzipped/all_AM"
+
+# Destination directory
+dest_dir <- "/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/git_allostery_pathogenicity/data/revision/vampseq_am"
+
+# Loop over each prefix and copy matching files
+for (id in ids) {
+    # construct source file pattern
+    files_to_copy <- list.files(src_dir, pattern = paste0("^", id, ".*\\.csv$"), full.names = TRUE)
+
+    # copy them
+    file.copy(files_to_copy, dest_dir, overwrite = TRUE)
+}
+```
 
 
 

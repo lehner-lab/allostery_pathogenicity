@@ -1,0 +1,696 @@
+---
+title: "01.graphical_laplacian_vamp_vkor_clean.Rmd"
+output: html_document
+date: "2025-10-11"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(bio3d)
+library(ggplot2)
+library(ggrepel)
+library(dplyr)
+library(readr)
+library(rlang)
+library(data.table)
+library(cowplot)
+library(tidyr)
+library(purrr)
+library(PRROC)
+library(tibble)
+library(stringr)
+```
+
+```{r}
+vkor_abundance <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/VKOR1_HUMAN_Chiasson_2020_abundance.csv", header = TRUE)
+vkor_activity <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/VKOR1_HUMAN_Chiasson_2020_activity.csv", header = TRUE)
+#nrow(vkor_ddgf) #2695
+#nrow(vkor_ddga) #697
+
+vkor_df <- vkor_abundance %>% dplyr::select (mutant, DMS_score, DMS_score_bin) %>% 
+  dplyr::rename(DMS_score_abundance = DMS_score,
+                DMS_score_bin_abundance = DMS_score_bin)
+vkor_df <- merge(vkor_df, vkor_activity, by = "mutant") 
+vkor_df <- vkor_df %>% dplyr::rename(DMS_score_activity = DMS_score,
+                                   DMS_score_bin_activity = DMS_score_bin) %>% 
+  dplyr::select (mutant, DMS_score_abundance, DMS_score_bin_abundance,
+                 DMS_score_activity, DMS_score_bin_activity)
+
+
+vkor_df <- vkor_df %>%
+  mutate(position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
+nrow(vkor_df) #692
+
+# Fit a loess model using the filtered data
+loess_fit <- loess(DMS_score_activity ~ DMS_score_abundance, data = vkor_df, span = 0.7, family = "symmetric")
+
+# Predict fitted values for ALL data points using the loess model trained on fil_vkor_df
+vkor_df$fitted <- predict(loess_fit, newdata = vkor_df)
+
+# Calculate residuals for ALL points
+vkor_df$exp_residuals <- vkor_df$DMS_score_activity - vkor_df$fitted
+range(vkor_df$exp_residuals) # -1.882048  0.857622
+
+exp_df <-vkor_df  %>%
+  group_by(position) %>%
+  summarise(
+    median_exp_residuals = median(exp_residuals, na.rm = TRUE),
+    q1_exp_residuals     = quantile(exp_residuals, 0.25, na.rm = TRUE),
+    q3_exp_residuals     = quantile(exp_residuals, 0.75, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(position) 
+
+range(exp_df$median_exp_residuals) #-1.0382248  0.4586144
+```
+
+```{r}
+# https://www.mdpi.com/2072-6643/7/8/5280
+# Four cysteine residues (human VKORC1 sequence numbering: Cys43, Cys51, Cys132, Cys135) are completely conserved among VKORC1 orthologs and are required for in vivo VKOR catalysis
+# Additionally, a conserved serine or threonine (human VKORC1 sequence numbering: Ser57) has been shown to be essential for VKOR catalytic activity in vitro
+
+# https://bmcgenomdata.biomedcentral.com/articles/10.1186/1471-2156-15-17?utm_source=chatgpt.com
+# proposed TYA binding motif (Thr138-Tyr139-Ala140) which was previously studied by our working group using site-directed mutagenesis 
+ortho <- c(
+  132, 135,    # catalytic active sites
+  43, 51, # electron-transfer loop cysteines
+  138:140, # warfarin binding site
+  57 # catalytic helper 
+)
+
+vkor_ortho <- vkor_df %>% filter(position %in% ortho)
+mean(vkor_ortho$exp_residuals) # 
+
+allo <- c(exp_df %>% filter(median_exp_residuals < mean(vkor_ortho$exp_residuals)) %>% filter(!position %in% ortho) %>% pull (position))
+allo
+
+full_func <- c(ortho, allo)
+```
+
+```{r}
+comp_df <- fread("/Users/xl7/Documents/0.Projects/02.allostery_proteome-wide/data/esm1v_ddgf_residuals/Q9BQB6_filtered_with_esm1v.csv")
+comp_df <- comp_df %>% group_by(new_position) %>%
+  summarise(median_esm1v_ddgf_residual = median (residuals_pred, na.rm = TRUE),
+            median_esm1v = median (ESM.1v, na.rm = TRUE),
+            median_tmpnn_ddgf = median(ddG_pred, na.rm = TRUE)) %>%
+  dplyr::rename(position = new_position)
+
+dim(exp_df) #
+dim(comp_df) #
+
+full_df <- comp_df %>% left_join(exp_df, by = "position")
+
+# Load  APC-corrected contact weights
+M <- as.matrix(read.table("/Users/xl7/Documents/0.Projects/02.allostery_proteome-wide/data/categorical_jacobians/vkor_oct2025_output/coevolution_esm2_t33_650M_UR50D.txt", header = FALSE))
+
+dim(M) #
+
+r <- as.numeric(full_df$median_esm1v_ddgf_residual)
+rM <- as.numeric(M %*% r)
+rM_df <- data.frame(
+  position = seq_along(rM),
+  rM = rM
+)
+                      
+full_df <- full_df %>% left_join(rM_df, by = "position")
+sub_df <- na.omit(full_df)
+cor(sub_df)
+```
+```{r, fig.height = 2, fig.width = 12}
+point_sets <- list(
+  orange = allo,
+  red    = ortho
+)
+
+p_rm <- plot_residue_profile(
+  df = sub_df,
+  x = position,
+  y = rM,
+  title = expression("VKOR: ESM1v-TMPNN ddGf residual (r) x ESM embedding matrix (M)"),
+  x_break_by = 20,
+  regions = NULL,
+  point_sets = point_sets,
+  point_size = 1.5,
+  base_color = "#2E86AB",
+  base_linewidth = 0.8
+)
+
+p_rm
+```
+```{r, fig.height = 2, fig.width = 12}
+p_exp_res <- plot_residue_profile(
+  df = sub_df,
+  x = position,
+  y = median_exp_residuals,
+  title = expression("VKOR: experimental activity-abundance residuals"),
+  x_break_by = 10,
+  regions = NULL,
+  point_sets = point_sets,
+  point_size = 1.5,
+  base_color = "#2E86AB",
+  base_linewidth = 0.8
+)
+
+p_exp_res
+```
+```{r, fig.height = 2, fig.width = 12}
+p_res <- plot_residue_profile(
+  df = sub_df,
+  x = position,
+  y = median_esm1v_ddgf_residual,
+  title = expression("VKOR: ESM1v-TMPNN ddGf residual"),
+  x_break_by = 20,
+  regions = NULL,
+  point_sets = point_sets,
+  point_size = 1.5,
+  base_color = "#2E86AB",
+  base_linewidth = 0.8
+)
+
+p_res
+```
+```{r}
+# point this to your actual .cif (or .cif.gz) file
+test_cif <- read.cif("/Users/xl7/Downloads/1d5r.cif", rm.alt = TRUE)
+
+standard_aas <- c("ALA","ARG","ASN","ASP","CYS","GLU","GLN","GLY",
+                  "HIS","ILE","LEU","LYS","MET","PHE","PRO","SER",
+                  "THR","TRP","TYR","VAL")
+
+# Keep all non-hydrogen protein atoms from standard amino acids
+# (drop the CA-only filter; also drop hydrogens whose names start with "H")
+test_protein_atoms <- test_cif$atom %>%
+  filter(resid %in% standard_aas, !grepl("^H", elety)) %>%
+  mutate(auth_resid = resno)
+
+test_target_atoms <- test_protein_atoms %>%
+  filter(auth_resid %in% ortho)
+
+# Safety check in case target set is empty
+if (nrow(test_target_atoms) == 0) {
+  stop("No target atoms found for the specified active_site_positions.")
+}
+
+# Compute min atom-atom distance from each atom to any target atom
+coords <- as.matrix(test_protein_atoms[, c("x","y","z")])
+target_coords <- as.matrix(test_target_atoms[, c("x","y","z")])
+
+test_protein_atoms$min_dist_to_targets <- apply(coords, 1, function(p) {
+  # p is length-3 numeric vector (x,y,z)
+  # compute squared distances to all target atoms, then take sqrt of the minimum
+  sqrt(min(colSums((t(target_coords) - p)^2)))
+})
+
+# (Optional) Per-residue minimal atom distance to targets
+per_residue_min <- test_protein_atoms %>%
+  group_by(chain, auth_resid, resid) %>%
+  summarise(min_atom_dist = min(min_dist_to_targets), .groups = "drop")
+
+# Results:
+# 1) Atom-level: test_protein_atoms
+# 2) Residue-level: per_residue_min
+test_protein_atoms <- test_protein_atoms %>% group_by(auth_resid) %>% 
+  summarise(min_dist_to_targets = min(min_dist_to_targets))
+test_protein_atoms
+# per_residue_min
+```
+
+
+```{r, fig.height = 4, fig.width = 4}
+# ---- Reproducible AUPRC workflow ---------------------------------------------
+# Purpose: Compare classifiers (single-score predictors) with PR curves & AUPRC.
+# Inputs required in `sub_df`: position, median_exp_residuals, median_esm1v_ddgf_residual, rM
+# Optional: vectors `allo`, `allo_second_shell` to define functional sites.
+
+# 0) Setup ----------------------------------------------------------------------
+set.seed(42)
+
+theme_set(theme_minimal(base_size = 12))
+
+# 1) Input checks ---------------------------------------------------------------
+stopifnot(exists("sub_df"))
+needed <- c("position","median_exp_residuals","median_esm1v_ddgf_residual","rM")
+if (!all(needed %in% names(sub_df))) {
+  stop("`sub_df` must have columns: ", paste(needed, collapse = ", "))
+}
+
+# Coerce numeric columns safely (doesn't touch original object)
+work_df <- sub_df %>%
+  mutate(
+    across(c(median_exp_residuals, median_esm1v_ddgf_residual, rM), ~as.numeric(.x)),
+    position = as.integer(position)
+  )
+
+# 2) Labels ---------------------------------------------------------------------
+full_func <- unique(c(allo, ortho))
+
+work_df <- work_df %>%
+  mutate(is_full_func = position %in% full_func)
+
+# Validate label has both classes
+label_tab <- table(work_df$is_full_func, useNA = "no")
+if (length(label_tab) < 2) {
+  stop("`is_full_func` must contain both TRUE and FALSE classes for PR analysis.")
+}
+pos_rate <- mean(work_df$is_full_func)
+
+# 3) Predictor orientation (no destructive sign flips) -------------------------
+# If larger scores should indicate the positive (functional) class, flip here explicitly.
+# Keep both original and oriented columns for transparency.
+work_df <- work_df %>%
+  mutate(
+    # oriented versions (higher = more likely functional)
+    median_exp_residuals_pos         =-median_exp_residuals, 
+    rM_pos                       = -rM,                        # since you flipped earlier
+    median_esm1v_ddgf_resid_pos  = -median_esm1v_ddgf_residual # since you flipped earlier
+  )
+
+# Choose predictors to evaluate (use the oriented ones)
+predictors <- c(
+  "median_exp_residuals_pos",            # already oriented as "more destabilizing?" -> verify by domain knowledge
+  "median_esm1v_ddgf_resid_pos",
+  "rM_pos"
+)
+
+pretty_names <- c(
+  median_exp_residuals_pos           = "median exp residual (flipped)",
+  median_esm1v_ddgf_resid_pos = "ESM1v–ddGf residual (flipped)",
+  rM_pos                   = "rM (flipped)"
+)
+
+# 4) Utilities ------------------------------------------------------------------
+pair_complete <- function(scores, y) {
+  keep <- !(is.na(scores) | is.na(y))
+  list(scores = scores[keep], y = y[keep])
+}
+
+safe_pr_auc <- function(scores, y_logical) {
+  y_num <- as.integer(y_logical) # 1 for TRUE, 0 for FALSE
+  if (sum(y_num == 1) == 0 || sum(y_num == 0) == 0) return(NA_real_)
+  pr <- PRROC::pr.curve(
+    scores.class0 = scores[y_num == 1],
+    scores.class1 = scores[y_num == 0],
+    curve = FALSE
+  )
+  unname(pr$auc.integral)
+}
+
+get_pr_curve_df <- function(scores, y_logical, name) {
+  y_num <- as.integer(y_logical)
+  if (sum(y_num == 1) == 0 || sum(y_num == 0) == 0) {
+    return(tibble(recall = numeric(0), precision = numeric(0), threshold = numeric(0),
+                  predictor = name, auc = NA_real_))
+  }
+  pr <- PRROC::pr.curve(
+    scores.class0 = scores[y_num == 1],
+    scores.class1 = scores[y_num == 0],
+    curve = TRUE
+  )
+  C <- as.matrix(pr$curve)
+  tibble(
+    recall    = C[,1],
+    precision = C[,2],
+    threshold = if (ncol(C) >= 3) C[,3] else NA_real_,
+    predictor = name,
+    auc       = unname(pr$auc.integral)
+  )
+}
+
+# Optional: bootstrap CI for AUPRC (stratified by class)
+bootstrap_auprc <- function(scores, y_logical, B = 500L, seed = 123) {
+  set.seed(seed)
+  y <- as.integer(y_logical)
+  pos_idx <- which(y == 1); neg_idx <- which(y == 0)
+  if (length(pos_idx) == 0 || length(neg_idx) == 0) return(c(NA_real_, NA_real_))
+
+  boot_vals <- replicate(B, {
+    s_pos <- sample(pos_idx, length(pos_idx), replace = TRUE)
+    s_neg <- sample(neg_idx, length(neg_idx), replace = TRUE)
+    idx   <- c(s_pos, s_neg)
+    safe_pr_auc(scores[idx], y_logical[idx])
+  })
+  stats::quantile(boot_vals, probs = c(0.025, 0.975), na.rm = TRUE)
+}
+
+# 5) Compute AUPRC per predictor -------------------------------------------------
+y <- work_df$is_full_func
+
+auprc_tbl <- predictors %>%
+  map_dfr(function(p) {
+    pair <- pair_complete(work_df[[p]], y)
+    auc  <- safe_pr_auc(pair$scores, pair$y)
+    ci   <- bootstrap_auprc(pair$scores, pair$y, B = 500L, seed = 999)
+    tibble(
+      predictor = p,
+      predictor_pretty = unname(pretty_names[[p]] %||% p),
+      auprc = auc,
+      ci_lo = ci[1],
+      ci_hi = ci[2],
+      n_pos = sum(pair$y),
+      n_neg = sum(!pair$y)
+    )
+  }) %>%
+  arrange(desc(auprc))
+
+print(auprc_tbl)
+
+# 1️⃣  Define a fixed order for your predictors (you can change this)
+predictor_order <- c(
+  "median_exp_residuals_pos",
+  "median_esm1v_ddgf_resid_pos",
+  "rM_pos"
+)
+
+# 2️⃣  Assign matching pretty names and colors
+pretty_names <- c(
+  median_exp_residuals_pos           = "median exp residual (flipped)",
+  median_esm1v_ddgf_resid_pos = "ESM1v–ΔΔGf residual (flipped)",
+  rM_pos                   = "rM (flipped)"
+)
+
+predictor_colors <- c(
+  "median exp residual (flipped)"          = "#E69F00",  # orange
+  "ESM1v–ΔΔGf residual (flipped)"  = "#56B4E9",  # blue
+  "rM (flipped)"                     = "#009E73"   # green
+)
+# ---- 7A) Prettier AUPRC bar chart with counts ---------------------------------
+
+# 3️⃣  Add labels, counts, and ordered factors
+auprc_tbl <- auprc_tbl %>%
+  mutate(
+    predictor_pretty = recode(predictor, !!!pretty_names),
+    predictor_pretty = factor(predictor_pretty, levels = pretty_names[predictor_order]),
+    count_label = sprintf("(%d/%d)", n_pos, n_neg),
+    label_text  = sprintf("%.3f %s", auprc, count_label)
+  )
+
+# 4️⃣  Build the plot
+p_bar <- ggplot(auprc_tbl, aes(x = predictor_pretty, y = auprc, fill = predictor_pretty)) +
+  geom_col(width = 0.6, color = "grey25") +
+  geom_errorbar(aes(ymin = ci_lo, ymax = ci_hi), width = 0.15, color = "grey30", linewidth = 0.6) +
+  geom_text(aes(label = label_text), vjust = -2, size = 3.8, fontface = "bold", color = "black") +
+  scale_fill_manual(values = predictor_colors) +
+  scale_y_continuous(limits = c(0, 1.05), expand = c(0, 0)) +
+  labs(
+    x = NULL,
+    y = "AUPRC",
+    fill = "Predictor",
+    title = "VKOR (Precision–Recall AUC)",
+    subtitle = sprintf("Positive class prevalence = %.3f", pos_rate)
+  ) +
+  theme_classic(base_size = 12) +
+  theme(
+    legend.position = "none",
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(size = 10, angle = 25, hjust = 1, face = "bold"),
+    axis.text.y = element_text(size = 10),
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 11)
+  ) + ylim(0,1.2)
+
+# 5️⃣  Display it
+print(p_bar)
+```
+```{r, fig.height=3.5, fig.width=6}
+# ---- Precision@k% with all sites combined + labels (1,2,5,10,20,30,50%) -------
+
+stopifnot(exists("work_df"), exists("predictors"))
+
+# Reuse previously defined site sets
+active_vec <- if (exists("ortho")) ortho else integer()
+allo_core  <- if (exists("allo")) allo else integer()
+allo_all   <- unique(c(allo_core, if (exists("allo_second_shell")) allo_second_shell else integer()))
+
+# Add combined functional site label
+work_all <- work_df %>%
+  mutate(
+    is_any_func = position %in% unique(c(active_vec, allo_all))
+  )
+
+# Compute baseline prevalence
+pos_rate_all <- mean(work_all$is_any_func, na.rm = TRUE)
+
+# Precision@k% helper
+precision_at_k_percent <- function(scores, y_logical, k_percent) {
+  keep <- !(is.na(scores) | is.na(y_logical))
+  s <- scores[keep]; y <- y_logical[keep]
+  n <- length(s)
+  if (n == 0) return(NA_real_)
+  k <- ceiling(pmax(1, k_percent/100 * n))
+  ord <- order(s, decreasing = TRUE)
+  top_k <- y[ord][seq_len(k)]
+  sum(top_k, na.rm = TRUE) / k
+}
+
+# pretty names fallback
+if (!exists("pretty_names")) {
+  pretty_names <- setNames(predictors, predictors)
+}
+
+# Explicit k-grid
+k_grid <- c(1, 2, 5, 10, 20, 30, 50)
+
+# Compute precision@k% table
+prec_all_tbl <- purrr::map_dfr(predictors, function(p) {
+  s <- work_all[[p]]
+  y <- work_all$is_any_func
+  purrr::map_dfr(k_grid, function(kp) {
+    tibble::tibble(
+      predictor        = p,
+      predictor_pretty = pretty_names[[p]] %||% p,
+      k_percent        = kp,
+      k_count          = ceiling(kp/100 * sum(!is.na(s) & !is.na(y))),
+      precision_at_k   = precision_at_k_percent(s, y, kp),
+      baseline_prev    = pos_rate_all
+    )
+  })
+})
+
+print(prec_all_tbl %>% arrange(k_percent, desc(precision_at_k)))
+
+# color palette fallback
+if (!exists("predictor_colors")) {
+  predictor_colors <- setNames(scales::hue_pal()(length(unique(prec_all_tbl$predictor_pretty))),
+                               unique(prec_all_tbl$predictor_pretty))
+}
+
+# Plot: precision vs k% with numeric labels on each dot
+p_all <- ggplot(prec_all_tbl,
+                aes(x = k_percent, y = precision_at_k,
+                    color = predictor_pretty, group = predictor_pretty)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  geom_text(
+    aes(label = sprintf("%.2f", precision_at_k)),
+    vjust = -1, size = 3, fontface = "bold", show.legend = FALSE
+  ) +
+  geom_hline(yintercept = pos_rate_all, linetype = "dashed", color = "grey40") +
+  scale_color_manual(values = predictor_colors) +
+  scale_x_continuous(breaks = k_grid) +
+  coord_cartesian(ylim = c(0, 1.05)) +
+  labs(
+    x = "Top k% (by score)",
+    y = "Precision",
+    color = "Predictor",
+    title = "VKOR: Precision@k%",
+    subtitle = sprintf("Dashed line = class prevalence (%.3f)", pos_rate_all)
+  ) +
+  theme_classic(base_size = 12) +
+  theme(
+    legend.title = element_text(face = "bold"),
+    legend.text  = element_text(size = 10),
+    plot.title   = element_text(face = "bold", size = 14),
+    axis.title   = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+
+print(p_all)
+
+# (Optional) save
+# readr::write_csv(prec_all_tbl, "precision_at_k_percent_ALLsites.csv")
+# ggsave("precision_at_k_ALLsites_labeled.png", p_all, width = 6.5, height = 4.5, dpi = 300)
+```
+
+
+```{r, fig.height = 4, fig.width = 4}
+# (Optional) Save for publication
+# ggsave("AUPRC_vertical_bar_fixedcolors.png", p_bar, width = 6, height = 5, dpi = 400)
+
+
+# (Optional) Save figure
+# ggsave("AUPRC_vertical_bar.png", p_bar, width = 6, height = 5, dpi = 400)
+
+# 6) PR curve data ---------------------------------------------------------------
+pr_df <- predictors %>%
+  map_dfr(function(p) {
+    pair <- pair_complete(work_df[[p]], y)
+    get_pr_curve_df(pair$scores, pair$y, unname(pretty_names[[p]] %||% p))
+  })
+
+# Dashed baseline = random expectation (class prevalence)
+pos_rate <- mean(y == 1, na.rm = TRUE)
+
+p_pr <- ggplot(pr_df, aes(x = recall, y = precision, color = predictor, linetype = predictor)) +
+  geom_line(linewidth = 1.1, alpha = 0.9) +
+  geom_hline(yintercept = pos_rate, linetype = "dashed", color = "grey40") +
+  scale_color_manual(values = predictor_colors) +
+  scale_linetype_manual(values = c("solid", "solid", "solid")) +
+  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(
+    x = "Recall",
+    y = "Precision",
+    title = "VKOR",
+    subtitle = sprintf("Dashed line-random baseline(prevalence = %.3f)", pos_rate),
+    color = "Predictor",
+    linetype = NULL
+  ) +
+  theme_classic(base_size = 12) +
+  theme(
+    legend.position = "none",
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 11),
+    axis.text = element_text(size = 11),
+    axis.title = element_text(size = 12),
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 11, color = "grey25"),
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(color = "grey90")
+  )
+
+p_pr
+
+# 8) (Optional) Save results -----------------------------------------------------
+# ggsave("auprc_bar.png", p_bar, width = 7, height = 4.5, dpi = 300)
+# ggsave("pr_curves.png", p_pr, width = 6.5, height = 6.5, dpi = 300)
+# readr::write_csv(auprc_tbl, "auprc_table.csv")
+```
+
+```{r, fig.height = 4, fig.width = 12}
+all_func <- c(allo, ortho)
+## ---- setup -------------------------------------------------------------------
+# Reproducibility helpers
+set.seed(42)
+
+# Global theme
+theme_set(theme_classic(base_size = 12))
+
+## ---- data checks --------------------------------------------------------------
+needed_cols <- c("median_exp_residuals", "median_esm1v_ddgf_residual", "rM", "position")
+stopifnot(all(needed_cols %in% names(sub_df)))
+
+# Ensure numeric where needed
+sub_df <- sub_df %>%
+  mutate(
+    across(c(median_exp_residuals, median_esm1v_ddgf_residual, rM), as.numeric),
+    .keep = "all"
+  )
+
+# Define highlighted positions (all_func expected to be a vector)
+all_func <- get0("all_func", ifnotfound = character())
+if (!is.null(all_func) && !is.vector(all_func)) {
+  stop("`all_func` must be a vector of positions to highlight.")
+}
+
+## ---- helpers -----------------------------------------------------------------
+# Spearman correlation (complete-case, consistent NA handling)
+spearman_cor <- function(df, x, y) {
+  x <- enquo(x); y <- enquo(y)
+  d <- df %>% select(!!x, !!y) %>% tidyr::drop_na()
+  if (nrow(d) < 3) return(list(rho = NA_real_, p = NA_real_, n = nrow(d)))
+  ct <- suppressWarnings(cor.test(d[[1]], d[[2]], method = "spearman", exact = FALSE))
+  list(rho = unname(ct$estimate), p = ct$p.value, n = nrow(d))
+}
+
+# Pretty subtitle for plots
+subtitle_from_cor <- function(res) {
+  if (is.na(res$rho)) return("Spearman ρ: NA (insufficient data)")
+  sprintf("Spearman ρ = %.3f (p = %.2e, n = %d)", res$rho, res$p, res$n)
+}
+
+# Generic scatter + linear trend + highlight
+make_corr_plot <- function(df, x, y, title = "SRC", highlight_positions = NULL) {
+  xq <- enquo(x); yq <- enquo(y)
+
+  cor_res <- spearman_cor(df, !!xq, !!yq)
+  sub_txt <- subtitle_from_cor(cor_res)
+
+  base <- ggplot(df, aes(x = !!xq, y = !!yq)) +
+    geom_point(size = 1, alpha = 0.8, color = "steelblue") +
+    geom_smooth(method = "lm", se = FALSE, linewidth = 0.7, color = "darkred") +
+    labs(title = title, subtitle = sub_txt, x = as_name(xq), y = as_name(yq))
+
+  if (!is.null(highlight_positions) && length(highlight_positions)) {
+    base <- base +
+      geom_point(
+        data = df %>% filter(.data$position %in% highlight_positions),
+        size = 1.4,
+        color = "orange",
+        alpha = 0.95
+      )
+  }
+  base
+}
+
+## ---- analyses ----------------------------------------------------------------
+# Compute correlations (also printed as a small table)
+corr_specs <- list(
+  list(x = quo(median_exp_residuals),           y = quo(median_esm1v_ddgf_residual), label = "exp residual vs ESM1v-ddGf residual"),
+  list(x = quo(median_exp_residuals),           y = quo(rM),                         label = "exp residual vs rM"),
+  list(x = quo(median_esm1v_ddgf_residual), y = quo(rM),                       label = "ESM1v-ddGf residual vs rM")
+)
+
+corr_table <- purrr::map_dfr(corr_specs, function(sp) {
+  res <- spearman_cor(sub_df, !!sp$x, !!sp$y)
+  tibble::tibble(
+    comparison = sp$label,
+    rho = res$rho,
+    p_value = res$p,
+    n = res$n
+  )
+})
+
+print(corr_table)
+
+## ---- figures -----------------------------------------------------------------
+p_corr_residual <- make_corr_plot(
+  sub_df,
+  median_exp_residuals,
+  median_esm1v_ddgf_residual,
+  title = "VKOR",
+  highlight_positions = all_func
+) + labs(x = "experimental residual", y = "ESM1v - ddGf residual")
+
+p_corr_rM <- make_corr_plot(
+  sub_df,
+  median_exp_residuals,
+  rM,
+  title = "VKOR",
+  highlight_positions = all_func
+) + labs(x = "experimental residual", y = "rM")
+
+p_corr <- make_corr_plot(
+  sub_df,
+  median_esm1v_ddgf_residual,
+  rM,
+  title = "VKOR",
+  highlight_positions = all_func
+) + labs(x = "ESM1v - ddGf residual", y = "rM")
+
+cowplot::plot_grid(p_corr_residual, p_corr_rM, p_corr, ncol = 3)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

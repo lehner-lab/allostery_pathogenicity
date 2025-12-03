@@ -1,0 +1,386 @@
+---
+title: "0.hpc_human_proteome_clinvar_thermompnn_bias_dec2025.Rmd"
+output: html_document
+date: "2025-12-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(future.apply)
+library(readr)
+library(utils)
+library(furrr)
+library(arrow)
+```
+
+```{r}
+final_df <- read.csv("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/00.human_proteome_results/clinvar_all_protein_filtered_with_esm1v_dec2025_filtered.csv")
+
+nrow(final_df) #102056
+length(unique(final_df$uniprot)) #12114
+head(final_df)
+```
+
+```{r}
+nrow(final_df) #102056
+nrow(final_df %>% filter (exposure_plddt < 70))  #39709
+nrow(final_df %>% filter (exposure_plddt < 70)) / nrow(final_df) #0.3890903
+
+patho_final_df <- final_df %>% filter (clinvar_clinical_significance %in% c("pathogenic", "likely_pathogenic"))
+nrow(patho_final_df) #32147
+nrow(patho_final_df %>% filter (exposure_plddt < 70)) #4416
+nrow(patho_final_df %>% filter (exposure_plddt < 70)) / nrow(patho_final_df) #0.137369
+```
+
+```{r}
+conf_final_df <- final_df %>% filter (exposure_plddt >= 70)
+nrow(conf_final_df) #62347
+```
+
+```{r}
+total_patho <- conf_final_df %>%
+  dplyr::filter(clinvar_clinical_significance %in% c("pathogenic", "likely_pathogenic"))
+nrow(total_patho) #27731
+
+total_benign <- conf_final_df %>%
+  dplyr::filter(clinvar_clinical_significance %in% c("benign", "likely_benign"))
+nrow(total_benign) #34616
+
+conf_final_df <- conf_final_df %>%
+  mutate(stability = case_when(
+    ddG_pred > 1 ~ "destabilizing",
+    ddG_pred < -0.5 ~ "stabilizing",
+    TRUE ~ "WT-like"  # Default case
+  ))
+
+# Summarize data by categories and pathogenicity
+summary_df <- conf_final_df %>%
+  mutate(clinvar_clinical_significance = case_when(
+    clinvar_clinical_significance %in% c("likely_benign", "benign") ~ "benign",
+    clinvar_clinical_significance %in% c("likely_pathogenic", "pathogenic") ~ "pathogenic",
+    TRUE ~ clinvar_clinical_significance  # Keep other categories unchanged
+  )) %>%
+  # Group by the new clinical significance categories and stability
+  group_by(clinvar_clinical_significance, stability) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  # Recalculate percentages after merging
+  group_by(clinvar_clinical_significance) %>%
+  mutate(percent = (count / sum(count)) * 100) %>%
+  ungroup()
+
+summary_df
+```
+```{r}
+# Creating a contingency table
+contingency_table <- matrix(c(
+  summary_df$count[summary_df$clinvar_clinical_significance == "pathogenic" & summary_df$stability == "destabilizing"], 
+  summary_df$count[summary_df$clinvar_clinical_significance == "benign" & summary_df$stability == "destabilizing"],
+  sum(summary_df$count[summary_df$clinvar_clinical_significance == "pathogenic" & summary_df$stability != "destabilizing"]),
+  sum(summary_df$count[summary_df$clinvar_clinical_significance == "benign" & summary_df$stability != "destabilizing"])
+), nrow = 2, byrow = TRUE)
+
+# Adding row and column names for clarity
+colnames(contingency_table) <- c("Pathogenic", "Benign")
+rownames(contingency_table) <- c("Destabilizing", "Non-Destabilizing")
+
+# Displaying the table
+print(contingency_table)
+```
+
+```{r}
+# Calculate the Odds Ratio using Fisher's Test
+result <- fisher.test(contingency_table)
+print(result$estimate)  
+```
+
+```{r}
+summary_df$stability <- factor(summary_df$stability, levels = c("WT-like", "destabilizing", "stabilizing"))
+summary_df$clinvar_clinical_significance <- factor(summary_df$clinvar_clinical_significance, levels = c("benign", "pathogenic"))
+
+nrow(conf_final_df) # 62347
+length(unique(conf_final_df$uniprot)) #9267
+```
+
+```{r, fig.width=6, fig.height=7}
+p1 <- ggplot(summary_df, aes(x = clinvar_clinical_significance, y = percent, fill = stability)) +
+  geom_bar(stat = "identity", position = "stack", width = 0.7) +  # Stacked bars
+  geom_text(aes(label = paste0(round(percent, 1), "% (", count, ")")), 
+            position = position_stack(vjust = 0.5), size = 6.5) +  # Center labels in stacks
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "All variants with pLDDT > 70", subtitle = "9,267 ClinVar Variants (62,347 proteins)",
+       x = NULL, y = "Variant percentage (%)", fill = NULL) +
+  theme_classic() + ylim(0, 100) +
+  theme(legend.position = "bottom",
+        plot.title = element_text(size = 24, hjust = 0, face = "bold"),
+        plot.subtitle = element_text(size = 22, hjust = 0),
+        axis.text.y = element_text(size = 20) ,
+        axis.text.x = element_text(size = 20) ,
+        axis.title.y = element_text(size = 20),
+        legend.text = element_text(size = 20),       # Increase legend text size
+        legend.title = element_text(size = 20),      # Increase legend title size
+        legend.key.size = unit(1.2, "cm"))            # Increase legend box size
+p1
+```
+
+CORE VARIANTS 
+```{r}
+bi_df <- read.csv("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/00.human_proteome_inputs/pioneer_interactome/all_bi_residues.csv")
+
+final_df2 <- merge(conf_final_df, bi_df, by = "uniprot", all.x = TRUE)
+nrow(final_df2) #62347
+
+clinvar_core <- final_df2 %>% filter (exposure_rasa <= 0.2) %>% filter (spot_disorder == 0)
+
+# Step 1: Convert interface_residues to a list of numeric values
+clinvar_core <- clinvar_core %>%
+  mutate(
+    interface_residues = str_split(interface_residues, ",\\s*"), # Split into individual residues
+    interface_residues = lapply(interface_residues, as.numeric) # Convert to numeric
+  )
+
+# Step 2: Filter rows where new_position is not in interface_residues
+clinvar_core_fil <- clinvar_core %>%
+  rowwise() %>%
+  filter(!(new_position %in% interface_residues)) %>%
+  ungroup()
+
+clinvar_core_fil <- clinvar_core_fil %>%
+  mutate(interface_residues = sapply(interface_residues, function(x) paste(x, collapse = ",")))
+
+nrow(clinvar_core_fil) #24931
+
+summary_df <- clinvar_core_fil %>%
+  mutate(clinvar_clinical_significance = case_when(
+    clinvar_clinical_significance %in% c("likely_benign", "benign") ~ "benign",
+    clinvar_clinical_significance %in% c("likely_pathogenic", "pathogenic") ~ "pathogenic",
+    TRUE ~ clinvar_clinical_significance  # Keep other categories unchanged
+  )) %>%
+  # Group by the new clinical significance categories and stability
+  group_by(clinvar_clinical_significance, stability) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  # Recalculate percentages after merging
+  group_by(clinvar_clinical_significance) %>%
+  mutate(percent = (count / sum(count)) * 100) %>%
+  ungroup()
+
+summary_df
+```
+```{r}
+# Set factor levels for consistent ordering
+summary_df$stability <- factor(summary_df$stability, levels = c("WT-like", "destabilizing", "stabilizing"))
+summary_df$clinvar_clinical_significance <- factor(summary_df$clinvar_clinical_significance, levels = c("benign", "pathogenic"))
+
+nrow(clinvar_core_fil) #24931
+length(unique(clinvar_core_fil$uniprot)) #4803
+```
+
+```{r, fig.width=6, fig.height=7}
+p3 <- ggplot(summary_df, aes(x = clinvar_clinical_significance, y = percent, fill = stability)) +
+  geom_bar(stat = "identity", position = "stack", width = 0.7) +  # Stacked bars
+  geom_text(aes(label = paste0(round(percent, 1), "% (", count, ")")), 
+            position = position_stack(vjust = 0.5), size = 6.5) +  # Center labels in stacks
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "Core variants with pLDDT > 70", subtitle = "24,931 ClinVar Variants (4,803 proteins)",
+       x = NULL, y = "Variant percentage (%)", fill = NULL) +
+  theme_classic() + ylim(0, 101) +
+  theme(legend.position = "bottom",
+        plot.title = element_text(size = 24, hjust = 0, face = "bold"),
+        plot.subtitle = element_text(size = 22, hjust = 0),
+        axis.text.y = element_text(size = 20) ,
+        axis.text.x = element_text(size = 20) ,
+        axis.title.y = element_text(size = 20),
+        legend.text = element_text(size = 20),       # Increase legend text size
+        legend.title = element_text(size = 20),      # Increase legend title size
+        legend.key.size = unit(1.2, "cm"))            # Increase legend box size
+
+p3
+
+```
+
+```{r, fig.width=12, fig.height=7}
+library(cowplot)
+p7 <- plot_grid(p1,p3, ncol=2)
+
+ggsave("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/git_allostery_pathogenicity/figs/revision/fig1_clinvar_all_plddt_70.pdf", plot = p7, width = 12, height = 7, dpi = 500)
+
+p7
+```
+
+```{r}
+conf_final_df_three_star <- conf_final_df %>%
+  filter(grepl("\\b3\\b", clinvar_review_status))
+
+nrow(conf_final_df_three_star) #1591
+length(unique(conf_final_df_three_star$uniprot)) #56
+```
+
+```{r}
+total_patho_three_star <- conf_final_df_three_star %>%
+  dplyr::filter(clinvar_clinical_significance %in% c("pathogenic", "likely_pathogenic"))
+nrow(total_patho_three_star) #1277
+
+total_benign_three_star <- conf_final_df_three_star %>%
+  dplyr::filter(clinvar_clinical_significance %in% c("benign", "likely_benign"))
+nrow(total_benign_three_star) #314
+
+conf_final_df_three_star <- conf_final_df_three_star %>%
+  mutate(stability = case_when(
+    ddG_pred > 1 ~ "destabilizing",
+    ddG_pred < -0.5 ~ "stabilizing",
+    TRUE ~ "WT-like"  # Default case
+  ))
+
+# Summarize data by categories and pathogenicity
+summary_df_three_star <- conf_final_df_three_star %>%
+  mutate(clinvar_clinical_significance = case_when(
+    clinvar_clinical_significance %in% c("likely_benign", "benign") ~ "benign",
+    clinvar_clinical_significance %in% c("likely_pathogenic", "pathogenic") ~ "pathogenic",
+    TRUE ~ clinvar_clinical_significance  # Keep other categories unchanged
+  )) %>%
+  # Group by the new clinical significance categories and stability
+  group_by(clinvar_clinical_significance, stability) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  # Recalculate percentages after merging
+  group_by(clinvar_clinical_significance) %>%
+  mutate(percent = (count / sum(count)) * 100) %>%
+  ungroup()
+
+summary_df_three_star
+```
+```{r}
+# Creating a contingency table
+contingency_table_three_star <- matrix(c(
+  summary_df_three_star$count[summary_df_three_star$clinvar_clinical_significance == "pathogenic" & summary_df_three_star$stability == "destabilizing"], 
+  summary_df_three_star$count[summary_df_three_star$clinvar_clinical_significance == "benign" & summary_df_three_star$stability == "destabilizing"],
+  sum(summary_df_three_star$count[summary_df_three_star$clinvar_clinical_significance == "pathogenic" & summary_df_three_star$stability != "destabilizing"]),
+  sum(summary_df_three_star$count[summary_df_three_star$clinvar_clinical_significance == "benign" & summary_df_three_star$stability != "destabilizing"])
+), nrow = 2, byrow = TRUE)
+
+# Adding row and column names for clarity
+colnames(contingency_table_three_star) <- c("Pathogenic", "Benign")
+rownames(contingency_table_three_star) <- c("Destabilizing", "Non-Destabilizing")
+
+# Displaying the table
+print(contingency_table_three_star)
+```
+
+```{r}
+# Calculate the Odds Ratio using Fisher's Test
+result_three_star <- fisher.test(contingency_table_three_star)
+print(result_three_star$estimate)  
+```
+```{r}
+summary_df_three_star$stability <- factor(summary_df_three_star$stability, levels = c("WT-like", "destabilizing", "stabilizing"))
+summary_df_three_star$clinvar_clinical_significance <- factor(summary_df_three_star$clinvar_clinical_significance, levels = c("benign", "pathogenic"))
+
+nrow(conf_final_df_three_star) # 1591
+length(unique(conf_final_df_three_star$uniprot)) #56
+```
+
+```{r, fig.width=6, fig.height=7}
+p2 <- ggplot(summary_df_three_star, aes(x = clinvar_clinical_significance, y = percent, fill = stability)) +
+  geom_bar(stat = "identity", position = "stack", width = 0.7) +  # Stacked bars
+  geom_text(aes(label = paste0(round(percent, 1), "% (", count, ")")), 
+            position = position_stack(vjust = 0.5), size = 6.5) +  # Center labels in stacks
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "All 3-star variants with pLDDT > 70 ", subtitle = "1,591 ClinVar Variants (56 proteins)",
+       x = NULL, y = "Variant percentage (%)", fill = NULL) +
+  theme_classic() + ylim(0, 100) +
+  theme(legend.position = "bottom",
+        plot.title = element_text(size = 24, hjust = 0, face = "bold"),
+        plot.subtitle = element_text(size = 22, hjust = 0),
+        axis.text.y = element_text(size = 20) ,
+        axis.text.x = element_text(size = 20) ,
+        axis.title.y = element_text(size = 20),
+        legend.text = element_text(size = 20),       # Increase legend text size
+        legend.title = element_text(size = 20),      # Increase legend title size
+        legend.key.size = unit(1.2, "cm"))            # Increase legend box size
+p2
+```
+```{r}
+final_df3 <- merge(conf_final_df_three_star, bi_df, by = "uniprot", all.x = TRUE)
+nrow(final_df3) #1591
+
+clinvar_core_three_star <- final_df3 %>% filter (exposure_rasa <= 0.2) %>% filter (spot_disorder == 0)
+nrow(clinvar_core_three_star) #933
+
+# Step 1: Convert interface_residues to a list of numeric values
+clinvar_core_three_star <- clinvar_core_three_star %>%
+  mutate(
+    interface_residues = str_split(interface_residues, ",\\s*"), # Split into individual residues
+    interface_residues = lapply(interface_residues, as.numeric) # Convert to numeric
+  )
+
+# Step 2: Filter rows where new_position is not in interface_residues
+clinvar_core_fil_three_star <- clinvar_core_three_star %>%
+  rowwise() %>%
+  filter(!(new_position %in% interface_residues)) %>%
+  ungroup()
+
+clinvar_core_fil_three_star <- clinvar_core_fil_three_star %>%
+  mutate(interface_residues = sapply(interface_residues, function(x) paste(x, collapse = ",")))
+
+nrow(clinvar_core_fil_three_star) #873
+
+summary_df_three_star <- clinvar_core_fil_three_star %>%
+  mutate(clinvar_clinical_significance = case_when(
+    clinvar_clinical_significance %in% c("likely_benign", "benign") ~ "benign",
+    clinvar_clinical_significance %in% c("likely_pathogenic", "pathogenic") ~ "pathogenic",
+    TRUE ~ clinvar_clinical_significance  # Keep other categories unchanged
+  )) %>%
+  # Group by the new clinical significance categories and stability
+  group_by(clinvar_clinical_significance, stability) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  # Recalculate percentages after merging
+  group_by(clinvar_clinical_significance) %>%
+  mutate(percent = (count / sum(count)) * 100) %>%
+  ungroup()
+
+summary_df_three_star
+```
+```{r}
+# Set factor levels for consistent ordering
+summary_df_three_star$stability <- factor(summary_df_three_star$stability, levels = c("WT-like", "destabilizing", "stabilizing"))
+summary_df_three_star$clinvar_clinical_significance <- factor(summary_df_three_star$clinvar_clinical_significance, levels = c("benign", "pathogenic"))
+
+nrow(clinvar_core_fil_three_star) #873
+length(unique(clinvar_core_fil_three_star$uniprot)) #44
+```
+```{r, fig.width=6, fig.height=7}
+p4 <- ggplot(summary_df_three_star, aes(x = clinvar_clinical_significance, y = percent, fill = stability)) +
+  geom_bar(stat = "identity", position = "stack", width = 0.7) +  # Stacked bars
+  geom_text(aes(label = paste0(round(percent, 1), "% (", count, ")")), 
+            position = position_stack(vjust = 0.5), size = 6.5) +  # Center labels in stacks
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "3-star core variants with pLDDT > 70", subtitle = "873 ClinVar Variants (44 proteins)",
+       x = NULL, y = "Variant percentage (%)", fill = NULL) +
+  theme_classic() + ylim(0, 100) +
+  theme(legend.position = "bottom",
+        plot.title = element_text(size = 24, hjust = 0, face = "bold"),
+        plot.subtitle = element_text(size = 22, hjust = 0),
+        axis.text.y = element_text(size = 20) ,
+        axis.text.x = element_text(size = 20) ,
+        axis.title.y = element_text(size = 20),
+        legend.text = element_text(size = 20),       # Increase legend text size
+        legend.title = element_text(size = 20),      # Increase legend title size
+        legend.key.size = unit(1.2, "cm"))            # Increase legend box size
+
+p4
+```
+
+```{r, fig.width=12, fig.height=7}
+p8 <- plot_grid(p2,p4, ncol=2)
+
+ggsave("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/git_allostery_pathogenicity/figs/revision/fig1_clinvar_3_star_plddt_70.pdf", plot = p8, width = 12, height = 7, dpi = 500)
+
+p8
+```
+
+
+
+
+
+
+
+

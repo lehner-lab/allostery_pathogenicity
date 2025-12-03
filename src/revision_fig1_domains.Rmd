@@ -438,16 +438,6 @@ p1
 
 
 
-```{r}
-library(ProteinGymR)
-am_data <- am_scores()
-unique(am_data$DMS_id)
-```
-
-
-
-
-
 
 
 

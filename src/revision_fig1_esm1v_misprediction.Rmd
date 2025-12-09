@@ -1,0 +1,204 @@
+---
+title: "revision_fig1_esm1v_misprediction.Rmd"
+output: html_document
+date: "2025-12-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+library('ProjectTemplate')
+library(ggExtra)
+library(bio3d)
+library(ggrepel)
+load.project()
+```
+
+```{r}
+brca1_exp <- read.csv("~/Documents/0.Projects/00.large_supplements/ProteinGym_v1.1/DMS_ProteinGym_substitutions/BRCA1_HUMAN_Findlay_2018.csv", header = TRUE)
+head(brca1_exp)
+
+brca1_esm <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/SGE_esm1v/P38398_filtered_with_esm1v.csv")
+nrow(brca1_exp) #1837
+nrow(brca1_esm) #35397
+head(brca1_esm)
+
+brca1_df <- merge(brca1_exp, brca1_esm, by.x = "mutant", by.y = "variant")
+nrow(brca1_df) #1837
+
+brca1_df <- brca1_df %>%
+  mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
+
+head(brca1_df)
+```
+```{r, fig.width=4, fig.height=5}
+# Define pathogenic classes
+pathogenic_classes <- c("pathogenic", "likely_pathogenic")
+
+# Add shape column
+brca1_df2 <- brca1_df %>%
+  mutate(
+    clinvar_group = case_when(
+      clinvar_clinical_significance %in% c("pathogenic", "likely_pathogenic") ~
+        "Pathogenic",
+      clinvar_clinical_significance %in% c("benign", "likely_benign") ~
+        "Benign",
+      TRUE ~ "Other"
+    ),
+    clinvar_group = factor(
+      clinvar_group,
+      levels = c(
+        "Pathogenic",
+        "Benign",
+        "Other"
+      )
+    )
+  )
+
+# Compute Spearman correlation
+spearman_r <- cor(brca1_df2$ESM.1v, brca1_df2$DMS_score, method = "spearman", use = "complete.obs")
+subtitle_text <- sprintf("Spearman correlation: %.3f", spearman_r)
+
+# Plot
+ggplot(brca1_df2, aes(x = ESM.1v, y = DMS_score)) +
+  geom_point(
+    aes(shape = clinvar_group, color = clinvar_group ),
+    size = 3,
+    alpha = 0.7
+  ) +
+  scale_shape_manual(values = c(
+    "Pathogenic" = 17,  # triangle
+    "Other" = 16,
+    "Benign" = 16
+  )) +
+  scale_color_manual(values = c(
+    "Other" = "grey",
+    "Benign" = "#1B9E77",
+    "Pathogenic" = "#D95F02"
+
+  )) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", size = 1) +
+  theme_classic(base_size = 16) +
+  labs(
+    title = "BRCA1 (Findlay et al., 2018)",
+    subtitle = subtitle_text,
+    x = "ESM1v score",
+    y = "DMS score (ProteinGym normalized)",
+    shape = "",
+    color = ""
+  ) +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+```
+```{r, fig.width=4, fig.height=5}
+# Compute Spearman correlation
+spearman_r <- cor(brca1_df2$residuals_pred, brca1_df2$DMS_score, method = "spearman", use = "complete.obs")
+subtitle_text <- sprintf("Spearman correlation: %.3f", spearman_r)
+
+# Plot
+ggplot(brca1_df2, aes(x = residuals_pred, y = DMS_score)) +
+  geom_point(
+    aes(shape = clinvar_group, color = clinvar_group),
+    size = 3,
+    alpha = 0.7
+  ) +
+  scale_shape_manual(values = c(
+    "Pathogenic" = 17,  # triangle
+    "Other" = 16,
+    "Benign" = 16
+  )) +
+  scale_color_manual(values = c(
+    "Other" = "grey",
+    "Benign" = "#1B9E77",
+    "Pathogenic" = "#D95F02"
+
+  )) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", size = 1) +
+  theme_classic(base_size = 16) +
+  labs(
+    title = "BRCA1 (Findlay et al., 2018)",
+    subtitle = subtitle_text,
+    x = "ESM1v-ddgf residuals",
+    y = "DMS score",
+    shape = "",
+    color = ""
+  ) +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+```
+
+```{r}
+
+```
+
+
+```{r}
+brca1_df2 <- brca1_df %>%
+  mutate(
+    clinvar_group = case_when(
+      clinvar_clinical_significance %in% c("pathogenic", "likely_pathogenic") ~
+        "Pathogenic",
+      clinvar_clinical_significance %in% c("benign", "likely_benign") ~
+        "Benign",
+      TRUE ~ "Other (VUS / conflict / missing)"
+    ),
+    clinvar_group = factor(
+      clinvar_group,
+      levels = c(
+        "Pathogenic",
+        "Benign",
+        "Other (VUS / conflict / missing)"
+      )
+    )
+  )
+
+
+# Pretty density plot
+ggplot(brca1_df2, aes(x = residuals_pred, fill = clinvar_group)) +
+  geom_density(alpha = 0.45, size = 1.1) +
+  scale_fill_manual(
+    values = c(
+      "Pathogenic" = "#D95F02",
+      "Benign"         = "#1B9E77",
+      "Other (VUS / conflict / missing)" = "grey70"
+    )
+  ) +
+  theme_classic(base_size = 16) +
+  labs(
+    title = "BRCA1: Density of Residuals",
+    subtitle = "Pathogenic vs benign vs VUS/conflict",
+    x = "Residuals (ESM1v - model prediction)",
+    y = "Density",
+    fill = ""
+  ) +
+  theme(
+    legend.position = "top",
+    panel.grid.minor = element_blank()
+  )
+```
+
+
+```{r}
+brca1_df %>% filter (clinvar_clinical_significance %in% c("likely_benign", "benign", "pathogenic", "likely_pathogenic"))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

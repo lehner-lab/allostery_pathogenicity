@@ -696,6 +696,7 @@ p5
 ```
 
 ```{r, fig.width=12, fig.height=7}
+library(data.table)
 p6 <- plot_grid(p2,p4, ncol=2)
 
 ggsave("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/git_allostery_pathogenicity/figs/revision/fig1_clinvar_3_star.pdf", plot = p6, width = 12, height = 7, dpi = 500)

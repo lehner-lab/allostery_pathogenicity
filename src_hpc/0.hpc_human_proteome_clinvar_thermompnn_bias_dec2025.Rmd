@@ -34,6 +34,14 @@ nrow(patho_final_df %>% filter (exposure_plddt < 70)) / nrow(patho_final_df) #0.
 ```
 
 ```{r}
+benign_final_df <- final_df %>% filter (clinvar_clinical_significance %in% c("benign", "likely_benign"))
+nrow(benign_final_df) #69909
+nrow(benign_final_df %>% filter (exposure_plddt < 70)) #35293
+nrow(benign_final_df %>% filter (exposure_plddt < 70)) / nrow(benign_final_df) #0.504842
+```
+
+
+```{r}
 conf_final_df <- final_df %>% filter (exposure_plddt >= 70)
 nrow(conf_final_df) #62347
 ```
@@ -108,7 +116,7 @@ p1 <- ggplot(summary_df, aes(x = clinvar_clinical_significance, y = percent, fil
   geom_text(aes(label = paste0(round(percent, 1), "% (", count, ")")), 
             position = position_stack(vjust = 0.5), size = 6.5) +  # Center labels in stacks
   scale_fill_brewer(palette = "Set2") +
-  labs(title = "All variants with pLDDT > 70", subtitle = "9,267 ClinVar Variants (62,347 proteins)",
+  labs(title = "All variants with pLDDT > 70", subtitle = "62,347 ClinVar Variants (9,267 proteins)",
        x = NULL, y = "Variant percentage (%)", fill = NULL) +
   theme_classic() + ylim(0, 100) +
   theme(legend.position = "bottom",

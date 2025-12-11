@@ -1,35 +1,59 @@
 ---
-title: "revision_fig1_esm1v_brca1.Rmd"
+title: "revision_fig1_esm1v_rad51c.Rmd"
 output: html_document
-date: "2025-12-09"
+date: "2025-12-10"
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
-library('ProjectTemplate')
-library(ggExtra)
-library(bio3d)
-library(ggrepel)
-load.project()
 ```
 
+```{r}
+rad_exp <- fread("~/Downloads/sge_rad51c.csv")
+rad_exp <- rad_exp %>% filter (Consequence == "missense_variant")
+
+# 1. Create a lookup vector for 3-letter to 1-letter amino acid codes
+aa_codes <- c(
+  "Ala" = "A", "Arg" = "R", "Asn" = "N", "Asp" = "D", "Cys" = "C",
+  "Glu" = "E", "Gln" = "Q", "Gly" = "G", "His" = "H", "Ile" = "I",
+  "Leu" = "L", "Lys" = "K", "Met" = "M", "Phe" = "F", "Pro" = "P",
+  "Ser" = "S", "Thr" = "T", "Trp" = "W", "Tyr" = "Y", "Val" = "V",
+  "Ter" = "*" # Stop codon
+)
+
+# 2. Process the dataframe
+rad_exp <- rad_exp %>%
+  mutate(
+    # Extract the 3 parts: (RefAA)(Position)(AltAA)
+    # The regex looks for "p." followed by 3 letters, digits, and 3 letters
+    matches = str_match(HGVSp, "p\\.([A-Z][a-z]{2})(\\d+)([A-Z][a-z]{2})"),
+    
+    # Map the extracted 3-letter codes to 1-letter codes using the lookup vector
+    # matches[,2] is Ref, matches[,3] is Pos, matches[,4] is Alt
+    ref_1 = aa_codes[matches[,2]],
+    pos   = matches[,3],
+    alt_1 = aa_codes[matches[,4]],
+    
+    # Combine them into the desired format (e.g., R2G)
+    variant_pro = paste0(ref_1, pos, alt_1)
+  ) %>%
+  # Optionally remove the helper columns if you don't need them
+  dplyr::select(-matches, -ref_1, -pos, -alt_1)
+
+rad_exp
+```
 
 ```{r}
-brca1_exp <- read.csv("~/Documents/0.Projects/00.large_supplements/ProteinGym_v1.1/substitutions_raw_DMS/BRCA1_HUMAN_Findlay_2018.csv", header = TRUE)
-head(brca1_exp)
+rad_esm <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/SGE_esm1v/O43502_filtered_with_esm1v.csv")
+table(rad_esm$clinvar_clinical_significance)
 
-brca1_esm <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/SGE_esm1v/P38398_filtered_with_esm1v.csv")
-nrow(brca1_exp) #3555
-nrow(brca1_esm) #35397
+rad_df <- merge(rad_exp, rad_esm, by.x = "variant_pro", by.y = "variant")
+nrow(rad_df) #3282 = 3555 - syn mutants 
 
-brca1_df <- merge(brca1_exp, brca1_esm, by.x = "mutant", by.y = "variant")
-nrow(brca1_df) #3282 = 3555 - syn mutants 
+rad_df <- rad_df %>%
+  mutate(mutation_position = as.numeric(str_extract(variant_pro, "(?<=\\D)(\\d+)(?=\\D)")))
 
-brca1_df <- brca1_df %>%
-  mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
-
-brca1_df <- brca1_df %>%
+rad_df <- rad_df %>%
   mutate(
     clinvar_group = case_when(
       clinvar_clinical_significance %in% c("pathogenic", "likely_pathogenic") ~
@@ -47,113 +71,20 @@ brca1_df <- brca1_df %>%
       )
     )
   )
-#table(brca1_df$mutant)
-nrow(brca1_df)
-nrow(brca1_df %>% distinct())
 
-brca1_df <- brca1_df %>% distinct()
-head(brca1_df)
-```
+nrow(rad_df)
+nrow(rad_df %>% distinct())
+head(rad_df)
 
-
-```{r}
-plotting_data <- brca1_df %>%
-  drop_na(function_score, ESM.1v)
-
-# 1. Load PDB (Ensure this path is correct)
-pdb_path <- "~/Downloads/AF-P38398-F1-model_v6.pdb"
-pdb <- read.pdb(pdb_path)
-
-# 2. Define Active Sites
-active_site_resnos <- c(
-    24,27,39,41,44,47,61,64,           # RING
-    3,6,7,8,10,11,14,15,17,18,21,22,38,76,77,78,79,81,82,85,88,89,92,93,96,97,
-    1654, 1655, 1656, 1657, 1658, 1690, 1691, 1696, # BRCT
-    1698,1699,1700,1701,1702,1740,1741,1773,
-    1774,1775,1811,1813,1836,1839
-)
-
-# 3. Get Active Site Coordinates (Using the CORRECT 'string' argument)
-# This was likely the missing piece in your previous environment
-site_inds <- atom.select(pdb, resno = active_site_resnos, string = "noh")
-site_xyz <- pdb$xyz[site_inds$xyz]
-
-# Check immediately
-if (length(site_inds$atom) == 0) {
-  stop("STOP: Active site atoms are 0. The Code will not work.")
-} else {
-  print(paste("Active Site Loaded: Found", length(site_inds$atom), "atoms."))
-}
-
-# 4. Redefine the Function (The Robust Version)
-calc_min_heavy_dist <- function(res_num, pdb_obj, site_coords) {
-  
-  # Bio3D is strict: 'resno' must be numeric. 
-  # We force it here to fix the error you saw in Test B.
-  res_num <- as.numeric(as.character(res_num))
-  
-  # Use 'string = "noh"' (The fix confirmed by Test A)
-  target_inds <- atom.select(pdb_obj, resno = res_num, string = "noh")
-  
-  # Safety catch for missing residues
-  if (length(target_inds$atom) == 0) return(NA)
-  
-  # Calculate
-  target_xyz <- pdb_obj$xyz[target_inds$xyz]
-  t_mat <- matrix(target_xyz, ncol = 3, byrow = TRUE)
-  s_mat <- matrix(site_coords, ncol = 3, byrow = TRUE)
-  
-  return(min(dist.xyz(t_mat, s_mat), na.rm = TRUE))
-}
-
-# 5. Run Calculation
-unique_positions <- unique(plotting_data$mutation_position)
-
-print("Starting calculation loop...")
-
-dist_vals <- sapply(unique_positions, function(x) {
-  calc_min_heavy_dist(x, pdb, site_xyz)
-})
-
-# 6. Map Back Safely
-# explicitly name the vector to ensure matching works
-names(dist_vals) <- as.character(unique_positions) 
-
-# Assign based on character matching
-plotting_data$min_dist_to_site <- dist_vals[as.character(plotting_data$mutation_position)]
-
-# 7. Final Result
-print(paste("Final NAs:", sum(is.na(plotting_data$min_dist_to_site))))
-head(plotting_data$min_dist_to_site)
-
-# If NAs remain, it means those specific residues are missing from the PDB structure 
-# (common in loop regions), which is normal.
-# Filter out NAs (residues not found in PDB structure)
-plotting_data <- plotting_data %>% filter(!is.na(min_dist_to_site))
-nrow(plotting_data) #1837
-
-# --- ANALYSIS 1: VARIANCE PARTITIONING (THE "DELTA") ---
-# Model A: Stability Alone
-mod_stab <- lm(function_score ~ ddG_pred, data = plotting_data)
-r2_stab <- summary(mod_stab)$r.squared
-
-# Model B: Stability + ESM1v
-mod_full <- lm(function_score ~ ddG_pred + ESM.1v, data = plotting_data)
-r2_full <- summary(mod_full)$r.squared
-
-r2_delta <- r2_full - r2_stab
-
-# PRINT THESE NUMBERS FOR YOUR TEXT
-print(paste("Variance explained by Stability (R2):", round(r2_stab * 100, 1), "%"))
-print(paste("Variance explained by Stability + ESM (R2):", round(r2_full * 100, 1), "%"))
-print(paste("The Delta (Biological Signal):", round(r2_delta * 100, 1), "%"))
+plotting_data <- rad_df %>%
+  drop_na(z_score_D4_D14, ESM.1v)
 
 ```
 
 ```{r, fig.width=4, fig.height=4}
 # 4. Create Categorical Data with the Split
-class_data <- brca1_df %>%
-  drop_na(function_score, ESM.1v, ddG_pred) %>%
+class_data <- rad_df %>%
+  drop_na(z_score_D4_D14, ESM.1v, ddG_pred) %>%
   mutate(
     # Map distances back to dataframe
     min_dist = dist_vals[as.character(mutation_position)],
@@ -191,14 +122,14 @@ n_labels <- class_data %>%
   group_by(Category) %>%
   summarise(
     n = n(),
-    y_pos = max(function_score, na.rm = TRUE) + 0.5  # Adjust +0.5 to move text higher/lower
+    y_pos = max(z_score_D4_D14, na.rm = TRUE) + 0.5  # Adjust +0.5 to move text higher/lower
   ) %>%
   mutate(label = paste0("n = ", n))
 
 # 2. Plot with Labels
-p_box_split <- ggplot(class_data, aes(x = Category, y = function_score, fill = Category)) +
+p_box_split <- ggplot(class_data, aes(x = Category, y = z_score_D4_D14, fill = Category)) +
   # Reference line for SGE pathogenicity
-  geom_hline(yintercept = -0.748, linetype = "dashed", color = "red") + 
+  geom_hline(yintercept = -3.5926, linetype = "dashed", color = "red") + 
   
   geom_violin(alpha = 0.5, trim = FALSE) +
   geom_boxplot(width = 0.2, outlier.shape = NA) +
@@ -229,7 +160,7 @@ p_box_split <- ggplot(class_data, aes(x = Category, y = function_score, fill = C
   ) +
 
   labs(
-    title = "BRCA1 (Findley et al., 2018)",
+    title = "RAD51C",
     subtitle = "Prediction vs SGE Data",
     y = "SGE Score",
     x = NULL
@@ -244,20 +175,20 @@ stats <- class_data %>%
   group_by(Category) %>%
   summarise(
     Count = n(),
-    Median_SGE = median(function_score),
-    Percent_Confirmed_Pathogenic = mean(function_score < -0.748) * 100
+    Median_SGE = median(z_score_D4_D14),
+    Percent_Confirmed_Pathogenic = mean(z_score_D4_D14 < -3.5926) * 100
   )
 print(stats)
 ```
+
 ```{r}
 # 1. Filter for variants ESM1v *says* are Pathogenic (but are Stable)
 predicted_pathogenic_stable <- class_data %>%
   filter(Category %in% c("Stable-Pathogenic"))
 
 # 2. Count how many of these are NOT pathogenic in SGE (False Positives)
-# We assume SGE < -1.5 is Pathogenic, so SGE >= -1.5 is Benign/WT-like
 false_positives <- predicted_pathogenic_stable %>%
-  filter(function_score >= -0.748)
+  filter(z_score_D4_D14 >= -3.5926)
 
 # 3. Calculate the Stats
 n_predicted <- nrow(predicted_pathogenic_stable)
@@ -276,7 +207,7 @@ model_signal <- loess(ESM.1v ~ ddG_pred, data = plotting_data, span = 0.7, famil
 plotting_data$Signal_Residual <- residuals(model_signal)
 
 # Exp residual: What part of SGE is NOT stability?
-model_exp <- loess(function_score ~ ddG_pred, data = plotting_data, span = 0.7, family = "symmetric")
+model_exp <- loess(z_score_D4_D14 ~ ddG_pred, data = plotting_data, span = 0.7, family = "symmetric")
 plotting_data$Exp_Residual <- residuals(model_exp)
 
 
@@ -296,16 +227,16 @@ p_label <- ifelse(p_value < 2.2e-16, "P < 2.2e-16", sprintf("P = %.2e", p_value)
 stats_subtitle <- sprintf("Spearman rho: %.3f | Slope %s", spearman_val, p_label)
 
 # --- 3. Plot P1: Raw Comparison ---
-p1 <- ggplot(plotting_data, aes(x = ESM.1v, y = function_score)) +
+p1 <- ggplot(plotting_data, aes(x = ESM.1v, y = z_score_D4_D14)) +
   geom_point(aes(shape = clinvar_group, color = clinvar_group, alpha = clinvar_group), size = 2.5) +
   scale_shape_manual(values = c("Pathogenic" = 17, "Benign" = 16, "Other" = 16)) +
   scale_color_manual(values = c("Other" = "grey70", "Benign" = "#1B9E77", "Pathogenic" = "#D95F02")) +
   scale_alpha_manual(values = c("Other" = 0.5, "Benign" = 0.9, "Pathogenic" = 0.9), guide = "none") +
   geom_smooth(method = "lm", se = TRUE, color = "black", size = 1) +
   labs(
-    title = "BRCA1 - Raw Scores",
+    title = "RAD51C - Raw Scores",
     subtitle = sprintf("Spearman's rho = %.3f", 
-                       cor(plotting_data$ESM.1v, plotting_data$function_score, method="spearman", use="complete.obs")),
+                       cor(plotting_data$ESM.1v, plotting_data$z_score_D4_D14, method="spearman", use="complete.obs")),
     x = "Predicted Pathogenicity (ESM1v)",
     y = "Experimental Function (SGE)"
   ) +
@@ -350,36 +281,9 @@ p2 <- ggplot(plotting_data, aes(x = Signal_Residual, y = Exp_Residual)) +
     panel.grid.minor = element_blank()
   )
 
-p3 <- ggplot(plotting_data, aes(x = ddG_pred, y = function_score)) +
-  geom_point(aes(shape = clinvar_group, color = clinvar_group, alpha = clinvar_group), size = 2.5) +
-  scale_shape_manual(values = c("Pathogenic" = 17, "Benign" = 16, "Other" = 16)) +
-  scale_color_manual(values = c("Other" = "grey70", "Benign" = "#1B9E77", "Pathogenic" = "#D95F02")) +
-  scale_alpha_manual(values = c("Other" = 0.5, "Benign" = 0.9, "Pathogenic" = 0.9), guide = "none") +
-  geom_smooth(method = "lm", se = TRUE, color = "black", size = 1) +
-  labs(
-    title = "BRCA1 - Raw Scores",
-    subtitle = sprintf("Spearman's rho = %.3f", 
-                       cor(plotting_data$ddG_pred, plotting_data$function_score, method="spearman", use="complete.obs")),
-    x = "Predicted folding ddG (TMPNN)",
-    y = "Experimental Function (SGE)"
-  ) +
-  theme_classic(base_size = 14) +
-  theme(
-    legend.position = "bottom",
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank()
-  ) +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") 
-
-
 # --- 5. Combine ---
 final_plot <- plot_grid(p1, p2, p_box_split , ncol = 3, rel_widths = c(1, 1))
 print(final_plot)
-```
-```{r}
-# Verify the P-value in console to confirm your text is correct
-print(paste("Slope P-value:", p_value))
 ```
 
 

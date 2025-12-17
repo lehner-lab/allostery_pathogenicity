@@ -1,0 +1,271 @@
+---
+title: "revision_hypermutant.Rmd"
+output: html_document
+date: "2025-12-11"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+df <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/supp/P01780_filtered_with_esm1v.csv")
+df
+```
+
+
+```{r, fig.width=5, fig.height=5}
+plot_loess_residuals <- function(test_df, active_site_positions,
+                                 span = 0.7, protein_name = "GCK") {
+  
+  # Filter out active site positions
+  test_df_fil <- test_df %>% filter(!new_position %in% active_site_positions)
+  
+  # Fit loess model on filtered data (using the inverted ESM.1v)
+  loess_fit <- loess(ESM.1v ~ ddG_pred, data = test_df_fil, span = span, family = "symmetric")
+  
+  # Predict on all data
+  test_df$fitted_pred <- predict(loess_fit, newdata = test_df)
+  test_df$residuals_pred <- test_df$ESM.1v - test_df$fitted_pred
+  
+  # Fit line data for the smooth curve
+  fit_line_df <- data.frame(
+    ddG_pred = seq(0,
+                   max(test_df$ddG_pred, na.rm = TRUE),
+                   length.out = 200)
+  )
+  fit_line_df$ESM.1v <- predict(loess_fit, newdata = fit_line_df)
+  
+  # Spearman correlation (will reflect the inverted relationship)
+  spearman_result <- suppressWarnings(cor.test(test_df$ddG_pred, test_df$ESM.1v, method = "spearman"))
+  spearman_rho <- spearman_result$estimate
+  spearman_p <- spearman_result$p.value
+  
+  # Axis and color scale limits
+  xlim_vals <- range(test_df$ddG_pred, na.rm = TRUE)
+  ylim_vals <- range(test_df$ESM.1v, na.rm = TRUE)
+  resid_limit <- max(abs(test_df$residuals_pred), na.rm = TRUE)
+  
+  # Main plot
+  p <- ggplot(test_df, aes(x = ddG_pred , y = ESM.1v, color = residuals_pred)) +
+    geom_point(size = 2, alpha = 0.35) +
+    geom_line(data = fit_line_df, aes(x = ddG_pred, y = ESM.1v),
+              inherit.aes = FALSE, color = "black", linewidth = 0.6) +
+    labs(
+      title = paste0(protein_name, ": ", nrow(test_df), " mutations"),
+      subtitle = paste0("Spearman's rho = ", round(spearman_rho, 2)),
+      x = "ThermoMPNN predicted ddGf",
+      y = "ESM.1v",  # Updated label to reflect the inversion
+      color = "Residuals"
+    ) +
+    theme_classic() +
+    xlim(xlim_vals) +
+    ylim(ylim_vals) +
+    scale_color_gradient2(
+      low = "red", mid = "grey", high = "blue", midpoint = 0,
+      limits = c(-resid_limit, resid_limit), name = "Residuals"
+    ) +
+    theme(legend.position = "left")
+  
+  # Add marginal density plots
+  p_marginal <- ggMarginal(
+    p,
+    type = "density",
+    margins = "both",
+    groupColour = FALSE,
+    groupFill = FALSE,
+    size = 10,
+    colour = "grey",
+    fill = "lightgrey"
+  )
+  
+  return(list(
+    plot = p_marginal,
+    data = test_df
+  ))
+}
+
+# --- Execution ---
+
+head(gck_pred$merged_data)
+
+df_residual <- plot_loess_residuals(
+  df, 
+  active_site_positions = c(), 
+  protein_name = "P01780"
+)
+
+df_residual$plot
+```
+```{r}
+# --- Read PDB and extract protein/site atoms ---
+# NOTE: Update the path to your IGHV3-7 PDB file
+pdb <- read.pdb("~/Downloads/AF-P01780-F1-model_v6.pdb", rm.alt = TRUE)
+
+# Define the Binding Site Residues for IGHV3-7 (P01780)
+# Includes CDR1, CDR2, partial CDR3, and SpA superantigen binding sites
+binding_site_ids <- c(
+  34, 36, 38,             # SpA contact
+  45:52,                  # CDR1
+  70:77,                  # CDR2
+  76, 78, 83, 84,         # SpA contact
+  101, 102,               # SpA contact
+  116:117                 # CDR3 start
+) %>% unique()
+
+# Extract Protein CA atoms (for plotting/calculating from)
+protein_ca <- pdb$atom %>%
+  filter(elety == "CA", !resid %in% c( "NA", "HOH"))
+
+# Extract ALL atoms belonging to the binding site residues (the "target")
+binding_site_atoms <- pdb$atom %>%
+  filter(resno %in% binding_site_ids)
+
+# --- Compute minimum distance to Binding Site for each CA atom ---
+protein_ca$min_dist_to_site <- apply(protein_ca, 1, function(atom) {
+  # If the residue is part of the binding site itself, distance is 0
+  if (as.numeric(atom["resno"]) %in% binding_site_ids) {
+    return(0)
+  }
+  
+  # Calculate distance to the NEAREST atom in the binding site
+  dists <- sqrt((as.numeric(atom["x"]) - binding_site_atoms$x)^2 +
+                (as.numeric(atom["y"]) - binding_site_atoms$y)^2 +
+                (as.numeric(atom["z"]) - binding_site_atoms$z)^2)
+  min(dists)
+})
+
+# --- Merge with prediction data ---
+# Ensure 'gck_pred_residual' is loaded or replaced with your IGHV3-7 data
+merged_df <- merge(df_residual$data, protein_ca, by.x = "new_position", by.y = "resno") %>%
+  filter(residuals_pred <= 0)
+
+# --- Residue-level median residuals ---
+merged_df_residue <- merged_df %>%
+  group_by(new_position) %>%
+  summarise(loess_residual_avg = median(residuals_pred, na.rm = TRUE), .groups = "drop") %>%
+  left_join(protein_ca, by = c("new_position" = "resno"))
+
+# --- Exclude the binding sites themselves for fitting ---
+# (Replacing the previous 'orthosteric_sites' logic)
+merged_df_residue_fil <- merged_df_residue %>%
+  filter(!new_position %in% binding_site_ids)
+
+# --- Fit exponential model ---
+exp_model <- nlsLM(
+  abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_site),
+  data = merged_df_residue_fil,
+  start = list(a = 1, b = 0.1)
+)
+print(summary(exp_model))
+
+# --- Prediction grid ---
+x_vals <- seq(min(merged_df_residue_fil$min_dist_to_site, na.rm = TRUE),
+              max(merged_df_residue_fil$min_dist_to_site, na.rm = TRUE), length.out = 200)
+
+# --- Bootstrapping for confidence intervals ---
+set.seed(11)
+boot_params <- replicate(1000, {
+  samp <- merged_df_residue_fil[sample(nrow(merged_df_residue_fil), replace = TRUE), ]
+  fit <- try(nlsLM(abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_site),
+                   data = samp, start = list(a = 1, b = 0.1)), silent = TRUE)
+  if (inherits(fit, "try-error")) c(NA, NA) else coef(fit)
+})
+boot_params <- t(boot_params)[complete.cases(t(boot_params)), ]
+
+boot_preds <- apply(boot_params, 1, function(p) p[1] * exp(-p[2] * x_vals))
+
+fit_df_residue <- data.frame(
+  min_dist_to_site = x_vals,
+  loess_residual_pred = predict(exp_model, newdata = data.frame(min_dist_to_site = x_vals)),
+  lower = apply(boot_preds, 1, quantile, probs = 0.025),
+  upper = apply(boot_preds, 1, quantile, probs = 0.975)
+)
+
+# --- Model parameter extraction and derived quantity ---
+model_summary <- summary(exp_model)
+coefs <- coef(exp_model)
+se <- model_summary$coefficients[, "Std. Error"]
+
+residue_a <- c(coefs["a"],
+               coefs["a"] - 1.96 * se["a"],
+               coefs["a"] + 1.96 * se["a"])
+
+residue_b <- c(coefs["b"],
+               coefs["b"] - 1.96 * se["b"],
+               coefs["b"] + 1.96 * se["b"])
+
+half_d <- log(2) / coefs["b"]
+half_d_ci <- quantile(log(2) / boot_params[, "b"], probs = c(0.025, 0.975))
+residue_half_d <- c(half_d, half_d_ci)
+
+cat("Parameter a (intercept):", residue_a, "\n")
+cat("Parameter b (decay rate):", residue_b, "\n")
+cat("Half-distance (log(2)/b):", residue_half_d, "\n")
+```
+```{r, fig.width=5, fig.height=5}
+# --- Annotate site types ---
+merged_df_residue <- merged_df_residue %>%
+  mutate(site_type = if_else(new_position %in% orthosteric_sites, "orthosteric", "non-orthosteric"))
+
+# --- Plot ---
+orange_labs <- binding_site_ids
+cyan_labs <- c()
+all_labs <- union(orange_labs, cyan_labs)
+
+ggplot(merged_df_residue, aes(x = min_dist_to_site, y = abs(loess_residual_avg))) +
+
+  # Unlabeled points
+  geom_point(data = subset(merged_df_residue, !new_position %in% all_labs),
+             aes(color = site_type), size = 2, alpha = 0.5) +
+
+  # CI ribbon
+  geom_ribbon(
+  data = fit_df_residue,
+  aes(x = min_dist_to_site, ymin = lower, ymax = upper),
+  inherit.aes = FALSE,
+  fill = "grey70",
+  alpha = 0.3) +
+
+  # Main fit line
+  geom_line(
+  data = fit_df_residue,
+  aes(x = min_dist_to_site, y = loess_residual_pred),
+  inherit.aes = FALSE,
+  color = "black")+
+
+
+  # Labeled orange points
+  geom_point(data = subset(merged_df_residue, new_position %in% orange_labs),
+             shape = 16, size = 2, color = "orange") +
+  # Labeled cyan points
+  geom_point(data = subset(merged_df_residue, new_position %in% cyan_labs),
+             shape = 17, size = 3, color = "cyan3") +
+  geom_text_repel(data = subset(merged_df_residue, new_position %in% cyan_labs),
+                  aes(label = new_position), color = "black") +
+
+  # Reference line
+  geom_vline(xintercept = max(merged_df_residue %>% filter(site_type == "orthosteric") %>% pull(min_dist_to_site)),
+             linetype = "dashed", color = "slategrey") +
+
+  # Labels and theme
+  labs(
+    title = "",
+    subtitle = "Kinase",
+    x = "Minimal distance to",
+    y = "|Median AM_logit-ddGf residual|"
+  ) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  scale_color_manual(values = c("non-orthosteric" = "darkgreen", "orthosteric" = "orange")) 
+```
+
+
+
+
+
+
+
+
+
+

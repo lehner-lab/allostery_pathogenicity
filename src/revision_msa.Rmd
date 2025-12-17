@@ -22,42 +22,81 @@ msa_matrix <- as.matrix(msa)
 # found by querying for homo sapiens on web page, then align based on uniprot id 
 target_pattern <- "B9EGL1/351"
 target_index <- grep(target_pattern, names(msa))
+
+if (length(target_index) == 0) stop("Query sequence not found!")
 query_seq <- msa_matrix[target_index, ]
 
-# 4. Define gaps
+# 4. Define gaps and valid amino acids
 gaps <- c("-", ".")
+# Standard 20 amino acids (optional: restricts analysis to standard AA)
+std_aa <- c("A","R","N","D","C","Q","E","G","H","I",
+            "L","K","M","F","P","S","T","W","Y","V")
 
-# 5. Calculate Raw Coverage (Total non-gap residues per column)
+# 5. Compute Consensus Matrix (Counts per residue per column)
 cm <- consensusMatrix(msa)
-valid_amino_acids <- !rownames(cm) %in% gaps
-raw_coverage <- colSums(cm[valid_amino_acids, ])
 
-# 6. FILTER: Keep only columns where YOUR QUERY has a residue
+# 6. Calculate Metrics per Column
+
+# --- Metric A: Raw Coverage (Depth) ---
+# Sum of all characters that are NOT gaps
+valid_row_indices <- !rownames(cm) %in% gaps
+raw_coverage <- colSums(cm[valid_row_indices, ])
+
+# --- Metric B: Neff (Shannon Entropy based) ---
+# 1. Subset matrix to only standard Amino Acids (removes gaps and ambiguous chars like X, B, Z)
+cm_aa <- cm[rownames(cm) %in% std_aa, ]
+
+# 2. Calculate frequencies (p) for each column
+# Add a tiny pseudocount (e.g., 1e-6) to avoid log(0) if desired, 
+# or just ignore 0s as 0*log(0) = 0 in entropy limits.
+col_sums_aa <- colSums(cm_aa)
+# Avoid division by zero for gap-only columns
+col_sums_aa[col_sums_aa == 0] <- 1 
+probs <- t(t(cm_aa) / col_sums_aa)
+
+# 3. Calculate Shannon Entropy (H = -sum(p * log2(p)))
+# We treat 0 * log(0) as 0
+log_probs <- log2(probs)
+log_probs[is.infinite(log_probs)] <- 0
+shannon_entropy <- -colSums(probs * log_probs)
+
+# 4. Calculate Neff (Perplexity = 2^Entropy)
+# This represents the "Effective number of amino acids" at that position
+neff_aa <- 2^shannon_entropy
+
+# 7. FILTER: Keep only columns where YOUR QUERY has a residue
 valid_residue_indices <- which(!query_seq %in% gaps)
-residue_depths <- raw_coverage[valid_residue_indices]
 
-# 7. Verification Step (Optional but recommended)
-# Get the actual sequence string without gaps to check length
+# Extract values for the query positions
+final_raw_depth <- raw_coverage[valid_residue_indices]
+final_neff <- neff_aa[valid_residue_indices]
+
+# 8. Verification Step
 real_query_seq <- as.character(msa[[target_index]])
-real_query_seq <- gsub("[-.]", "", real_query_seq) # Remove gaps
+real_query_seq <- gsub("[-.]", "", real_query_seq) 
 expected_length <- nchar(real_query_seq)
 
-if(length(residue_depths) != expected_length) {
-  warning(paste("Mismatch! Depth length:", length(residue_depths), 
+if(length(final_raw_depth) != expected_length) {
+  warning(paste("Mismatch! Depth length:", length(final_raw_depth), 
                 "vs Query length:", expected_length))
 } else {
   print(paste("Success! Dimensions match query length of:", expected_length))
 }
 
-# 8. Create final dataframe
+# 9. Create final dataframe
 msa_depth_df <- data.frame(
-  position = 1:length(residue_depths),
-  msa_depth = residue_depths
+  position = 1:length(final_raw_depth),
+  raw_depth = final_raw_depth,
+  neff_aa = final_neff
 )
 
+# Adjust position to start at 159 (158 + 1)
 msa_depth_df$position <- msa_depth_df$position + 310
-msa_depth_df
+
+# Preview
+head(msa_depth_df)
 ```
+
 
 ```{r}
 pdz3_final_df_ddg <- read_csv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/pdz3_ddg_cleaned_mochi_refit.csv')
@@ -145,7 +184,7 @@ plot_data <- position_residuals %>%
 
 # 3. Correlation Test
 # This is the number you will quote in your rebuttal.
-cor_test <- cor.test(plot_data$msa_depth, plot_data$median_residual, method = "spearman")
+cor_test <- cor.test(plot_data$neff_aa, plot_data$median_residual, method = "spearman")
 print(cor_test)
 
 # 4. Create the Scatter Plot
@@ -162,7 +201,7 @@ plot_data <- plot_data %>%
   )
 
 # 4. Create the Scatter Plot
-p1 <- ggplot(plot_data, aes(x = msa_depth, y = median_residual,  color = median_ddgb)) +
+p1 <- ggplot(plot_data, aes(x = neff_aa, y = median_residual,  color = median_ddgb)) +
   geom_point(aes(color = median_ddgb, alpha = 0.7)) +
     scale_color_gradient2(
     low = "blue", 
@@ -172,7 +211,7 @@ p1 <- ggplot(plot_data, aes(x = msa_depth, y = median_residual,  color = median_
   ) +
   theme_classic() +
   labs(
-    x = "MSA Depth (Number of Sequences)",
+    x = "Neff",
     y = "Median ESM-1v-ddGf residual",
     title = "PSD95-PDZ3",
     subtitle = paste("Spearman's rho =", round(cor_test$estimate, 3), 
@@ -196,12 +235,17 @@ p1
 
 ```{r}
 # 1. Read the aligned FASTA file
+
 msa <- readAAStringSet("~/Downloads/grb2-sh3_phmmer_aligned.afa")
 
+
+
 # 2. Convert to matrix
+
 msa_matrix <- as.matrix(msa)
 
 # 3. Identify the Query Sequence
+
 target_pattern <- "Q6ICN0/159"
 target_index <- grep(target_pattern, names(msa))
 query_seq <- msa_matrix[target_index, ]
@@ -210,9 +254,12 @@ query_seq <- msa_matrix[target_index, ]
 gaps <- c("-", ".")
 
 # 5. Calculate Raw Coverage (Total non-gap residues per column)
+
 cm <- consensusMatrix(msa)
 valid_amino_acids <- !rownames(cm) %in% gaps
 raw_coverage <- colSums(cm[valid_amino_acids, ])
+
+
 
 # 6. FILTER: Keep only columns where YOUR QUERY has a residue
 valid_residue_indices <- which(!query_seq %in% gaps)
@@ -220,9 +267,12 @@ residue_depths <- raw_coverage[valid_residue_indices]
 
 # 7. Verification Step (Optional but recommended)
 # Get the actual sequence string without gaps to check length
+
 real_query_seq <- as.character(msa[[target_index]])
 real_query_seq <- gsub("[-.]", "", real_query_seq) # Remove gaps
 expected_length <- nchar(real_query_seq)
+
+
 
 if(length(residue_depths) != expected_length) {
   warning(paste("Mismatch! Depth length:", length(residue_depths), 
@@ -232,10 +282,12 @@ if(length(residue_depths) != expected_length) {
 }
 
 # 8. Create final dataframe
+
 msa_depth_df <- data.frame(
   position = 1:length(residue_depths),
   msa_depth = residue_depths
 )
+
 
 msa_depth_df$position <- msa_depth_df$position + 158
 msa_depth_df
@@ -329,7 +381,7 @@ plot_data <- position_residuals %>%
 
 # 3. Correlation Test
 # This is the number you will quote in your rebuttal.
-cor_test <- cor.test(plot_data$msa_depth, plot_data$median_residual, method = "spearman")
+cor_test <- cor.test(plot_data$neff_aa, plot_data$median_residual, method = "spearman")
 print(cor_test)
 
 positions_to_highlight <- c(173, 183, 203) 
@@ -345,7 +397,7 @@ plot_data <- plot_data %>%
   )
 
 # 4. Create the Scatter Plot
-p2 <- ggplot(plot_data, aes(x = msa_depth, y = median_residual,  color = median_ddgb)) +
+p2 <- ggplot(plot_data, aes(x = neff_aa, y = median_residual,  color = median_ddgb)) +
   geom_point(aes(color = median_ddgb, alpha = 0.7)) +
     scale_color_gradient2(
     low = "blue", 
@@ -355,7 +407,7 @@ p2 <- ggplot(plot_data, aes(x = msa_depth, y = median_residual,  color = median_
   ) +
   theme_classic() +
   labs(
-    x = "MSA Depth (Number of Sequences)",
+    x = "Neff",
     y = "Median ESM-1v-ddGf residual",
     title = "GRB2-SH3",
     subtitle = paste("Spearman's rho =", round(cor_test$estimate, 3), 

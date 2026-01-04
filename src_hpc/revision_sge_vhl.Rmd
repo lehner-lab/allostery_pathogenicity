@@ -1,0 +1,319 @@
+---
+title: "revision_sge_vhl.Rmd"
+output: html_document
+date: "2025-12-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+library('ProjectTemplate')
+library(ggExtra)
+library(bio3d)
+library(ggrepel)
+load.project()
+```
+
+```{r}
+vhl_exp <- read_excel(
+  "~/Downloads/vhl_sge.xlsx",
+  sheet = "ST1", 
+  skip = 2
+)
+
+vhl_exp <- vhl_exp %>% dplyr::select(pHGVS, function_score_final, conseq, clinvar_simple) %>%
+  filter (conseq != "SYNONYMOUS") %>%
+  mutate(pHGVS = sub("^p\\.", "", pHGVS)) %>%
+  filter(!grepl("\\*", pHGVS))
+
+vhl_exp <- vhl_exp %>% dplyr::select(pHGVS, function_score_final, clinvar_simple) %>%
+  mutate(pHGVS = na_if(pHGVS, "NA")) %>%
+  filter(!is.na(pHGVS))
+
+vhl_exp
+```
+
+```{r}
+vhl_esm <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/SGE_esm1v/P40337_filtered_with_esm1v.csv")
+table(vhl_esm$clinvar_clinical_significance)
+nrow(vhl_esm)
+
+vhl_df <- merge(vhl_exp, vhl_esm, by.x = "pHGVS", by.y = "variant")
+nrow(vhl_df)
+
+vhl_df <- vhl_df %>%
+  mutate(mutation_position = as.numeric(str_extract(pHGVS, "(?<=\\D)(\\d+)(?=\\D)")))
+
+vhl_df <- vhl_df %>%
+  mutate(
+    clinvar_group = case_when(
+      clinvar_simple %in% c("Pathogenic", "likely pathogenic") ~
+        "Pathogenic",
+      clinvar_simple %in% c("Benign", "likely benign") ~
+        "Benign",
+      TRUE ~ "Other"
+    ),
+    clinvar_group = factor(
+      clinvar_group,
+      levels = c(
+        "Pathogenic",
+        "Benign",
+        "Other"
+      )
+    )
+  )
+
+plotting_data <- vhl_df %>%
+  drop_na(function_score_final, ESM.1v)
+```
+```{r}
+table(plotting_data$clinvar_simple)
+```
+
+
+```{r, fig.width=8, fig.height=4.5}
+model_signal <- loess(ESM.1v ~ ddG_pred, data = plotting_data, span = 0.7, family = "symmetric")
+plotting_data$Signal_Residual <- residuals(model_signal)
+
+# Exp residual: What part of SGE is NOT stability?
+model_exp <- loess(function_score_final ~ ddG_pred, data = plotting_data, span = 0.7, family = "symmetric")
+plotting_data$Exp_Residual <- residuals(model_exp)
+
+# --- Calculate Statistics for the Text ---
+# Correlation
+spearman_val <- cor(plotting_data$Signal_Residual, plotting_data$Exp_Residual, 
+                    method = "spearman", use = "complete.obs")
+
+# Linear Model P-value (To support "significant positive slope")
+lm_model <- lm(Exp_Residual ~ Signal_Residual, data = plotting_data)
+lm_summary <- summary(lm_model)
+p_value <- lm_summary$coefficients[2, 4] # Extract slope P-value
+
+# Format the subtitle text dynamically
+# If P is very small, use scientific notation
+p_label <- ifelse(p_value < 2.2e-16, "P < 2.2e-16", sprintf("P = %.2e", p_value))
+stats_subtitle <- sprintf("Spearman rho: %.3f | Slope %s", spearman_val, p_label)
+
+# --- 3. Plot P1: Raw Comparison ---
+p1 <- ggplot(plotting_data, aes(x = ESM.1v, y = function_score_final)) +
+  geom_point(aes(shape = clinvar_group, color = clinvar_group, alpha = clinvar_group), size = 2.5) +
+  scale_shape_manual(values = c("Pathogenic" = 17, "Benign" = 16, "Other" = 16)) +
+  scale_color_manual(values = c("Other" = "grey70", "Benign" = "#1B9E77", "Pathogenic" = "#D95F02")) +
+  scale_alpha_manual(values = c("Other" = 0.5, "Benign" = 0.9, "Pathogenic" = 0.9), guide = "none") +
+  geom_smooth(method = "lm", se = TRUE, color = "black", size = 1) +
+  labs(
+    title = "VHL - Raw Scores",
+    subtitle = sprintf("Spearman's rho = %.3f", 
+                       cor(plotting_data$ESM.1v, plotting_data$function_score_final, method="spearman", use="complete.obs")),
+    x = "Predicted Pathogenicity (ESM1v)",
+    y = "Experimental Function (SGE)"
+  ) +
+  theme_classic(base_size = 14) +
+  theme(
+    legend.position = "bottom",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  ) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") 
+
+# --- 4. Plot P2: Residual Comparison (The Main Argument) ---
+p2 <- ggplot(plotting_data, aes(x = Signal_Residual, y = Exp_Residual)) +
+  # Add Quadrant Lines to highlight the "Allosteric Concordance" (Bottom-Left)
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+  
+  # Points
+  geom_point(aes(shape = clinvar_group, color = clinvar_group, alpha = clinvar_group), size = 2.5) +
+  
+  # Linear Regression Line (The "Significant Positive Slope")
+  geom_smooth(method = "lm", se = TRUE, color = "black", size = 1) +
+  
+  # Scales
+  scale_shape_manual(values = c("Pathogenic" = 17, "Benign" = 16, "Other" = 16)) +
+  scale_color_manual(values = c("Other" = "grey70", "Benign" = "#1B9E77", "Pathogenic" = "#D95F02")) +
+  scale_alpha_manual(values = c("Other" = 0.5, "Benign" = 0.9, "Pathogenic" = 0.9), guide = "none") +
+  
+  # Labels
+  labs(
+    title = "Stability-independent Effects",
+    subtitle = stats_subtitle, # Uses the calculated P-value < 2.2e-16
+    x = "ESM1v - TMPNN Stability",
+    y = "SGE - TMPNN Stability",
+    shape = "ClinVar", color = "ClinVar"
+  ) +
+  theme_classic(base_size = 14) +
+  theme(
+    legend.position = "bottom",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+# --- 5. Combine ---
+final_plot <- plot_grid(p1, p2 , ncol = 2, rel_widths = c(1, 1))
+print(final_plot)
+```
+
+```{r}
+# 1. Load PDB (Ensure this path is correct)
+pdb_path <- "~/Downloads/AF-P40337-F1-model_v6.pdb"
+pdb <- read.pdb(pdb_path)
+
+# 2. Define Active Sites
+active_site_resnos <- c(
+    88,91,98,111,115,117,158,
+    167,178,200,201,204
+    
+)
+
+# 3. Get Active Site Coordinates (Using the CORRECT 'string' argument)
+# This was likely the missing piece in your previous environment
+site_inds <- atom.select(pdb, resno = active_site_resnos, string = "noh")
+site_xyz <- pdb$xyz[site_inds$xyz]
+
+# Check immediately
+if (length(site_inds$atom) == 0) {
+  stop("STOP: Active site atoms are 0. The Code will not work.")
+} else {
+  print(paste("Active Site Loaded: Found", length(site_inds$atom), "atoms."))
+}
+
+# 4. Redefine the Function (The Robust Version)
+calc_min_heavy_dist <- function(res_num, pdb_obj, site_coords) {
+  
+  # Bio3D is strict: 'resno' must be numeric. 
+  # We force it here to fix the error you saw in Test B.
+  res_num <- as.numeric(as.character(res_num))
+  
+  # Use 'string = "noh"' (The fix confirmed by Test A)
+  target_inds <- atom.select(pdb_obj, resno = res_num, string = "noh")
+  
+  # Safety catch for missing residues
+  if (length(target_inds$atom) == 0) return(NA)
+  
+  # Calculate
+  target_xyz <- pdb_obj$xyz[target_inds$xyz]
+  t_mat <- matrix(target_xyz, ncol = 3, byrow = TRUE)
+  s_mat <- matrix(site_coords, ncol = 3, byrow = TRUE)
+  
+  return(min(dist.xyz(t_mat, s_mat), na.rm = TRUE))
+}
+
+# 5. Run Calculation
+unique_positions <- unique(plotting_data$mutation_position)
+
+print("Starting calculation loop...")
+
+dist_vals <- sapply(unique_positions, function(x) {
+  calc_min_heavy_dist(x, pdb, site_xyz)
+})
+
+# 6. Map Back Safely
+# explicitly name the vector to ensure matching works
+names(dist_vals) <- as.character(unique_positions) 
+
+# Assign based on character matching
+plotting_data$min_dist_to_site <- dist_vals[as.character(plotting_data$mutation_position)]
+
+# 7. Final Result
+print(paste("Final NAs:", sum(is.na(plotting_data$min_dist_to_site))))
+head(plotting_data$min_dist_to_site)
+
+# If NAs remain, it means those specific residues are missing from the PDB structure 
+# (common in loop regions), which is normal.
+# Filter out NAs (residues not found in PDB structure)
+plotting_data <- plotting_data %>% filter(!is.na(min_dist_to_site))
+nrow(plotting_data) #1837
+
+# --- ANALYSIS 1: VARIANCE PARTITIONING (THE "DELTA") ---
+# Model A: Stability Alone
+mod_stab <- lm(function_score_final ~ ddG_pred, data = plotting_data)
+r2_stab <- summary(mod_stab)$r.squared
+
+# Model B: Stability + ESM1v
+mod_full <- lm(function_score_final ~ ddG_pred + ESM.1v, data = plotting_data)
+r2_full <- summary(mod_full)$r.squared
+
+r2_delta <- r2_full - r2_stab
+
+# PRINT THESE NUMBERS FOR YOUR TEXT
+print(paste("Variance explained by Stability (R2):", round(r2_stab * 100, 1), "%"))
+print(paste("Variance explained by Stability + ESM (R2):", round(r2_full * 100, 1), "%"))
+print(paste("The Delta (Biological Signal):", round(r2_delta * 100, 1), "%"))
+```
+
+```{r}
+nrow(plotting_data)
+plotting_data_fil <- plotting_data %>% filter (Signal_Residual <= 0)  %>% filter (Exp_Residual <= 0) 
+nrow(plotting_data_fil)
+```
+```{r}
+transform_score <- function(x, invert_scale = FALSE) {
+  ranks <- rank(x, ties.method = "average")
+  min_r <- min(ranks, na.rm = TRUE); max_r <- max(ranks, na.rm = TRUE)
+  norm <- if(max_r == min_r) rep(0, length(ranks)) else (ranks - min_r) / (max_r - min_r)
+  if(invert_scale) return(1 - norm) else return(norm)
+}
+
+plotting_data_fil <- plotting_data_fil %>%
+  drop_na(function_score_final, ESM.1v) %>%
+  mutate(
+    # Normalize: 0 = WT, 1 = Pathogenic
+    SGE_norm = transform_score(function_score_final, invert_scale = TRUE),
+    ESM_norm = transform_score(ESM.1v, invert_scale = TRUE),
+    Comp_residual_norm = transform_score(Signal_Residual, invert_scale = TRUE),
+    Exp_residual_norm = transform_score(Exp_Residual, invert_scale = TRUE),
+    # Delta: Positive = SGE is higher (Under-predicted/MAVE-damaging)
+    #        Negative = VEP is higher (Over-predicted/VEP-damaging)
+    Delta_Pathogenicity = SGE_norm - ESM_norm
+  )
+
+plotting_data_fil
+```
+```{r, fig.width=5, fig.height=5}
+range(plotting_data_fil$min_dist_to_site)
+plot_ready_raw <- plotting_data_fil %>%
+  dplyr::select(min_dist_to_site, Delta_Pathogenicity, Comp_residual_norm, Exp_residual_norm) %>%
+  pivot_longer(
+    cols = c("Comp_residual_norm", "Delta_Pathogenicity"),
+    names_to = "Residual_Type", values_to = "Value"
+  ) %>%
+  mutate(Abs_Value = abs(Value)) %>%
+  filter(!is.na(min_dist_to_site), !is.na(Abs_Value))
+
+my_colors <- c("Comp_residual_norm" = "#D55E00", "Delta_Pathogenicity" = "grey40")
+
+p_unbinned <- ggplot(plot_ready_raw,
+                     aes(x = min_dist_to_site, y = Abs_Value, color = Residual_Type)) +
+  geom_point(alpha = 0.5, size = 1) +
+  geom_smooth(se = TRUE, linewidth = 1, method = "gam",
+              formula = y ~ s(x, k = 8)) +
+  scale_color_manual(
+    values = my_colors,
+    breaks = c("Comp_residual_norm", "Delta_Pathogenicity"),
+    labels = c("ESM-1v-TMPNN ddGf residual", "SGE-ESM-1v delta")
+  ) +
+  scale_y_continuous(limits = c(0, NA), expand = c(0, 0)) +
+  labs(title = "Spatial Decay of ESM1v Signal vs. Error",
+       subtitle = "VHL",
+       x = "Minimum Heavy Atom Distance to Active/Binding Site (Å)",
+       y = "Residual Magnitude (|value|)",
+       color = NULL) +
+  theme_classic() +
+  theme(legend.position = "bottom",
+        legend.background = element_rect(fill = alpha("white", 0.8),
+                                         color = "black", linewidth = 0.2))
+
+print(p_unbinned)
+```
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+
+

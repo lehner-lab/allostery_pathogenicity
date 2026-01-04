@@ -12,6 +12,102 @@ knitr::opts_chunk$set(echo = TRUE)
 library(Biostrings)
 library(tidyverse)
 
+# 1. Read the MSA
+msa <- readAAStringSet("~/Downloads/psd95-pdz3_phmmer_aligned.afa")
+msa_mat <- as.matrix(msa)
+n_seq <- nrow(msa_mat)
+n_pos <- ncol(msa_mat)
+
+# 2. Prepare Data for Fast Math
+# Convert AA to integers (0 for gaps, 1-20 for residues)
+num_mat <- matrix(as.integer(factor(msa_mat)), nrow = n_seq)
+is_gap <- msa_mat == "-" | msa_mat == "."
+num_mat[is_gap] <- 0
+presence <- 1 - is_gap  # 1 where there is a residue
+
+# 3. BLOCK-PROCESSING WEIGHT CALCULATION (Memory Efficient)
+calc_neff_blocks <- function(num_mat, presence, is_gap, threshold = 0.8, block_size = 500) {
+  n_seq <- nrow(num_mat)
+  n_pos <- ncol(num_mat)
+  m_i <- rep(0, n_seq)
+  
+  # Pre-calculate column indices for each residue to speed up matching
+  res_indices <- lapply(1:20, function(r) which(num_mat == r, arr.ind = TRUE))
+  
+  num_blocks <- ceiling(n_seq / block_size)
+  
+  print(paste("Processing", n_seq, "sequences in", num_blocks, "blocks..."))
+  
+  for (b in 1:num_blocks) {
+    start <- (b - 1) * block_size + 1
+    end <- min(b * block_size, n_seq)
+    idx_range <- start:end
+    
+    # Subset current block
+    block_num <- num_mat[idx_range, , drop = FALSE]
+    block_gap <- is_gap[idx_range, , drop = FALSE]
+    
+    # 1. Calculate denominator: non-gap positions in either sequence
+    # Matrix: [block_size x n_seq]
+    # Length = Total - positions where BOTH are gaps
+    both_gaps <- block_gap %*% t(is_gap)
+    non_gap_counts <- n_pos - both_gaps
+    
+    # 2. Calculate numerator: matches
+    matches <- matrix(0, nrow = length(idx_range), ncol = n_seq)
+    for (r in 1:20) {
+      res_binary_block <- (block_num == r)
+      res_binary_full <- (num_mat == r)
+      matches <- matches + (res_binary_block %*% t(res_binary_full))
+    }
+    
+    # 3. Count neighbors above threshold
+    identity_mat <- matches / non_gap_counts
+    m_i[idx_range] <- rowSums(identity_mat >= threshold, na.rm = TRUE)
+    
+    if (b %% 10 == 0) {
+      print(paste("Completed block", b, "of", num_blocks, "-", round(100 * b / num_blocks, 1), "%"))
+    }
+    # Explicit garbage collection to keep RAM clean
+    gc()
+  }
+  
+  return(1 / m_i)
+}
+
+# Run the memory-safe version
+# Adjust block_size (lower = less RAM, higher = faster)
+sequence_weights <- calc_neff_blocks(num_mat, presence, is_gap, threshold = 0.8, block_size = 500)
+
+# 4. Compute Positional Neff
+print("Finalizing positional Neff calculation...")
+# Use a loop for the final sum to avoid one last massive matrix multiplication
+pos_neff <- numeric(n_pos)
+for(j in 1:n_pos) {
+  residue_mask <- !is_gap[, j]
+  pos_neff[j] <- sum(sequence_weights[residue_mask])
+}
+
+# 5. Extract for Query
+target_pattern <- "B9EGL1/351"
+target_index <- grep(target_pattern, names(msa))
+query_residue_indices <- which(!(msa_mat[target_index, ] %in% c("-", ".")))
+final_neff <- pos_neff[query_residue_indices]
+
+# 6. Result
+msa_depth_df <- data.frame(
+  res_num = (1:length(final_neff)) + 310,
+  neff = final_neff
+)
+
+head(msa_depth_df)
+```
+
+
+```{r}
+library(Biostrings)
+library(tidyverse)
+
 # 1. Read the aligned FASTA file
 msa <- readAAStringSet("~/Downloads/psd95-pdz3_phmmer_aligned.afa")
 
@@ -394,7 +490,7 @@ plot_data <- plot_data %>%
     
     # Optional: Create a column to make these points look different (e.g., bigger/bolder)
     is_highlighted = position %in% positions_to_highlight
-  )
+  ) cvffcdfvd
 
 # 4. Create the Scatter Plot
 p2 <- ggplot(plot_data, aes(x = neff_aa, y = median_residual,  color = median_ddgb)) +

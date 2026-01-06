@@ -346,12 +346,13 @@ ggsave("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_p
 p1
 ```
 
-```{r, fig.width=10, fig.height=5}
+```{r}
 protein_atlas_anno <- read.csv("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/git_allostery_pathogenicity/data/proteome_meta/idmapping_gene_name.tsv")
 nrow(protein_atlas_anno)
 table(protein_atlas_anno$source_file)
 
 core_var_r2$protein_id <- sub("_filtered_with_am\\.csv$", "", core_var_r2$protein_id)
+
 head(core_var_r2)
 
 core_var_r2_anno <- merge(core_var_r2, protein_atlas_anno, by.x="protein_id", by.y="uniprot", all.x = TRUE )
@@ -362,7 +363,11 @@ head(core_var_r2_anno)
 core_var_r2_anno$source_file <- gsub("_", " ", core_var_r2_anno$source_file)
 core_var_r2_anno <- core_var_r2_anno %>% filter(!is.na(source_file))
 nrow(core_var_r2_anno) #35184
+core_var_r2_anno %>% arrange(desc(adj_r2)) %>% filter (source_file == "immunoglobulin genes")
+```
 
+
+```{r, fig.width=10, fig.height=5}
 summary <- core_var_r2_anno %>%
   group_by(source_file) %>%
   summarise(

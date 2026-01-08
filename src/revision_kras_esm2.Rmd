@@ -1,0 +1,141 @@
+---
+title: "revision_kras_esm2.Rmd"
+output: html_document
+date: "2026-01-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+df <- read.csv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1-backup/00.protein-seq-evo-v0/02.intermediates/04.kras/ddg_vep.csv', sep = ',')
+anno = read_csv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1-backup/00.protein-seq-evo-v0/01.inputs/00.supplements/kras_chenchun/DATA/anno_final3.csv')
+anno_subset <- anno[c("Pos","bp_interface","binding_RAF","binding_RAL","binding_PI3","binding_SOS", "GTP_bind")]
+
+df_ddg <- merge(df, anno_subset, by.x="Pos_real", by.y="Pos")
+df_ddg <- df_ddg %>% dplyr::select(-ESM1v)
+df_ddg
+```
+
+```{r}
+test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/KRAS/AF-P01116-F1-model_v4.csv")
+test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P01116.csv")
+  
+colnames(test_esm)[2] <- "ESM1v"
+  
+test_ddg[, new_position := pos + 1]
+test_ddg[, variant := paste0(wtAA, new_position, mutAA)]
+test_ddg <- test_ddg %>% dplyr::rename(ddG_pred = `ddG (kcal/mol)`)
+  
+test_df <- merge(test_ddg, test_esm, by = "variant")
+test_df
+```
+
+```{r}
+test_merged_df <- merge(df_ddg, test_df, by.x="id", by.y="variant")
+nrow(test_merged_df) 
+test_merged_df
+```
+```{r}
+allo <- c(10,15,16,17,18,20,28,31,32,34,35,37,54,55,
+          57,58,59,60,63,68,69,71,72,75,76,78,83,110,112,117,156)
+
+ortho <- c(21 ,25 ,31, 33 ,36, 37, 38, 39, 40, 41, 67 ,71,3, 21, 24, 25, 29, 33 ,36, 37, 38, 39, 40 ,41, 63, 64, 70 ,73,24 ,25 ,31, 33, 36, 37, 38 ,39 ,40, 41, 56, 64, 67,1,  21,  22, 24 , 25,  26 , 27, 33,  36 , 38 ,39,  40,  41,  42,  43,  44,  45 , 50,  52 ,  56, 64, 65,  66 , 67,  70,  73 , 95 ,102, 103, 105, 149 ,153,
+            12,  13,  14,  15 , 16,  17 , 18 , 19 , 28  ,29,  30,  32,  34,  35 , 57  ,60 , 61, 116, 117, 119, 120, 145 ,146 ,147 #GXP interface
+           )
+
+fil_test_merged_df <- test_merged_df %>%
+  filter(!Pos_real %in% ortho)
+
+# Fit a loess model using the filtered data
+loess_fit_comp <- loess(ESM1v ~ ddG_pred, data = fil_test_merged_df, span = 0.7, family = "symmetric")
+
+# Predict fitted values for ALL data points using the loess model trained on fil_gck_df
+test_merged_df$fitted_comp <- predict(loess_fit_comp, newdata = test_merged_df)
+
+# Calculate residuals for ALL points
+test_merged_df$residuals_comp <- test_merged_df$ESM1v - test_merged_df$fitted_comp
+sum(is.na(test_merged_df$residuals_comp)) #0
+head(test_merged_df)
+```
+```{r}
+core_pos <- unique (df_ddg %>% filter (abundance_ddg >= 1) %>% pull(Pos_real))
+core_pos
+```
+
+
+```{r}
+test_merged_df
+test_residue <- test_merged_df %>%
+  group_by(Pos_real) %>%
+  summarise(resid_median_esm1v = median(residuals_comp, na.rm = TRUE),
+            # resid_median_esm2  = median(resid_esm2,  na.rm = TRUE),
+            ddgb_median        = median(raf1_ddg,  na.rm = TRUE),
+            esm1v_median       = median(ESM1v,       na.rm = TRUE),
+            # esm2_median        = median(esm2,        na.rm = TRUE),
+            .groups = "drop") %>%
+  mutate(site_type = case_when(Pos_real %in% ortho ~ "Binding site",
+                               Pos_real %in% allo ~ "Allosteric site",
+                               Pos_real %in% core_pos ~ "Core site",
+                               TRUE                        ~ "Non-orthosteric site"))
+```
+
+```{r, fig.width=8, fig.height=4}
+site_cols <- c(
+"Non-orthosteric site" = "darkgreen",
+"Allosteric site"      = "cyan",
+"Binding site"         = "orange",
+"Core site" = "red"
+)
+nrow(test_residue)
+cor.test(test_residue$esm1v_median, test_residue$ddgb_median, method="spearman") #-0.31
+cor.test(test_residue$resid_median_esm1v, test_residue$ddgb_median, method="spearman") #-0.21
+
+p6 <- ggplot(test_residue, aes(x = ddgb_median , y = esm1v_median, color = site_type)) +
+  geom_point(size = 2, alpha = 0.5) +
+  labs(
+    title = "KRAS",
+    subtitle = "Spearman's rho = -0.31",
+    x = "Experimental median ddGb",
+    y = "Median ESM1v",
+    color = "") +
+  theme_classic() +
+  scale_color_manual(values = c(
+    "Non-orthosteric site" = "darkgreen",
+    "Allosteric site" = "cyan",
+    "Binding site" = "orange",
+    "Core site" = "red"
+  )) + theme(legend.position = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+
+
+p8 <- ggplot(test_residue, aes(x = ddgb_median , y = resid_median_esm1v, color = site_type)) +
+  geom_point(size = 2, alpha = 0.5) +
+  labs(
+    title = "",
+    subtitle = "Spearman's rho = -0.21",
+    x = "Experimental median ddGb",
+    y = "Median ESM1v-ddGf residual",
+    color = "") +
+  theme_classic() +
+  scale_color_manual(values = c(
+    "Non-orthosteric site" = "darkgreen",
+    "Allosteric site" = "cyan",
+    "Binding site" = "orange",
+    "Core site" = "red"
+  )) + theme(legend.position = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+
+plot_grid(p6,p8,ncol=2)
+```
+
+
+
+
+
+
+
+

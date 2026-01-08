@@ -19,6 +19,7 @@ rad_exp_full <- fread("~/Downloads/sge_rad51c.csv")
 rad_exp_full <- rad_exp_full %>% filter (Consequence == "missense_variant")
 nrow(rad_exp_full)
 length(unique(rad_exp_full$Protein_position))
+rad_exp_full
 ```
 
 ```{r}

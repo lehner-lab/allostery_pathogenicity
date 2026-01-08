@@ -54,7 +54,7 @@ bap1_exp
 ```
 
 ```{r}
-bap1_esm <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/SGE_esm1v/Q92560_filtered_with_esm1v.csv")
+bap1_esm <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/SGE_esm1v/Q92560_merged.csv")
 
 bap1_df <- merge(bap1_exp, bap1_esm, by.x = "variant_pro", by.y = "variant")
 nrow(bap1_df) #4461
@@ -86,12 +86,10 @@ nrow(bap1_df)
 nrow(bap1_df %>% distinct())
 head(bap1_df)
 
-plotting_data <- bap1_df %>%
-  drop_na(functional_score, ESM.1v)
+bap1_df <- bap1_df %>%
+  drop_na(functional_score, ESM1v_all_variants) %>% filter (!clinvar_review_status %in% c("0", "0,0", "0,0,0"))
 
-table(plotting_data$clinvar_group)
-
-plotting_data
+table(bap1_df$clinvar_group)
 ```
 
 ```{r}

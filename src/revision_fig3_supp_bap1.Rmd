@@ -1,0 +1,508 @@
+---
+title: "revision_fig3_supp_bap1.Rmd"
+output: html_document
+date: "2026-01-06"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+library('ProjectTemplate')
+library(ggExtra)
+library(bio3d)
+library(ggrepel)
+load.project()
+```
+
+```{r}
+bap1_exp <- read_excel("~/Downloads/41588_2024_1799_MOESM5_ESM.xlsx", sheet = 2, skip = 0)
+bap1_exp <- bap1_exp %>% filter (vep_consequence == "missense_variant")
+
+# 1. Create a lookup vector for 3-letter to 1-letter amino acid codes
+aa_codes <- c(
+  "Ala" = "A", "Arg" = "R", "Asn" = "N", "Asp" = "D", "Cys" = "C",
+  "Glu" = "E", "Gln" = "Q", "Gly" = "G", "His" = "H", "Ile" = "I",
+  "Leu" = "L", "Lys" = "K", "Met" = "M", "Phe" = "F", "Pro" = "P",
+  "Ser" = "S", "Thr" = "T", "Trp" = "W", "Tyr" = "Y", "Val" = "V",
+  "Ter" = "*" # Stop codon
+)
+
+# 2. Process the dataframe
+bap1_exp <- bap1_exp %>%
+  mutate(
+    # Extract the 3 parts: (RefAA)(Position)(AltAA)
+    # The regex looks for "p." followed by 3 letters, digits, and 3 letters
+    matches = str_match(HGVSp, "p\\.([A-Z][a-z]{2})(\\d+)([A-Z][a-z]{2})"),
+    
+    # Map the extracted 3-letter codes to 1-letter codes using the lookup vector
+    # matches[,2] is Ref, matches[,3] is Pos, matches[,4] is Alt
+    ref_1 = aa_codes[matches[,2]],
+    pos   = matches[,3],
+    alt_1 = aa_codes[matches[,4]],
+    
+    # Combine them into the desired format (e.g., R2G)
+    variant_pro = paste0(ref_1, pos, alt_1)
+  ) %>%
+  # Optionally remove the helper columns if you don't need them
+  dplyr::select(-matches, -ref_1, -pos, -alt_1)
+
+bap1_exp <- bap1_exp %>%
+  group_by(variant_pro) %>%
+  summarise(functional_score = mean(functional_score, na.rm = TRUE), .groups = "drop")
+
+nrow(bap1_exp)
+length(unique(bap1_exp$variant_pro))
+bap1_exp
+```
+```{r}
+bap1_clinvar <- read.table("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/latest_variant_info/clinvar/BAP1_clinvar_result.txt",header = TRUE, sep = "\t")
+bap1_clinvar <- bap1_clinvar %>% dplyr::select(Protein.change, VariationID, dbSNP.ID, Germline.classification, Germline.review.status)
+bap1_clinvar <- bap1_clinvar %>%
+  separate_rows(Protein.change, sep = ",\\s*") %>%
+  filter(!grepl("\\*", Protein.change))
+bap1_clinvar
+
+table(bap1_clinvar$Germline.classification)
+```
+```{r}
+bap1_esm <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/SGE_esm1v//Q92560_merged.csv")
+
+bap1_esm <- bap1_esm %>%
+  left_join(bap1_clinvar, by = c("variant" = "Protein.change")) %>%
+  dplyr::select(-clinvar_variation_id, 
+         -clinvar_clinical_significance, 
+         -clinvar_review_status) 
+
+bap1_esm
+unique(bap1_esm$Germline.classification)
+```
+```{r}
+bap1_df
+bap1_df <- merge(bap1_exp, bap1_esm, by.x = "variant_pro", by.y = "variant")
+nrow(bap1_df) #2082
+
+bap1_df <- bap1_df %>%
+  mutate(mutation_position = as.numeric(str_extract(variant_pro, "(?<=\\D)(\\d+)(?=\\D)")))
+
+bap1_df <- bap1_df %>%
+  mutate(
+    clinvar_group = case_when(
+      Germline.classification %in% c("Pathogenic/Likely pathogenic", "Likely pathogenic", "Pathogenic") ~
+        "Pathogenic",
+      Germline.classification %in% c("Benign/Likely benign", "Benign", "Likely benign") ~
+        "Benign",
+      TRUE ~ "Other"
+    ),
+    clinvar_group = factor(
+      clinvar_group,
+      levels = c(
+        "Pathogenic",
+        "Benign",
+        "Other"
+      )
+    )
+  )
+
+nrow(bap1_df)
+
+bap1_df <- bap1_df %>%
+  drop_na(functional_score, ESM1v_all_variants) 
+
+table(bap1_df$clinvar_group)
+```
+```{r}
+active_positions <- c()
+
+fil_bap1_df <- bap1_df %>%
+  filter(!mutation_position %in% active_positions)
+
+# Fit a loess model using the filtered data
+loess_fit <- loess(functional_score ~ ddG_pred, data = fil_bap1_df, span = 0.7, family = "symmetric")
+
+# Predict fitted values for ALL data points using the loess model trained on fil_gck_df
+bap1_df$fitted <- predict(loess_fit, newdata = bap1_df)
+
+# Calculate residuals for ALL points
+bap1_df$residuals <- bap1_df$functional_score - bap1_df$fitted
+
+# Generate LOESS fit line from fil_gck_df
+loess_fit <- loess(functional_score ~ ddG_pred, data = fil_bap1_df, span = 0.7, family = "symmetric")
+
+fit_line_df <- data.frame(
+  ddG_pred = seq(-0.6,
+                            max(fil_bap1_df$ddG_pred, na.rm = TRUE),
+                            length.out = 200)
+)
+
+fit_line_df$z_score_D4_D14 <- predict(loess_fit, newdata = fit_line_df)
+
+range(bap1_df$residuals)
+range(bap1_df$ddG_pred)
+range(bap1_df$functional_score)
+```
+
+```{r, fig.width=5, fig.height=5}
+nrow(bap1_df)
+p1 <- ggplot(bap1_df, aes(x = ddG_pred, y = functional_score, color = residuals)) +
+  geom_point(size = 2, alpha = 0.35) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_line(data = fit_line_df, aes(x = ddG_pred, y = z_score_D4_D14),
+            inherit.aes = FALSE, color = "black", linewidth = 1) +
+  geom_text_repel(data = bap1_df %>% filter (clinvar_group == "Pathogenic") %>% filter (Germline.review.status == "criteria provided, multiple submitters, no conflicts"),
+                  aes(label = variant_pro),
+                  size = 4,color = "black",
+                  max.overlaps = 20, box.padding = 0.4, point.padding = 0.3) +
+  geom_point(data = bap1_df %>% filter (clinvar_group == "Pathogenic"),
+             aes(x = ddG_pred, y = functional_score), color = "black", size = 2, shape = 17) +  
+  scale_color_gradient2(
+    low = "red", mid = "grey", high = "blue",
+    midpoint = 0, limits = c(-0.3, 0.2)) + 
+  labs(
+    title = "BAP1: all 4461 Variants",
+    x = "Predicted ddGf",
+    y = "SGE score",
+    color = "LOESS residuals"
+  ) +
+  #scale_y_continuous(breaks = seq(-1, 7, by = 2))  + xlim(-1,1.7)  +
+  theme_classic() + theme(legend.position = "none") +theme(
+  panel.background = element_rect(fill = "white", color = NA),
+  plot.background = element_rect(fill = "white", color = NA),
+  legend.background = element_rect(fill = "white", color = NA)
+) + ylim(-0.3,0.1)  + xlim(-1.3,3.9) 
+
+p1 <- ggMarginal(
+  p1,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+
+p1
+```
+```{r}
+bap1_df_patho
+```
+
+
+```{r, fig.width=5, fig.height=5}
+bap1_df_benign <- bap1_df %>%
+  filter(clinvar_group == "Benign") %>% distinct(variant_pro, .keep_all = TRUE)
+nrow(bap1_df_benign)
+
+p2 <- ggplot(bap1_df_benign, aes(x = ddG_pred, y = functional_score, color = residuals)) +
+  geom_point(size = 2) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_line(data = fit_line_df, aes(x = ddG_pred, y = z_score_D4_D14),
+            inherit.aes = FALSE, color = "black", linewidth = 1) +
+  geom_text_repel(data =subset(bap1_df_benign, clinvar_group == "Benign"),
+                  aes(label = variant_pro),
+                  size = 4,color = "black",
+                  max.overlaps = 10, box.padding = 0.4, point.padding = 0.3) +
+  scale_color_gradient2(
+    low = "red", mid = "grey", high = "blue",
+    midpoint = 0, limits = c(-0.3, 0.2)) + 
+  labs(
+    title = "ClinVar Benign Variants",
+    x = "Predicted ddGf",
+    y = "SGE score",
+    color = "LOESS residuals"
+  ) +
+  #scale_y_continuous(breaks = seq(-1, 7, by = 2))  + xlim(-1,1.7)  +
+  theme_classic() + theme(legend.position = "none") +theme(
+  panel.background = element_rect(fill = "white", color = NA),
+  plot.background = element_rect(fill = "white", color = NA),
+  legend.background = element_rect(fill = "white", color = NA)
+) +  ylim(-0.3,0.1)  + xlim(-1.3,3.9) 
+
+p2 <- ggMarginal(
+  p2,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+
+p2
+```
+```{r, fig.width=5, fig.height=5}
+bap1_df_patho <- bap1_df %>%
+  filter(clinvar_group == "Pathogenic") %>% distinct(variant_pro, .keep_all = TRUE)
+nrow(bap1_df_patho)
+
+p3 <- ggplot(bap1_df_patho, aes(x = ddG_pred, y = functional_score, color = residuals)) +
+  geom_point(size = 2, shape = 17) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_line(data = fit_line_df, aes(x = ddG_pred, y = z_score_D4_D14),
+            inherit.aes = FALSE, color = "black", linewidth = 1) +
+  geom_text_repel(data =subset(bap1_df_patho, clinvar_group == "Pathogenic"),
+                  aes(label = variant_pro),
+                  size = 4,color = "black",
+                  max.overlaps = 10, box.padding = 0.4, point.padding = 0.3) +
+  scale_color_gradient2(
+    low = "red", mid = "grey", high = "blue",
+    midpoint = 0, limits = c(-0.3, 0.2)) + 
+  labs(
+    title = "ClinVar Pathogenic Variants",
+    x = "Predicted ddGf",
+    y = "SGE score",
+    color = "LOESS residuals"
+  ) +
+  #scale_y_continuous(breaks = seq(-1, 7, by = 2))  + xlim(-1,1.7)  +
+  theme_classic() + theme(legend.position = "none") +theme(
+  panel.background = element_rect(fill = "white", color = NA),
+  plot.background = element_rect(fill = "white", color = NA),
+  legend.background = element_rect(fill = "white", color = NA)
+) +  ylim(-0.3,0.1)  + xlim(-1.3,3.9) 
+
+p3 <- ggMarginal(
+  p3,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+
+p3
+```
+```{r, fig.width= 9, fig.height=3}
+p4 <- plot_grid(p1,p2,p3, ncol = 3)
+p4
+```
+
+```{r}
+bap1_df_clean <- bap1_df %>% filter (clinvar_group != "Other")
+
+median_df <- bap1_df_clean %>%
+  group_by(clinvar_group) %>%
+  summarise(
+    median_residual = median(residuals),
+    n = n()
+  )
+
+custom_colors <- c(
+  "Benign"     = "grey",  
+  "Pathogenic" = "firebrick3"  
+)
+
+# Define the desired order explicitly
+desired_order <- c("Benign", "Pathogenic")
+bap1_df_clean$clinvar_group <- factor(bap1_df_clean$clinvar_group, levels = desired_order)
+
+# Now ggplot will respect this exact order
+
+p5 <- ggplot(bap1_df_clean, aes(x = clinvar_group, y = residuals, fill = clinvar_group)) +
+  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
+  stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
+  stat_summary(fun = median, geom = "point", shape = 23, size = 2, fill = "black", color = "black", stroke = 0.7) +
+  geom_text(
+    data = median_df,
+    aes(x = clinvar_group, y = median_residual + 0.05, label = sprintf("%.2f", median_residual)),
+    inherit.aes = FALSE,
+    size = 5
+  ) +
+  scale_fill_manual(values = custom_colors) +
+  geom_text(
+    data = median_df,
+    aes(x = clinvar_group, y = 0.25, label = paste0("n = ", n)),
+    inherit.aes = FALSE,
+    size = 4.5
+  ) +
+  labs(
+    title = "BAP1",
+    x = "",
+    y = "SGE-TMPNN ddGf residuals",
+    fill = ""
+  ) +
+  theme_classic(base_size = 12) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 20, hjust = 1)
+  ) +
+    geom_signif(
+    comparisons = list(c("Benign", "Pathogenic")),
+    map_signif_level = FALSE,
+    test = "wilcox.test",
+    step_increase = 0.1,
+    textsize = 3
+  ) 
+p5
+```
+```{r}
+# ---------------------------
+# 0) Settings
+# ---------------------------
+set.seed(11)
+n_boot <- 1000
+match_window <- 0.5
+
+# ---------------------------
+# 1) Define groups for plotting
+# ---------------------------
+# Keep Benign + Pathogenic as-is
+bp_df <- bap1_df %>%
+  filter(clinvar_group %in% c("Benign", "Pathogenic")) %>%
+  mutate(group = clinvar_group) %>%
+  dplyr::select(variant_pro, ddG_pred, residuals, group)
+
+# Pathogenic set (for abundance matching target)
+patho_df <- bp_df %>%
+  filter(group == "Pathogenic") %>%
+ dplyr::select(variant_pro, ddG_pred, residuals, group)
+
+n_patho <- nrow(patho_df)
+
+# Pool to sample from: Others (exclude pathogenic variants explicitly by mutant)
+# If you don't have mutant IDs, remove the anti_join and just use clinvar_group == "Other"
+non_patho_pool <- bap1_df %>%
+  filter(clinvar_group == "Other") %>%
+  anti_join(patho_df %>% dplyr::select(variant_pro), by = "variant_pro") %>%
+  dplyr::select(ddG_pred, residuals)
+
+# ---------------------------
+# 2) Abundance binning + bootstrap abundance-matched "Others"
+# ---------------------------
+# dynamic breaks that cover both sets
+all_x <- c(patho_df$ddG_pred, non_patho_pool$ddG_pred)
+
+breaks_vec <- seq(min(all_x, na.rm = TRUE),
+                  max(all_x, na.rm = TRUE) + match_window,
+                  by = match_window)
+
+non_patho_pool <- non_patho_pool %>%
+  mutate(bin = cut(ddG_pred, breaks = breaks_vec, include.lowest = TRUE))
+
+patho_df_binned <- patho_df %>%
+  mutate(bin = cut(ddG_pred, breaks = breaks_vec, include.lowest = TRUE))
+
+bin_lookup <- split(non_patho_pool$residuals, non_patho_pool$bin)
+
+bootstrap_matrix <- matrix(NA_real_, nrow = n_boot, ncol = nrow(patho_df_binned))
+
+for (i in seq_len(n_boot)) {
+  for (j in seq_len(nrow(patho_df_binned))) {
+    bin_j <- patho_df_binned$bin[j]
+    candidates <- bin_lookup[[as.character(bin_j)]]
+    if (length(candidates) > 0) {
+      bootstrap_matrix[i, j] <- sample(candidates, 1)
+    }
+  }
+}
+
+boot_df <- tibble(
+  group = "Abundance-matched null (bootstrapped medians)",
+  residuals = apply(bootstrap_matrix, 1, median, na.rm = TRUE)
+)
+
+# ---------------------------
+# 3) Combine into one plotting df (3 violins)
+# ---------------------------
+plot_df <- bind_rows(
+  bp_df %>% dplyr::select(group, residuals),
+  boot_df
+)
+
+# Order + colors
+desired_order <- c("Benign", "Abundance-matched null (bootstrapped medians)", "Pathogenic")
+plot_df$group <- factor(plot_df$group, levels = desired_order)
+
+custom_colors <- c(
+  "Benign" = "grey70",
+  "Pathogenic" = "firebrick3",
+  "Abundance-matched null (bootstrapped medians)" = "grey30"
+)
+
+# Labels (n + median)
+label_df <- plot_df %>%
+  group_by(group) %>%
+  summarise(
+    n = dplyr::n(),
+    median_val = median(residuals, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    n_label = case_when(
+      group == "Abundance-matched null (bootstrapped medians)" ~ paste0("bootstrapped ", n_boot, "×"),
+      TRUE ~ paste0("n = ", n)
+    )
+  )
+
+# ---------------------------
+# 4) Plot
+# ---------------------------
+p_violin3 <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
+  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
+  stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
+  stat_summary(fun = median, geom = "point", shape = 23, size = 2.5,
+               fill = "black", color = "black", stroke = 0.7) +
+  geom_text(
+    data = label_df,
+    aes(x = group, y = 0.1, label = n_label),
+    inherit.aes = FALSE,
+    size = 4.5
+  ) +
+  geom_text(
+    data = label_df,
+    aes(x = group, y = median_val + 0.03, label = sprintf("%.2f", median_val)),
+    inherit.aes = FALSE,
+    size = 5
+  ) +
+  scale_fill_manual(values = custom_colors) +
+  labs(
+    title = "BAP1",
+    x = "",
+    y = "SGE-TMPNN ddGf residuals",
+    fill = ""
+  ) +
+  theme_classic(base_size = 12) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 20, hjust = 1)
+  ) +
+  geom_signif(
+    comparisons = list(
+      c("Benign", "Pathogenic"),
+      c("Pathogenic", "Abundance-matched null (bootstrapped medians)")
+    ),
+    map_signif_level = FALSE,
+    test = "wilcox.test",
+    step_increase = 0.1,
+    textsize = 3,
+    tip_length = 0.01
+  )
+
+p_violin3
+
+#The green violin represents a null distribution of median residuals obtained by bootstrapping non-pathogenic variants matched to the abundance of pathogenic variants (1000 resamples)
+```
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

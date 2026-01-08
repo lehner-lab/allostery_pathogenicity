@@ -56,7 +56,7 @@ card11_exp #2395
 ```
 
 ```{r}
-card11_esm <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/SGE_esm1v/Q9BXL7_filtered_with_esm1v.csv")
+card11_esm <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/SGE_esm1v/Q9BXL7_merged.csv")
 nrow(card11_esm) #21926
 
 card11_df <- merge(card11_exp, card11_esm, by.x = "variant_pro", by.y = "variant")
@@ -119,14 +119,10 @@ card11_df
 ```
 
 ```{r}
-plotting_data <- card11_df %>%
-  drop_na(log2_score, ESM.1v) 
+card11_df <- card11_df %>%
+  drop_na(log2_score, ESM1v_all_variants) %>% filter (!clinvar_review_status %in% c("0", "0,0", "0,0,0"))
 
-plotting_data
-
-range(plotting_data$new_position)
-
-plotting_data %>% filter (new_position %in% c(35,41,69,72))
+table(card11_df$clinvar_group)
 ```
 
 ```{r}

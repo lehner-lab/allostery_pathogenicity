@@ -43,7 +43,7 @@ rad_exp
 ```
 
 ```{r}
-rad_esm <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/SGE_esm1v/O43502_filtered_with_esm1v.csv")
+rad_esm <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/SGE_esm1v/O43502_merged.csv")
 table(rad_esm$clinvar_clinical_significance)
 
 rad_df <- merge(rad_exp, rad_esm, by.x = "variant_pro", by.y = "variant")
@@ -75,10 +75,83 @@ nrow(rad_df)
 nrow(rad_df %>% distinct())
 head(rad_df)
 
-plotting_data <- rad_df %>%
-  drop_na(z_score_D4_D14, ESM.1v)
+rad_df <- rad_df %>%
+  drop_na(z_score_D4_D14, ESM1v_all_variants) %>% filter (!clinvar_review_status %in% c("0", "0,0", "0,0,0"))
+
+table(rad_df$clinvar_group)
 
 ```
+
+```{r}
+# Fit a loess model using the filtered data
+loess_fit <- loess(z_score_D4_D14 ~ ddG_pred, data = rad_df, span = 0.7, family = "symmetric")
+
+# Predict fitted values for ALL data points using the loess model trained on fil_gck_df
+rad_df$fitted <- predict(loess_fit, newdata = rad_df)
+
+# Calculate residuals for ALL points
+rad_df$residuals <- rad_df$z_score_D4_D14 - brca1_df$fitted
+
+rad_df_clean <- rad_df %>% filter (clinvar_group != "Other")
+
+median_df <-rad_df_clean %>%
+  group_by(clinvar_group) %>%
+  summarise(
+    median_residual = median(residuals),
+    n = n()
+  )
+
+custom_colors <- c(
+  "Benign"     = "grey",  
+  "Pathogenic" = "firebrick3"  
+)
+
+# Define the desired order explicitly
+desired_order <- c("Benign", "Pathogenic")
+rad_df_clean$clinvar_group <- factor(rad_df_clean$clinvar_group, levels = desired_order)
+
+p7 <- ggplot(rad_df_clean, aes(x = clinvar_group, y = residuals, fill = clinvar_group)) +
+  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
+  stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
+  stat_summary(fun = median, geom = "point", shape = 23, size = 2, fill = "black", color = "black", stroke = 0.7) +
+  geom_text(
+    data = median_df,
+    aes(x = clinvar_group, y = median_residual + 0.5, label = sprintf("%.2f", median_residual)),
+    inherit.aes = FALSE,
+    size = 5
+  ) +
+  scale_fill_manual(values = custom_colors) +
+  geom_text(
+    data = median_df,
+    aes(x = clinvar_group, y = 3, label = paste0("n = ", n)),
+    inherit.aes = FALSE,
+    size = 4.5
+  ) +
+  labs(
+    title = "RAD51C",
+    x = "",
+    y = "SGE-TMPNN ddGf residuals",
+    fill = ""
+  ) +
+  theme_classic(base_size = 12) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 20, hjust = 1)
+  ) +
+    geom_signif(
+    comparisons = list(c("Benign", "Pathogenic")),
+    map_signif_level = FALSE,
+    test = "wilcox.test",
+    step_increase = 0.1,
+    textsize = 3
+  ) 
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_violin2.pdf", 
+       plot = p7, width = 3, height = 4, dpi = 300)
+
+p7
+```
+
 
 ```{r}
 # 1. Load PDB (Ensure this path is correct)

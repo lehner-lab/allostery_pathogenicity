@@ -16,9 +16,15 @@ load.project()
 
 ```{r}
 brca1_exp <- read.csv("~/Documents/0.Projects/00.large_supplements/ProteinGym_v1.1/substitutions_raw_DMS/BRCA1_HUMAN_Findlay_2018.csv", header = TRUE)
+brca1_exp
+```
+
+
+```{r}
+brca1_exp <- read.csv("~/Documents/0.Projects/00.large_supplements/ProteinGym_v1.1/substitutions_raw_DMS/BRCA1_HUMAN_Findlay_2018.csv", header = TRUE)
 head(brca1_exp)
 
-brca1_esm <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/SGE_esm1v/P38398_filtered_with_esm1v.csv")
+brca1_esm <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/SGE_esm1v/P38398_filtered_with_esm1v_old.csv")
 nrow(brca1_exp) #3555
 nrow(brca1_esm) #35397
 
@@ -63,13 +69,11 @@ pdb_path <- "~/Downloads/AF-P38398-F1-model_v6.pdb"
 pdb <- read.pdb(pdb_path)
 
 # 2. Define Active Sites
-active_site_resnos <- c(
-    24,27,39,41,44,47,61,64,           # RING
-    3,6,7,8,10,11,14,15,17,18,21,22,38,76,77,78,79,81,82,85,88,89,92,93,96,97,
-    1654, 1655, 1656, 1657, 1658, 1690, 1691, 1696, # BRCT
-    1698,1699,1700,1701,1702,1740,1741,1773,
-    1774,1775,1811,1813,1836,1839
-)
+active_site_resnos <- c(24,27,39,41,44,47,61,64,           # RING zinc binding
+    3,6,7,8,10,11,14,15,17,18,21,22, 38,  # RING BARD1 interface
+    76,77,78,79,81,82,85,88,89,92,93,96,97, # RING BARD1 interface
+    1655, 1656, 1657, 1658, 1690, 1691, 1696, # BRCT BACH1 peptide binding sites by chimeraX
+    1698,1699,1700,1701,1702,1740,1741,1774,1775,1811,1813,1836,1839)
 
 # 3. Get Active Site Coordinates (Using the CORRECT 'string' argument)
 # This was likely the missing piece in your previous environment

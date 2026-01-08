@@ -1,0 +1,1107 @@
+---
+title: "Untitled"
+output: html_document
+date: "2026-01-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+library('ProjectTemplate')
+library(ggExtra)
+library(bio3d)
+library(ggrepel)
+load.project()
+```
+
+```{r}
+brca1_exp <- read.csv("~/Documents/0.Projects/00.large_supplements/ProteinGym_v1.1/substitutions_raw_DMS/BRCA1_HUMAN_Findlay_2018.csv", header = TRUE)
+head(brca1_exp)
+
+brca1_esm <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/SGE_esm1v/P38398_merged.csv")
+nrow(brca1_exp) #3555
+nrow(brca1_esm) #35397
+
+brca1_df <- merge(brca1_exp, brca1_esm, by.x = "mutant", by.y = "variant")
+nrow(brca1_df) #3282 = 3555 - syn mutants 
+
+brca1_df <- brca1_df %>%
+  mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
+
+brca1_df <- brca1_df %>%
+  mutate(
+    clinvar_group = case_when(
+      clinvar_clinical_significance %in% c("pathogenic", "likely_pathogenic") ~
+        "Pathogenic",
+      clinvar_clinical_significance %in% c("benign", "likely_benign") ~
+        "Benign",
+      TRUE ~ "Other"
+    ),
+    clinvar_group = factor(
+      clinvar_group,
+      levels = c(
+        "Pathogenic",
+        "Benign",
+        "Other"
+      )
+    )
+  )
+#table(brca1_df$mutant)
+nrow(brca1_df)
+nrow(brca1_df %>% distinct())
+
+brca1_df <- brca1_df %>% distinct()
+brca1_df
+```
+
+```{r}
+active_positions <- c(24,27,39,41,44,47,61,64,           # RING zinc binding
+    3,6,7,8,10,11,14,15,17,18,21,22, 38,  # RING BARD1 interface
+    76,77,78,79,81,82,85,88,89,92,93,96,97, # RING BARD1 interface
+    1655, 1656, 1657, 1658, 1690, 1691, 1696, # BRCT BACH1 peptide binding sites by chimeraX
+    1698,1699,1700,1701,1702,1740,1741,1774,1775,1811,1813,1836,1839)
+
+fil_brca1_df <- brca1_df %>%
+  filter(!mutation_position %in% active_positions)
+
+# Fit a loess model using the filtered data
+loess_fit <- loess(function_score ~ ddG_pred, data = fil_brca1_df, span = 0.7, family = "symmetric")
+
+# Predict fitted values for ALL data points using the loess model trained on fil_gck_df
+brca1_df$fitted <- predict(loess_fit, newdata = brca1_df)
+
+# Calculate residuals for ALL points
+brca1_df$residuals <- brca1_df$function_score - brca1_df$fitted
+
+# Generate LOESS fit line from fil_gck_df
+loess_fit <- loess(function_score ~ ddG_pred, data = fil_brca1_df, span = 0.7, family = "symmetric")
+
+fit_line_df <- data.frame(
+  ddG_pred = seq(-0.6,
+                            max(fil_brca1_df$ddG_pred, na.rm = TRUE),
+                            length.out = 200)
+)
+
+fit_line_df$function_score <- predict(loess_fit, newdata = fit_line_df)
+
+range(brca1_df$residuals)
+```
+
+```{r, fig.width=5, fig.height=5}
+nrow(brca1_df)
+p1 <- ggplot(brca1_df, aes(x = ddG_pred, y = function_score, color = residuals)) +
+  geom_point(size = 2, alpha = 0.35) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_line(data = fit_line_df, aes(x = ddG_pred, y = function_score),
+            inherit.aes = FALSE, color = "black", linewidth = 1) +
+  #geom_text_repel(data = subset(brca1_df, mutant %in% c("Y214E")),
+  #                aes(label = mutant),
+  #                size = 4,color = "gold2",
+  #                max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3
+  #) +
+  #geom_text_repel(data = subset(gck_df, mutant %in% c("T206M", "V452L")),
+  #                aes(label = mutant),
+  #                size = 4,color = "black",
+  #                max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3
+  #) +
+  #geom_point(data = subset(gck_df, mutant %in% c("T206M", "V452L")),
+  #           aes(x = DMS_score_abundance, y = DMS_score_activity),
+  #           shape = 17, color = "black", size = 3) +  # Triangle shape
+  scale_color_gradient2(
+    low = "red", mid = "grey", high = "blue",
+    midpoint = 0, limits = c(-3.7, 1.9)) + 
+  labs(
+    title = "All 1837 Variants",
+    x = "Predicted ddGf",
+    y = "SGE score",
+    color = "LOESS residuals"
+  ) +
+  #scale_y_continuous(breaks = seq(-1, 7, by = 2))  + xlim(-1,1.7)  +
+  theme_classic() + theme(legend.position = "none") +theme(
+  panel.background = element_rect(fill = "white", color = NA),
+  plot.background = element_rect(fill = "white", color = NA),
+  legend.background = element_rect(fill = "white", color = NA)
+) + ylim(-4,2)  + xlim(-1.5,4.5) 
+
+p1 <- ggMarginal(
+  p1,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+
+p1
+```
+```{r}
+unique(brca1_df$clinvar_review_status)
+```
+
+```{r}
+brca1_df %>% filter (clinvar_group == "Benign") %>% filter (clinvar_review_status %in% c("3", "0,3", "3,1", "3,0,0", "3,1,2", "3,2,0","1,3")) %>% pull(mutant)
+```
+
+```{r}
+brca1_df %>% filter (clinvar_group == "Benign") %>% filter (mutant %in% c())
+```
+
+
+```{r, fig.width=5, fig.height=5}
+brca1_df_benign <- brca1_df %>% filter (clinvar_group == "Benign") %>% filter (!clinvar_review_status %in% c("0", "0,0", "0,0,0"))
+#filter (clinvar_review_status %in% c( "3", "0,3",3,1", "3,0,0", "3,1,2", "3,2,0","1,3"))
+nrow(brca1_df_benign)
+
+p2 <- ggplot(brca1_df_benign, aes(x = ddG_pred, y = function_score, color = residuals)) +
+  geom_point(size = 2) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_line(data = fit_line_df, aes(x = ddG_pred, y = function_score),
+            inherit.aes = FALSE, color = "black", linewidth = 1) +
+  geom_text_repel(data = subset(brca1_df_benign, mutant %in% c("D67Y", "R1751Q")),
+                  aes(label = mutant),
+                  size = 4,color = "black",
+                  max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3
+  ) +
+  geom_point(data = subset(brca1_df_benign, mutant %in% c("D67Y", "R1751Q")),
+             aes(x = ddG_pred, y = function_score), color = "black", size = 2) +  # Triangle shape
+  scale_color_gradient2(
+    low = "red", mid = "grey", high = "blue",
+    midpoint = 0, limits = c(-3.7, 1.9)) + 
+  labs(
+    title = "49 Benign Variants",
+    x = "Predicted ddGf",
+    y = "SGE score",
+    color = "LOESS residuals"
+  ) +
+  #scale_y_continuous(breaks = seq(-1, 7, by = 2))  + xlim(-1,1.7)  +
+  theme_classic() + theme(legend.position = "none") +theme(
+  panel.background = element_rect(fill = "white", color = NA),
+  plot.background = element_rect(fill = "white", color = NA),
+  legend.background = element_rect(fill = "white", color = NA)
+) + ylim(-4,2)  + xlim(-1.5,4.5) 
+
+p2 <- ggMarginal(
+  p2,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+
+p2
+```
+```{r}
+patho_highlight <- brca1_df %>% filter (clinvar_group == "Pathogenic") %>% filter (clinvar_review_status %in% c("3", "0,3", "3,1", "3,0,0", "3,1,2", "3,2,0","1,3")) %>% pull(mutant)
+patho_highlight
+```
+
+
+```{r, fig.width=5, fig.height=5}
+brca1_df_patho <- brca1_df %>% filter (clinvar_group == "Pathogenic") %>% filter (!clinvar_review_status %in% c("0", "0,0", "0,0,0"))
+nrow(brca1_df_patho)
+
+p3 <- ggplot(brca1_df_patho, aes(x = ddG_pred, y = function_score, color = residuals)) +
+  geom_point(size = 2, shape = 17) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_line(data = fit_line_df, aes(x = ddG_pred, y = function_score),
+            inherit.aes = FALSE, color = "black", linewidth = 1) +
+  geom_text_repel(data = subset(brca1_df_patho, mutant %in% c("C61G", "C39Y", "S1655F", "A1708E")),
+                  aes(label = mutant),
+                  size = 4,color = "black",
+                  max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3
+  ) +
+  geom_point(data = subset(brca1_df_patho, mutant %in% c("C61G", "C39Y", "S1655F", "A1708E")),
+             aes(x = ddG_pred, y = function_score),
+             shape = 17, color = "black", size = 2) +  # Triangle shape
+  scale_color_gradient2(
+    low = "red", mid = "grey", high = "blue",
+    midpoint = 0, limits = c(-3.7, 1.9)) + 
+  labs(
+    title = "138 Pathogenic Variants",
+    x = "Predicted ddGf",
+    y = "SGE score",
+    color = "LOESS residuals"
+  ) +
+  #scale_y_continuous(breaks = seq(-1, 7, by = 2))  + xlim(-1,1.7)  +
+  theme_classic() + theme(legend.position = "none") +theme(
+  panel.background = element_rect(fill = "white", color = NA),
+  plot.background = element_rect(fill = "white", color = NA),
+  legend.background = element_rect(fill = "white", color = NA)
+) + ylim(-4,2)  + xlim(-1.5,4.5) 
+
+p3 <- ggMarginal(
+  p3,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+p3
+```
+```{r, fig.width= 9, fig.height=3}
+p4 <- plot_grid(p1,p2,p3, ncol = 3)
+p4
+```
+
+```{r}
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_scatter_brca1.pdf", 
+       plot = p4, width = 9, height = 3, dpi = 300)
+```
+
+```{r}
+legend <- ggplot(brca1_df_patho, aes(x = ddG_pred, y = function_score, color = residuals)) +
+  geom_point(size = 2, shape = 17) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_line(data = fit_line_df, aes(x = ddG_pred, y = function_score),
+            inherit.aes = FALSE, color = "black", linewidth = 1) +
+  geom_text_repel(data = subset(brca1_df_patho, mutant %in% c("C61G", "C39Y", "S1655F", "A1708E")),
+                  aes(label = mutant),
+                  size = 4,color = "black",
+                  max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3
+  ) +
+  geom_point(data = subset(brca1_df_patho, mutant %in% c("C61G", "C39Y", "S1655F", "A1708E")),
+             aes(x = ddG_pred, y = function_score),
+             shape = 17, color = "black", size = 2) +  # Triangle shape
+  scale_color_gradient2(
+    low = "red", mid = "grey", high = "blue",
+    midpoint = 0, limits = c(-3.7, 1.9)) + 
+  labs(
+    title = "138 Pathogenic Variants",
+    x = "Predicted ddGf",
+    y = "SGE score",
+    color = "LOESS residuals"
+  ) +
+  #scale_y_continuous(breaks = seq(-1, 7, by = 2))  + xlim(-1,1.7)  +
+  theme_classic() + theme(legend.position = "right") +theme(
+  panel.background = element_rect(fill = "white", color = NA),
+  plot.background = element_rect(fill = "white", color = NA),
+  legend.background = element_rect(fill = "white", color = NA)
+)
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_scatter_brca1_legend.pdf", 
+       plot = legend, width = 4, height = 4, dpi = 300)
+```
+
+```{r}
+brca1_df <- brca1_df %>%
+  mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
+
+nrow(brca1_df)
+
+median_residuals <- brca1_df %>%
+  group_by(mutation_position) %>%
+  summarise(median_residuals = median(residuals, na.rm = TRUE))
+
+min(median_residuals$median_residuals) #-3.039259
+max(median_residuals$median_residuals) #0.9052505
+
+pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BRCA1/AF-P38398-F1-model_v6.pdb")
+data <- median_residuals
+head(data)
+
+# Create a new B-factor vector initialized with the current B-factors from the PDB
+new_b_factors <- pdb$atom$b
+
+# Loop through each position in the correlation data and update the B-factors
+for (i in 1:nrow(data)) {
+  position <- data$mutation_position[i]
+  correlation_value <- data$median_residuals[i]
+  
+  # Find indices in the PDB that match the current position
+  indices <- which(pdb$atom$resno == position)
+  
+  # Print the indices and current B-factors before updating
+  #cat("Updating residue number:", position, "\n")
+  #cat("Indices in PDB:", indices, "\n")
+  #cat("Current B-factors:", new_b_factors[indices], "\n")
+  
+  # Update B-factors for all atoms in the current residue
+  new_b_factors[indices] <- correlation_value
+  
+  # Print the new B-factors after updating
+  #cat("Updated B-factors:", new_b_factors[indices], "\n")
+  #cat("\n")  # Add an extra line for readability
+}
+# Replace non-matching B-factors with outlier value so we can filter it out in ChimeraX
+non_matching_indices <- setdiff(seq_along(new_b_factors), which(pdb$atom$resno %in% data$mutation_position))
+new_b_factors[non_matching_indices] <- 999
+
+# Assign the new B-factors back to the pdb structure
+# Write the modified PDB structure to a new file
+pdb$atom$b <- new_b_factors
+write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BRCA1/AF-P38398-F1-model_v6_median_residual_loess.pdb")
+
+#chimerax
+#select @@bfactor>=999 
+#color sel dim grey
+#select @@bfactor<999 
+#color byattribute a:bfactor #1 & sel target csab palette -3.1,red:0,white:1.0,blue
+#select ::name="TLA"
+#color sel dark orange
+#set silhouette true
+#set silhouetteColor black
+#set silhouetteWidth 1
+```
+
+```{r}
+brca1_df <- brca1_df %>%
+  mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
+
+nrow(brca1_df)
+
+median_residuals <- brca1_df %>%
+  group_by(mutation_position) %>%
+  summarise(median_residuals = median(residuals, na.rm = TRUE))
+
+pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BRCA1/1JM7.pdb")
+data <- median_residuals
+head(data)
+
+# Create a new B-factor vector initialized with the current B-factors from the PDB
+new_b_factors <- pdb$atom$b
+
+# Loop through each position in the correlation data and update the B-factors
+for (i in 1:nrow(data)) {
+  position <- data$mutation_position[i]
+  correlation_value <- data$median_residuals[i]
+  
+  # Find indices in the PDB that match the current position
+  indices <- which(pdb$atom$resno == position)
+  
+  # Print the indices and current B-factors before updating
+  #cat("Updating residue number:", position, "\n")
+  #cat("Indices in PDB:", indices, "\n")
+  #cat("Current B-factors:", new_b_factors[indices], "\n")
+  
+  # Update B-factors for all atoms in the current residue
+  new_b_factors[indices] <- correlation_value
+  
+  # Print the new B-factors after updating
+  #cat("Updated B-factors:", new_b_factors[indices], "\n")
+  #cat("\n")  # Add an extra line for readability
+}
+# Replace non-matching B-factors with outlier value so we can filter it out in ChimeraX
+non_matching_indices <- setdiff(seq_along(new_b_factors), which(pdb$atom$resno %in% data$mutation_position))
+new_b_factors[non_matching_indices] <- 999
+
+# Assign the new B-factors back to the pdb structure
+# Write the modified PDB structure to a new file
+pdb$atom$b <- new_b_factors
+write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BRCA1/1JM7_median_residual_loess.pdb")
+
+#chimerax
+#select @@bfactor>=999 
+#color sel dim grey
+#select @@bfactor<999 
+#color byattribute a:bfactor #1 & sel target csab palette -3.1,red:0,white:1.0,blue
+#select ::name="TLA"
+#color sel dark orange
+#set silhouette true
+#set silhouetteColor grey
+#set silhouetteWidth 1
+```
+
+```{r}
+brca1_df <- brca1_df %>%
+  mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
+
+nrow(brca1_df)
+
+median_residuals <- brca1_df %>%
+  group_by(mutation_position) %>%
+  summarise(median_residuals = median(residuals, na.rm = TRUE))
+
+pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BRCA1/1T29.pdb")
+data <- median_residuals
+head(data)
+
+# Create a new B-factor vector initialized with the current B-factors from the PDB
+new_b_factors <- pdb$atom$b
+
+# Loop through each position in the correlation data and update the B-factors
+for (i in 1:nrow(data)) {
+  position <- data$mutation_position[i]
+  correlation_value <- data$median_residuals[i]
+  
+  # Find indices in the PDB that match the current position
+  indices <- which(pdb$atom$resno == position)
+  
+  # Print the indices and current B-factors before updating
+  #cat("Updating residue number:", position, "\n")
+  #cat("Indices in PDB:", indices, "\n")
+  #cat("Current B-factors:", new_b_factors[indices], "\n")
+  
+  # Update B-factors for all atoms in the current residue
+  new_b_factors[indices] <- correlation_value
+  
+  # Print the new B-factors after updating
+  #cat("Updated B-factors:", new_b_factors[indices], "\n")
+  #cat("\n")  # Add an extra line for readability
+}
+# Replace non-matching B-factors with outlier value so we can filter it out in ChimeraX
+non_matching_indices <- setdiff(seq_along(new_b_factors), which(pdb$atom$resno %in% data$mutation_position))
+new_b_factors[non_matching_indices] <- 999
+
+# Assign the new B-factors back to the pdb structure
+# Write the modified PDB structure to a new file
+pdb$atom$b <- new_b_factors
+write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BRCA1/1T29_median_residual_loess.pdb")
+
+#chimerax
+#select @@bfactor>=999 
+#color sel dim grey
+#select @@bfactor<999 
+#color byattribute a:bfactor #5 & sel target csab palette -3.1,red:0,white:1.0,blue
+#select ::name="TLA"
+#color sel dark orange
+#set silhouette true
+#set silhouetteColor grey
+#set silhouetteWidth 1
+```
+```{r}
+# 1. Load PDB (Ensure this path is correct)
+pdb_path <- "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BRCA1/1JM7.pdb"
+pdb <- read.pdb(pdb_path)
+
+bard1_binding <- c(3,6,7,8,10,11,14,15,17,18,21,22, 38,  # RING BARD1 interface
+    76,77,78,79,81,82,85,88,89,92,93,96,97) # RING BARD1 interface)
+zinc_site <- c(24,27,39,41,44,47,61,64)           # RING zinc binding
+
+active_positions <- c(bard1_binding , zinc_site)
+# 3. Get Active Site Coordinates (Using the CORRECT 'string' argument)
+# This was likely the missing piece in your previous environment
+site_inds <- atom.select(pdb, resno = active_positions, string = "noh")
+site_xyz <- pdb$xyz[site_inds$xyz]
+
+# Check immediately
+if (length(site_inds$atom) == 0) {
+  stop("STOP: Active site atoms are 0. The Code will not work.")
+} else {
+  print(paste("Active Site Loaded: Found", length(site_inds$atom), "atoms."))
+}
+
+# 4. Redefine the Function (The Robust Version)
+calc_min_heavy_dist <- function(res_num, pdb_obj, site_coords) {
+  
+  # Bio3D is strict: 'resno' must be numeric. 
+  # We force it here to fix the error you saw in Test B.
+  res_num <- as.numeric(as.character(res_num))
+  
+  # Use 'string = "noh"' (The fix confirmed by Test A)
+  target_inds <- atom.select(pdb_obj, resno = res_num, string = "noh")
+  
+  # Safety catch for missing residues
+  if (length(target_inds$atom) == 0) return(NA)
+  
+  # Calculate
+  target_xyz <- pdb_obj$xyz[target_inds$xyz]
+  t_mat <- matrix(target_xyz, ncol = 3, byrow = TRUE)
+  s_mat <- matrix(site_coords, ncol = 3, byrow = TRUE)
+  
+  return(min(dist.xyz(t_mat, s_mat), na.rm = TRUE))
+}
+
+# 5. Run Calculation
+unique_positions <- unique(brca1_df$mutation_position)
+
+print("Starting calculation loop...")
+
+dist_vals <- sapply(unique_positions, function(x) {
+  calc_min_heavy_dist(x, pdb, site_xyz)
+})
+
+# 6. Map Back Safely
+# explicitly name the vector to ensure matching works
+names(dist_vals) <- as.character(unique_positions) 
+
+# Assign based on character matching
+ring_df <- brca1_df %>% filter(mutation_position < 102) %>% filter(mutation_position > 8)
+nrow(ring_df)
+ring_df$min_dist_to_site <- dist_vals[as.character(ring_df$mutation_position)]
+
+# 7. Final Result
+print(paste("Final NAs:", sum(is.na(ring_df$min_dist_to_site))))
+head(ring_df$min_dist_to_site)
+
+# If NAs remain, it means those specific residues are missing from the PDB structure 
+# (common in loop regions), which is normal.
+# Filter out NAs (residues not found in PDB structure)
+ring_df <- ring_df %>% filter(!is.na(min_dist_to_site))
+```
+
+
+```{r}
+ring_df_neg <- ring_df %>% filter(residuals <= 0)
+nrow(ring_df_neg) 
+
+# Fit exponential decay: y = a * exp(-b * x) + c
+exp_model <- nls(abs(residuals) ~ a * exp(-b * min_dist_to_site),
+                 data = ring_df_neg,
+                 start = list(a = 1, b = 0.1))
+exp_model
+```
+```{r}
+a <- coef(exp_model)[["a"]]
+b <- coef(exp_model)[["b"]]
+
+ring_df_neg <- ring_df_neg %>%
+  mutate(expected_res = a * exp(-b * min_dist_to_site),
+         residual = abs(residuals) - expected_res)
+```
+
+```{r, fig.width=5, fig.height=5}
+half_d <- log(2)  / b  
+half_d
+
+x_vals <- seq(min(ring_df_neg$min_dist_to_site),
+              max(ring_df_neg$min_dist_to_site), length.out = 200)
+
+# --- Bootstrapping for confidence intervals ---
+set.seed(11)
+boot_params <- replicate(1000, {
+  # FIX: Sample from ring_df_neg, not ring_df
+  samp <- ring_df_neg[sample(nrow(ring_df_neg), replace = TRUE), ]
+  
+  fit <- try(nlsLM(abs(residuals) ~ a * exp(-b * min_dist_to_site),
+                   data = samp, start = list(a = 1, b = 0.1)), silent = TRUE)
+  if (inherits(fit, "try-error")) c(NA, NA) else coef(fit)
+})
+
+boot_params <- t(boot_params)[complete.cases(t(boot_params)), ]
+
+# Recalculate predictions with the corrected params
+boot_preds <- apply(boot_params, 1, function(p) p[1] * exp(-p[2] * x_vals))
+
+fit_df_residue <- data.frame(
+  min_dist_to_site = x_vals,
+  residuals = predict(exp_model, newdata = data.frame(min_dist_to_site = x_vals)),
+  lower = apply(boot_preds, 1, quantile, probs = 0.025),
+  upper = apply(boot_preds, 1, quantile, probs = 0.975)
+)
+
+
+nrow(ring_df_neg) 
+
+ring_df_neg$site_type <- "Non-orthosteric site"
+ring_df_neg$site_type[ring_df_neg$mutation_position %in% bard1_binding] <- "BARD1 binding"
+ring_df_neg$site_type[ring_df_neg$mutation_position %in% zinc_site] <- "Zinc binding"
+
+table(ring_df_neg$site_type)
+
+max(ring_df_neg %>% filter (site_type == "BRAD1 interface") %>% pull(min_dist_to_site)) 
+
+highlight <- ring_df_neg %>% filter (clinvar_group == "Pathogenic") %>% filter (clinvar_review_status %in% c( "3", "0,3","3,1", "3,0,0", "3,1,2", "3,2,0","1,3")) %>% filter (site_type == "Non-orthosteric site") %>% pull(mutant)
+ 
+ring_df_neg <- ring_df_neg %>%
+  mutate(pathogenic_status = case_when(
+    # Check conditions (using tolower to be safe against "Pathogenic" vs "pathogenic")
+    tolower(clinvar_clinical_significance) %in% c("pathogenic", "likely_pathogenic") & 
+    !clinvar_review_status %in% c("0", "0,0", "0,0,0") ~ "Pathogenic",
+    
+    # Default case
+    TRUE ~ "Other"
+  ))
+
+#filter (clinvar_review_status %in% c( "3", "0,3", "3,1", "3,0,0", "3,1,2", "3,2,0","1,3"))
+# Plot with fitted curve
+p5 <- ggplot(ring_df_neg, aes(x = min_dist_to_site, y = abs(residuals))) +
+  geom_point(aes(color = site_type, shape = pathogenic_status), size = 2) +
+  geom_ribbon(data = fit_df_residue,
+            aes(x = min_dist_to_site, ymin = lower, ymax = upper),
+            fill = "grey70", alpha = 0.3, inherit.aes = FALSE) +
+  geom_line(data = fit_df_residue, aes(x = min_dist_to_site, y = abs(residuals)),
+          inherit.aes = FALSE, color = "black", size = 1) +
+  scale_color_manual(values = c(
+    "Null" = "grey",
+    "Non-orthosteric site" = "#8DAA9D",
+    "Zinc binding" = "#9A8FB3",
+    "BARD1 binding" = "#E69F00"
+  )) +
+  theme_classic() +
+  #geom_vline(xintercept = 15.019, linetype = "dashed", color = "slategrey") +
+  #geom_hline(yintercept = y_cutoff, linetype = "dashed", color = "slategrey") +
+  labs(
+    title = "BRCA1-RING",
+    subtitle = "Per-mutation allosteric decay",
+    x = "Minimal distance to orthosteric sites",
+    y = "|SGE-TMPNN ddGf residual|",
+    color = ""
+  )  + 
+  theme(legend.position = "bottom") +
+  geom_text_repel(data = subset(ring_df_neg, mutant %in% highlight),
+                  aes(label = mutant),
+                  size = 4,color = "black",
+                  max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3) +
+  geom_point(data = subset(ring_df_neg, mutant %in% highlight),color = "black", shape = 17, size = 2) 
+
+
+
+p5 <- ggMarginal(
+  p5,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+
+
+p5
+```
+```{r}
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_decay_ring.pdf", 
+       plot = p5, width = 4, height = 5, dpi = 300)
+```
+
+```{r}
+# 1. Load PDB (Ensure this path is correct)
+pdb_path <- "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BRCA1/1T29.pdb"
+pdb <- read.pdb(pdb_path)
+
+bach1_pos <- c(1655, 1656, 1657, 1658, 1690, 1691, 1696, # BRCT BACH1 peptide binding sites by chimeraX
+    1698,1699,1700,1701,1702,1740,1741,1774,1775,1811,1813,1836,1839)
+
+# 3. Get Active Site Coordinates (Using the CORRECT 'string' argument)
+# This was likely the missing piece in your previous environment
+site_inds <- atom.select(pdb, resno = bach1_pos, string = "noh")
+site_xyz <- pdb$xyz[site_inds$xyz]
+
+# Check immediately
+if (length(site_inds$atom) == 0) {
+  stop("STOP: Active site atoms are 0. The Code will not work.")
+} else {
+  print(paste("Active Site Loaded: Found", length(site_inds$atom), "atoms."))
+}
+
+# 4. Redefine the Function (The Robust Version)
+calc_min_heavy_dist <- function(res_num, pdb_obj, site_coords) {
+  
+  # Bio3D is strict: 'resno' must be numeric. 
+  # We force it here to fix the error you saw in Test B.
+  res_num <- as.numeric(as.character(res_num))
+  
+  # Use 'string = "noh"' (The fix confirmed by Test A)
+  target_inds <- atom.select(pdb_obj, resno = res_num, string = "noh")
+  
+  # Safety catch for missing residues
+  if (length(target_inds$atom) == 0) return(NA)
+  
+  # Calculate
+  target_xyz <- pdb_obj$xyz[target_inds$xyz]
+  t_mat <- matrix(target_xyz, ncol = 3, byrow = TRUE)
+  s_mat <- matrix(site_coords, ncol = 3, byrow = TRUE)
+  
+  return(min(dist.xyz(t_mat, s_mat), na.rm = TRUE))
+}
+
+# 5. Run Calculation
+unique_positions <- unique(brca1_df$mutation_position)
+
+print("Starting calculation loop...")
+
+dist_vals <- sapply(unique_positions, function(x) {
+  calc_min_heavy_dist(x, pdb, site_xyz)
+})
+
+# 6. Map Back Safely
+# explicitly name the vector to ensure matching works
+names(dist_vals) <- as.character(unique_positions) 
+
+# Assign based on character matching
+brct_df <- brca1_df %>% filter(mutation_position < 1860) %>% filter(mutation_position > 1648)
+nrow(brct_df)
+brct_df$min_dist_to_site <- dist_vals[as.character(brct_df$mutation_position)]
+
+# 7. Final Result
+print(paste("Final NAs:", sum(is.na(brct_df$min_dist_to_site))))
+head(brct_df$min_dist_to_site)
+
+# If NAs remain, it means those specific residues are missing from the PDB structure 
+# (common in loop regions), which is normal.
+# Filter out NAs (residues not found in PDB structure)
+brct_df <- brct_df %>% filter(!is.na(min_dist_to_site))
+nrow(brct_df) #
+```
+
+```{r}
+brct_df_neg <- brct_df %>% filter(residuals <= 0)
+nrow(brct_df_neg) 
+
+# Fit exponential decay: y = a * exp(-b * x) + c
+exp_model <- nls(abs(residuals) ~ a * exp(-b * min_dist_to_site),
+                 data = brct_df_neg,
+                 start = list(a = 1, b = 0.1))
+exp_model
+```
+```{r}
+a <- coef(exp_model)[["a"]]
+b <- coef(exp_model)[["b"]]
+
+brct_df_neg <- brct_df_neg %>%
+  mutate(expected_res = a * exp(-b * min_dist_to_site),
+         residual = abs(residuals) - expected_res)
+```
+
+```{r, fig.width=5, fig.height=5}
+half_d <- log(2)  / b  
+half_d
+
+x_vals <- seq(min(brct_df_neg$min_dist_to_site),
+              max(brct_df_neg$min_dist_to_site), length.out = 200)
+
+# --- Bootstrapping for confidence intervals ---
+set.seed(11)
+boot_params <- replicate(1000, {
+  # FIX: Sample from ring_df_neg, not ring_df
+  samp <- brct_df_neg[sample(nrow(brct_df_neg), replace = TRUE), ]
+  
+  fit <- try(nlsLM(abs(residuals) ~ a * exp(-b * min_dist_to_site),
+                   data = samp, start = list(a = 1, b = 0.1)), silent = TRUE)
+  if (inherits(fit, "try-error")) c(NA, NA) else coef(fit)
+})
+
+boot_params <- t(boot_params)[complete.cases(t(boot_params)), ]
+
+# Recalculate predictions with the corrected params
+boot_preds <- apply(boot_params, 1, function(p) p[1] * exp(-p[2] * x_vals))
+
+fit_df_residue <- data.frame(
+  min_dist_to_site = x_vals,
+  residuals = predict(exp_model, newdata = data.frame(min_dist_to_site = x_vals)),
+  lower = apply(boot_preds, 1, quantile, probs = 0.025),
+  upper = apply(boot_preds, 1, quantile, probs = 0.975)
+)
+
+
+brct_df_neg$site_type <- "Non-orthosteric site"
+brct_df_neg$site_type[brct_df_neg$mutation_position %in% bach1_pos] <- "BACH1 binding"
+
+highlight <- brct_df_neg %>% filter (clinvar_group == "Pathogenic") %>%  filter (clinvar_review_status %in% c( "3", "0,3","3,1", "3,0,0", "3,1,2", "3,2,0","1,3")) %>% filter (site_type == "Non-orthosteric site") %>% pull(mutant)
+ 
+brct_df_neg <- brct_df_neg %>%
+  mutate(pathogenic_status = case_when(
+    # Check conditions (using tolower to be safe against "Pathogenic" vs "pathogenic")
+    tolower(clinvar_clinical_significance) %in% c("pathogenic", "likely_pathogenic") & 
+    !clinvar_review_status %in% c("0", "0,0", "0,0,0") ~ "Pathogenic",
+    
+    # Default case
+    TRUE ~ "Other"
+  ))
+
+#filter (clinvar_review_status %in% c( "3", "0,3", "3,1", "3,0,0", "3,1,2", "3,2,0","1,3"))
+# Plot with fitted curve
+p6 <- ggplot(brct_df_neg, aes(x = min_dist_to_site, y = abs(residuals))) +
+  geom_point(aes(color = site_type, shape = pathogenic_status), size = 2) +
+  geom_ribbon(data = fit_df_residue,
+            aes(x = min_dist_to_site, ymin = lower, ymax = upper),
+            fill = "grey70", alpha = 0.3, inherit.aes = FALSE) +
+  geom_line(data = fit_df_residue, aes(x = min_dist_to_site, y = abs(residuals)),
+          inherit.aes = FALSE, color = "black", size = 1) +
+  scale_color_manual(values = c(
+    "Null" = "grey",
+    "Non-orthosteric site" = "#8DAA9D",
+    "BACH1 binding" = "#E69F00"
+  )) +
+  theme_classic() +
+  #geom_vline(xintercept = 15.019, linetype = "dashed", color = "slategrey") +
+  #geom_hline(yintercept = y_cutoff, linetype = "dashed", color = "slategrey") +
+  labs(
+    title = "BRCA1-BRCT",
+    subtitle = "Per-mutation allosteric decay",
+    x = "Minimal distance to orthosteric sites",
+    y = "|SGE-TMPNN ddGf residual|",
+    color = ""
+  )  + 
+  theme(legend.position = "bottom") +
+  geom_text_repel(data = subset(brct_df_neg, mutant %in% highlight),
+                  aes(label = mutant),
+                  size = 4,color = "black",
+                  max.overlaps = Inf, box.padding = 0.4, point.padding = 0.3) +
+  geom_point(data = subset(brct_df_neg, mutant %in% highlight),color = "black", shape = 17, size = 2) 
+
+
+
+p6 <- ggMarginal(
+  p6,
+  type = "density",
+  margins = "both",
+  groupColour = FALSE,
+  groupFill = FALSE,
+  size = 10,
+  colour = "grey",
+  fill = "lightgrey"
+)
+
+
+p6
+```
+```{r}
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_decay_brct.pdf", 
+       plot = p6, width = 4, height = 5, dpi = 300)
+```
+
+```{r}
+nrow(brca1_df)
+brca1_df <- brca1_df %>% filter (!clinvar_review_status %in% c("0", "0,0", "0,0,0"))
+nrow(brca1_df)
+```
+
+```{r}
+brca1_df_clean <- brca1_df %>% filter (clinvar_group != "Other")
+
+median_df <- brca1_df_clean %>%
+  group_by(clinvar_group) %>%
+  summarise(
+    median_residual = median(residuals),
+    n = n()
+  )
+
+custom_colors <- c(
+  "Benign"     = "grey",  
+  "Pathogenic" = "firebrick3"  
+)
+
+# Define the desired order explicitly
+desired_order <- c("Benign", "Pathogenic")
+brca1_df_clean$clinvar_group <- factor(brca1_df_clean$clinvar_group, levels = desired_order)
+
+# Now ggplot will respect this exact order
+
+p7 <- ggplot(brca1_df_clean, aes(x = clinvar_group, y = residuals, fill = clinvar_group)) +
+  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
+  stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
+  stat_summary(fun = median, geom = "point", shape = 23, size = 2, fill = "black", color = "black", stroke = 0.7) +
+  geom_text(
+    data = median_df,
+    aes(x = clinvar_group, y = median_residual + 0.5, label = sprintf("%.2f", median_residual)),
+    inherit.aes = FALSE,
+    size = 5
+  ) +
+  scale_fill_manual(values = custom_colors) +
+  geom_text(
+    data = median_df,
+    aes(x = clinvar_group, y = 3, label = paste0("n = ", n)),
+    inherit.aes = FALSE,
+    size = 4.5
+  ) +
+  labs(
+    title = "BRCA1",
+    x = "",
+    y = "SGE-TMPNN ddGf residuals",
+    fill = ""
+  ) +
+  theme_classic(base_size = 12) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 20, hjust = 1)
+  ) +
+    geom_signif(
+    comparisons = list(c("Benign", "Pathogenic")),
+    map_signif_level = FALSE,
+    test = "wilcox.test",
+    step_increase = 0.1,
+    textsize = 3
+  ) 
+
+
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_violin1.pdf", 
+       plot = p7, width = 3, height = 4, dpi = 300)
+
+p7
+```
+```{r}
+brca1_df
+```
+
+
+```{r}
+# ---------------------------
+# 0) Settings
+# ---------------------------
+set.seed(11)
+n_boot <- 1000
+match_window <- 0.5
+
+# ---------------------------
+# 1) Define groups for plotting
+# ---------------------------
+# Keep Benign + Pathogenic as-is
+bp_df <- brca1_df %>%
+  filter(clinvar_group %in% c("Benign", "Pathogenic")) %>%
+  mutate(group = clinvar_group) %>%
+  dplyr::select(mutant, ddG_pred, residuals, group)
+
+# Pathogenic set (for abundance matching target)
+patho_df <- bp_df %>%
+  filter(group == "Pathogenic") %>%
+ dplyr::select(mutant, ddG_pred, residuals, group)
+
+n_patho <- nrow(patho_df)
+
+# Pool to sample from: Others (exclude pathogenic variants explicitly by mutant)
+# If you don't have mutant IDs, remove the anti_join and just use clinvar_group == "Other"
+non_patho_pool <- brca1_df %>%
+  filter(clinvar_group == "Other") %>%
+  anti_join(patho_df %>% dplyr::select(mutant), by = "mutant") %>%
+  dplyr::select(ddG_pred, residuals)
+
+# ---------------------------
+# 2) Abundance binning + bootstrap abundance-matched "Others"
+# ---------------------------
+# dynamic breaks that cover both sets
+all_x <- c(patho_df$ddG_pred, non_patho_pool$ddG_pred)
+
+breaks_vec <- seq(min(all_x, na.rm = TRUE),
+                  max(all_x, na.rm = TRUE) + match_window,
+                  by = match_window)
+
+non_patho_pool <- non_patho_pool %>%
+  mutate(bin = cut(ddG_pred, breaks = breaks_vec, include.lowest = TRUE))
+
+patho_df_binned <- patho_df %>%
+  mutate(bin = cut(ddG_pred, breaks = breaks_vec, include.lowest = TRUE))
+
+bin_lookup <- split(non_patho_pool$residuals, non_patho_pool$bin)
+
+bootstrap_matrix <- matrix(NA_real_, nrow = n_boot, ncol = nrow(patho_df_binned))
+
+for (i in seq_len(n_boot)) {
+  for (j in seq_len(nrow(patho_df_binned))) {
+    bin_j <- patho_df_binned$bin[j]
+    candidates <- bin_lookup[[as.character(bin_j)]]
+    if (length(candidates) > 0) {
+      bootstrap_matrix[i, j] <- sample(candidates, 1)
+    }
+  }
+}
+
+boot_df <- tibble(
+  group = "Abundance-matched null (bootstrapped medians)",
+  residuals = apply(bootstrap_matrix, 1, median, na.rm = TRUE)
+)
+
+# ---------------------------
+# 3) Combine into one plotting df (3 violins)
+# ---------------------------
+plot_df <- bind_rows(
+  bp_df %>% dplyr::select(group, residuals),
+  boot_df
+)
+
+desired_order <- c("Benign", "Abundance-matched null (bootstrapped medians)", "Pathogenic")
+plot_df$group <- factor(plot_df$group, levels = desired_order)
+
+custom_colors <- c(
+  "Benign" = "grey70",
+  "Pathogenic" = "firebrick3",
+  "Abundance-matched null (bootstrapped medians)" = "grey30"
+)
+
+# Labels (n + median)
+label_df <- plot_df %>%
+  group_by(group) %>%
+  summarise(
+    n = dplyr::n(),
+    median_val = median(residuals, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    n_label = case_when(
+      group == "Abundance-matched null (bootstrapped medians)" ~ paste0("bootstrapped ", n_boot, "×"),
+      TRUE ~ paste0("n = ", n)
+    )
+  )
+
+# ---------------------------
+# 4) Plot
+# ---------------------------
+p_violin3 <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
+  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
+  stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
+  stat_summary(fun = median, geom = "point", shape = 23, size = 2.5,
+               fill = "black", color = "black", stroke = 0.7) +
+  geom_text(
+    data = label_df,
+    aes(x = group, y = 3, label = n_label),
+    inherit.aes = FALSE,
+    size = 4.5
+  ) +
+  geom_text(
+    data = label_df,
+    aes(x = group, y = median_val + 0.25, label = sprintf("%.2f", median_val)),
+    inherit.aes = FALSE,
+    size = 5
+  ) +
+  scale_fill_manual(values = custom_colors) +
+  labs(
+    title = "BRCA1",
+    x = "",
+    y = "SGE-TMPNN ddGf residuals",
+    fill = ""
+  ) +
+  theme_classic(base_size = 12) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 20, hjust = 1)
+  ) +
+  geom_signif(
+    comparisons = list(
+      c("Benign", "Pathogenic"),
+      c("Pathogenic", "Abundance-matched null (bootstrapped medians)")
+    ),
+    map_signif_level = FALSE,
+    test = "wilcox.test",
+    step_increase = 0.1,
+    textsize = 3,
+    tip_length = 0.01
+  )
+
+p_violin3
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

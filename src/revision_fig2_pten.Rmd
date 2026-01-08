@@ -1268,7 +1268,7 @@ merged_df_residue %>% filter(hotspot == TRUE) %>% pull(mutation_position)
 
 
 ```{r, fig.width=5, fig.height=5}
-half_d <- log(2) 
+half_d <- log(2)   / b  
 #14.48502
 
 #y_cutoff <- a  * exp(- b * half_d)

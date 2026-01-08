@@ -34,7 +34,7 @@ vhl_exp
 ```
 
 ```{r}
-vhl_esm <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/SGE_esm1v/P40337_filtered_with_esm1v.csv")
+vhl_esm <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/SGE_esm1v/P40337_merged.csv")
 table(vhl_esm$clinvar_clinical_significance)
 nrow(vhl_esm)
 
@@ -63,8 +63,10 @@ vhl_df <- vhl_df %>%
     )
   )
 
-plotting_data <- vhl_df %>%
-  drop_na(function_score_final, ESM.1v)
+vhl_df  <- vhl_df %>%
+  drop_na(function_score_final, ESM1v_all_variants) %>% filter (!clinvar_review_status %in% c("0", "0,0", "0,0,0"))
+
+table(vhl_df$clinvar_group)
 ```
 ```{r}
 table(plotting_data$clinvar_simple)

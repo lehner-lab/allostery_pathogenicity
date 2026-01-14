@@ -397,7 +397,7 @@ sum(is.na(non_patho_pool$bin))
 ```
 
 
-```{r}
+```{r, fig.width=5, fig.height=5}
 # ---------------------------
 # 0) Settings
 # ---------------------------

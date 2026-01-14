@@ -72,9 +72,11 @@ ortho_list <- unique(paper_anno %>% filter(orthosteric == TRUE) %>% pull(Pos_rea
 
 ortho_list <- append(ortho_list, c(170 ,192 ,195 ,204 ,209))
 length(ortho_list)
-
+ortho_list
 test_merged_df
 ```
+
+
 ```{r}
 ref_offset <- 158
 esm2_raw <- data.table::fread(file.path(proj_dir, "data/revision/esm2/grb2_sh3_esm2_3b_domain.csv"))
@@ -90,6 +92,12 @@ test_merged_df <- test_merged_df %>%
 
 test_merged_df
 ```
+
+```{r}
+range(test_merged_df$Pos_ref.x)
+test_merged_df %>% filter (Pos_ref.x == 159)
+```
+
 
 ```{r}
 allo_pos <- c(173, 183, 203)

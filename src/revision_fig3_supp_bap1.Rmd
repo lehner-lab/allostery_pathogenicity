@@ -77,7 +77,6 @@ bap1_esm
 unique(bap1_esm$Germline.classification)
 ```
 ```{r}
-bap1_df
 bap1_df <- merge(bap1_exp, bap1_esm, by.x = "variant_pro", by.y = "variant")
 nrow(bap1_df) #2082
 
@@ -183,9 +182,6 @@ p1 <- ggMarginal(
 )
 
 p1
-```
-```{r}
-bap1_df_patho
 ```
 
 
@@ -340,7 +336,7 @@ p5 <- ggplot(bap1_df_clean, aes(x = clinvar_group, y = residuals, fill = clinvar
   ) 
 p5
 ```
-```{r}
+```{r, fig.width=5, fig.height=5}
 # ---------------------------
 # 0) Settings
 # ---------------------------

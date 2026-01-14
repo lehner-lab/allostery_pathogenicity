@@ -98,6 +98,11 @@ stopifnot(nrow(test_merged_df) == 1567)
 ```
 
 ```{r}
+range(test_merged_df$Pos_ref)
+```
+
+
+```{r}
 paper_anno <- read.csv(file.path(proj_dir, "data/cleaned_ddg/pdz3_ddg_cleaned.csv"))
 
 # paper_anno pos_am (domain coords) -> convert to reference coords
@@ -105,6 +110,7 @@ paper_anno <- read.csv(file.path(proj_dir, "data/cleaned_ddg/pdz3_ddg_cleaned.cs
 ortho_list_ref <- unique(paper_anno %>% filter(orthosteric == TRUE) %>% pull(pos_am)) 
 
 ortho_list_ref <- union(ortho_list_ref, c(322, 323, 324, 325, 326, 327, 328, 331, 339, 372, 376, 379, 380))
+ortho_list_ref
 
 allo_list_ref <- c(312, 314, 318, 329, 330, 336, 338, 341, 347, 357, 359, 360, 362, 363, 367, 375, 386, 388)
 

@@ -112,7 +112,7 @@ p1 <- ggplot(brca1_df, aes(x = ddG_pred, y = function_score, color = residuals))
     low = "red", mid = "grey", high = "blue",
     midpoint = 0, limits = c(-3.7, 1.9)) + 
   labs(
-    title = "All 1837 Variants",
+    title = "BRCA1: All 1837 Variants",
     x = "Predicted ddGf",
     y = "SGE score",
     color = "LOESS residuals"
@@ -927,7 +927,7 @@ brca1_df
 ```
 
 
-```{r}
+```{r, fig.width=5, fig.height=5}
 # ---------------------------
 # 0) Settings
 # ---------------------------

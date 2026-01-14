@@ -1,0 +1,2 @@
+prefix,minimum_column_coverage,num_seqs,seqlen,num_cov,num_lc,perc_cov,1st_uc,last_uc,len_cov,num_lc_cov,N_eff
+140b370370a17221489d7c8e78639193_b0.2/align/140b370370a17221489d7c8e78639193_b0.2,0.500,13621,217,199,18,0.917,4,202,199,0,

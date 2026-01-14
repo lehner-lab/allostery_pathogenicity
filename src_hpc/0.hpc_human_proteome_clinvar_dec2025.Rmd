@@ -608,10 +608,11 @@ p3 <- ggplot(summary_df, aes(x = clinvar_clinical_significance, y = percent, fil
         legend.key.size = unit(1.2, "cm"))            # Increase legend box size
 
 p3
-
 ```
 
 ```{r}
+final_df_three_star <- fread("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/00.human_proteome_results/clinvar_all_protein_filtered_with_esm1v_new_at_least_one_three_star.csv")
+
 nrow(final_df_three_star) #1974
 final_df3 <- merge(final_df_three_star, bi_df, by = "uniprot", all.x = TRUE)
 nrow(final_df3) #1974
@@ -636,6 +637,8 @@ clinvar_core_fil_three_star <- clinvar_core_fil_three_star %>%
   mutate(interface_residues = sapply(interface_residues, function(x) paste(x, collapse = ",")))
 
 nrow(clinvar_core_fil_three_star) #879
+
+write.csv(clinvar_core_fil_three_star,"/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/00.human_proteome_results/clinvar_all_protein_filtered_with_esm1v_core_threestar_dec2025.csv", row.names = FALSE)
 
 summary_df_three_star <- clinvar_core_fil_three_star %>%
   mutate(clinvar_clinical_significance = case_when(
@@ -688,7 +691,7 @@ p4
 
 ```{r, fig.width=12, fig.height=7}
 library(cowplot)
-p5 <- plot_grid(p1,p3, ncol=2)
+p3 <- plot_grid(p1,p4, ncol=2)
 
 ggsave("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/git_allostery_pathogenicity/figs/revision/fig1_clinvar_all.pdf", plot = p5, width = 12, height = 7, dpi = 500)
 

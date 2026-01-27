@@ -6,22 +6,22 @@ date: "2026-01-07"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
-
 library(tidyverse)
 library(data.table)
 library(ggrepel)
 library(ggExtra)
 library(cowplot)
-
+library(scatterplot3d)
+library(dplyr)
 # Set paths once
 proj_dir <- "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1"
 setwd(proj_dir)
-
-# Constants
-ref_offset <- 310  # PDZ3 alignment: pos_am 1 corresponds to Pos_ref 311
 ```
 
 ```{r}
+# Constants
+ref_offset <- 310  # PDZ3 alignment: pos_am 1 corresponds to Pos_ref 311
+
 pdz3_ddg <- readr::read_csv(file.path(proj_dir, "data/cleaned_ddg/pdz3_ddg_cleaned_mochi_refit.csv"))
 
 pdz3_ddgb <- pdz3_ddg %>%
@@ -64,7 +64,7 @@ make_variant_id <- function(wt, pos, mt) paste0(wt, pos, mt)
 test_df <- test_ddg %>%
 as_tibble() %>%
 mutate(
-Pos_ref = position + 1, # your file is 0-based -> 1-based
+Pos_ref = position + 1, # 
 variant_match = make_variant_id(wildtype, Pos_ref, mutation)
 ) %>%
 left_join(test_esm %>% as_tibble(), by = c("variant_match" = "variant"))
@@ -162,18 +162,17 @@ test_residue <- test_merged_df %>%
             .groups = "drop") %>%
   mutate(site_type = case_when(Pos_ref %in% ortho_list_ref ~ "Binding site",
                                Pos_ref %in% allo_list_ref  ~ "Allosteric site",
-                               Pos_ref %in% core_pos ~ "Core site",
+                               #Pos_ref %in% core_pos ~ "Core site",
                                TRUE                        ~ "Non-orthosteric site"))
 
 stopifnot(nrow(test_residue) == 84)
 ```
 
-```{r, fig.width=16, fig.height=4}
+```{r, fig.width=8, fig.height=4}
 site_cols <- c(
-"Non-orthosteric site" = "darkgreen",
-"Allosteric site"      = "cyan",
-"Binding site"         = "orange",
-"Core site" = "red"
+"Non-orthosteric site" = "#8DAA9D",
+"Allosteric site"      = "#4DBBD5",
+"Binding site"         = "#E69F00"
 )
 
 make_panel <- function(df, x, y, title, xlab, ylab, label_positions = TRUE) {
@@ -230,16 +229,13 @@ p1m <- ggExtra::ggMarginal(p1, type="density", margins="both", size=10, colour="
 p2m <- ggExtra::ggMarginal(p2, type="density", margins="both", size=10, colour="grey", fill="lightgrey")
 p3m <- ggExtra::ggMarginal(p3, type="density", margins="both", size=10, colour="grey", fill="lightgrey")
 p4m <- ggExtra::ggMarginal(p4, type="density", margins="both", size=10, colour="grey", fill="lightgrey")
-
-p5 <- cowplot::plot_grid(p1m, p2m, p3m, p4m, ncol = 4)
-p5
 ```
 
 ```{r, fig.width=16, fig.height=4}
 site_cols <- c(
-"Non-orthosteric site" = "darkgreen",
-"Allosteric site"      = "cyan",
-"Binding site"         = "orange"
+"Non-orthosteric site" = "#8DAA9D",
+"Allosteric site"      = "#4DBBD5",
+"Binding site"         = "#E69F00"
 )
 
 make_panel <- function(df, x, y, title, xlab, ylab, label_positions = TRUE) {
@@ -296,36 +292,52 @@ p1m <- ggExtra::ggMarginal(p1, type="density", margins="both", size=10, colour="
 p2m <- ggExtra::ggMarginal(p2, type="density", margins="both", size=10, colour="grey", fill="lightgrey")
 p3m <- ggExtra::ggMarginal(p3, type="density", margins="both", size=10, colour="grey", fill="lightgrey")
 p4m <- ggExtra::ggMarginal(p4, type="density", margins="both", size=10, colour="grey", fill="lightgrey")
-
-p5 <- cowplot::plot_grid(p1m, p2m, p3m, p4m, ncol = 4)
-p5
-```
-
-```{r}
-pdz3_ddgb
 ```
 
 
-```{r, fig.width=16, fig.height=4}
+```{r, fig.width=8, fig.height=4}
 cor.test(test_residue$esm1v_median, test_residue$ddgb_median, method="spearman") #-0.7121798
+# data:  test_residue$esm1v_median and test_residue$ddgb_median
+# S = 169112, p-value < 2.2e-16
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.7121798 
 cor.test(test_residue$esm2_median, test_residue$ddgb_median, method="spearman") #-0.7060646 
+# data:  test_residue$esm2_median and test_residue$ddgb_median
+# S = 168508, p-value < 2.2e-16
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.7060646 
 cor.test(test_residue$resid_median_esm1v, test_residue$ddgb_median, method="spearman") #-0.4115015 
+# data:  test_residue$resid_median_esm1v and test_residue$ddgb_median
+# S = 139414, p-value = 0.0001157
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.4115015
 cor.test(test_residue$resid_median_esm2, test_residue$ddgb_median, method="spearman") #-0.4405589
+# data:  test_residue$resid_median_esm2 and test_residue$ddgb_median
+# S = 142284, p-value = 3.313e-05
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.4405589
 
 p6 <- ggplot(test_residue, aes(x = ddgb_median , y = esm1v_median, color = site_type)) +
   geom_point(size = 2, alpha = 0.5) +
   labs(
     title = "PSD-95-PDZ3: 84 residues",
-    subtitle = "Spearman's rho = -0.71",
+    subtitle = "Spearman's rho = -0.71 (p < 2.2e-16)",
     x = "Experimental median ddGb",
     y = "Median ESM1v",
     color = "") +
   theme_classic() +
   scale_color_manual(values = c(
-    "Non-orthosteric site" = "darkgreen",
-    "Allosteric site" = "cyan",
-    "Binding site" = "orange",
-    "Core site" = "red"
+    "Non-orthosteric site" = "#8DAA9D",
+    "Allosteric site" = "#4DBBD5",
+    "Binding site" = "#E69F00"
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
@@ -334,16 +346,15 @@ p7 <- ggplot(test_residue, aes(x = ddgb_median , y = esm2_median, color = site_t
   geom_point(size = 2, alpha = 0.5) +
   labs(
     title = "PSD-95-PDZ3: 84 residues",
-    subtitle = "Spearman's rho = -0.71",
+    subtitle = "Spearman's rho = -0.71 (p < 2.2e-16)",
     x = "Experimental median ddGb",
     y = "Median ESM2",
     color = "") +
   theme_classic() +
   scale_color_manual(values = c(
-    "Non-orthosteric site" = "darkgreen",
-    "Allosteric site" = "cyan",
-    "Binding site" = "orange",
-    "Core site" = "red"
+    "Non-orthosteric site" = "#8DAA9D",
+    "Allosteric site" = "#4DBBD5",
+    "Binding site" = "#E69F00"
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
@@ -352,16 +363,15 @@ p8 <- ggplot(test_residue, aes(x = ddgb_median , y = resid_median_esm1v, color =
   geom_point(size = 2, alpha = 0.5) +
   labs(
     title = "PSD-95-PDZ3: 84 residues",
-    subtitle = "Spearman's rho = -0.41",
+    subtitle = "Spearman's rho = -0.41 (p = 0.0001)",
     x = "Experimental median ddGb",
     y = "Median ESM1v-ddGf residual",
     color = "") +
   theme_classic() +
   scale_color_manual(values = c(
-    "Non-orthosteric site" = "darkgreen",
-    "Allosteric site" = "cyan",
-    "Binding site" = "orange",
-    "Core site" = "red"
+    "Non-orthosteric site" = "#8DAA9D",
+    "Allosteric site" = "#4DBBD5",
+    "Binding site" = "#E69F00"
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
@@ -370,93 +380,182 @@ p9 <- ggplot(test_residue, aes(x = ddgb_median , y = resid_median_esm2, color = 
   geom_point(size = 2, alpha = 0.5) +
   labs(
     title = "PSD-95-PDZ3: 84 residues",
-    subtitle = "Spearman's rho = -0.44",
+    subtitle = "Spearman's rho = -0.44 (p = 3.313e-05)",
     x = "Experimental median ddGb",
     y = "Median ESM2-ddGf residual",
     color = "") +
   theme_classic() +
   scale_color_manual(values = c(
-    "Non-orthosteric site" = "darkgreen",
-    "Allosteric site" = "cyan",
-    "Binding site" = "orange",
-    "Core site" = "red"
+    "Non-orthosteric site" = "#8DAA9D",
+    "Allosteric site" = "#4DBBD5",
+    "Binding site" = "#E69F00"
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
 
-plot_grid(p6,p7,p8,p9,ncol=4)
+p10 <- plot_grid(p6,p7,ncol=2)
+p10
 ```
 ```{r}
-df_core   <- test_residue %>% filter(site_type == "Core site")
-
-wilcox.test(df_bind$esm1v_median, df_core$esm1v_median)
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_pdz3_esm2.pdf", 
+       plot = p10, width = 6, height = 3, dpi = 300)
 ```
-
 
 ```{r}
-setdiff(core_pos, allo_list_ref)
-setdiff(allo_list_ref, core_pos)
-intersect(allo_list_ref, core_pos)
-```
-
-
-```{r, fig.width=8, fig.height=4}
-cor.test(test_residue$esm1v_median, test_residue$ddgf_median, method="spearman") #-0.453984
-cor.test(test_residue$esm2_median, test_residue$ddgf_median, method="spearman") #-0.45854
-
+cor.test(test_residue$esm1v_median, test_residue$ddgf_median, method="spearman") 
+# data:  test_residue$esm1v_median and test_residue$ddgf_median
+# S = 143610, p-value = 1.792e-05
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#       rho 
+# -0.453984 
+cor.test(test_residue$esm1v_median, test_residue$esm2_median, method="spearman") 
+# data:  test_residue$esm1v_median and test_residue$esm2_median
+# S = 13614, p-value < 2.2e-16
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#       rho 
+# 0.8621646 
 p11 <- ggplot(test_residue, aes(x = ddgf_median , y = esm1v_median, color = site_type)) +
   geom_point(size = 2, alpha = 0.5) +
   labs(
     title = "PSD-95-PDZ3: 84 residues",
-    subtitle = "Spearman's rho = -0.45",
+    subtitle = "Spearman's rho = -0.45 (p = 1.792e-05)",
     x = "Experimental median ddGf",
     y = "Median ESM1v",
     color = "") +
   theme_classic() +
   scale_color_manual(values = c(
-    "Non-orthosteric site" = "darkgreen",
-    "Allosteric site" = "cyan",
-    "Binding site" = "orange"
+    "Non-orthosteric site" = "#8DAA9D",
+    "Allosteric site" = "#4DBBD5",
+    "Binding site" = "#E69F00"
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
 
-p12 <- ggplot(test_residue, aes(x = ddgf_median , y = esm2_median, color = site_type)) +
+p12 <- ggplot(test_residue, aes(x = esm1v_median , y = esm2_median, color = site_type)) +
   geom_point(size = 2, alpha = 0.5) +
   labs(
     title = "PSD-95-PDZ3: 84 residues",
-    subtitle = "Spearman's rho = -0.45",
-    x = "Experimental median ddGf",
-    y = "Median ESM2",
+    subtitle = "Spearman's rho = 0.86 (p < 2.2e-16)",
+    x = "Median ESM-1v",
+    y = "Median ESM2-",
     color = "") +
   theme_classic() +
   scale_color_manual(values = c(
-    "Non-orthosteric site" = "darkgreen",
-    "Allosteric site" = "cyan",
-    "Binding site" = "orange"
+    "Non-orthosteric site" = "#8DAA9D",
+    "Allosteric site" = "#4DBBD5",
+    "Binding site" = "#E69F00"
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
 
-plot_grid(p11,p12,ncol=2)
+p13 <- plot_grid(p11,p12, ncol=2)
+p13
+```
+```{r}
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_pdz3_esm2_ddgf.pdf", 
+       plot = p13, width = 6, height = 3, dpi = 300)
 ```
 
 
+```{r, fig.width=5, fig.height=5}
 
+df_plot <- test_residue %>%
+  transmute(
+    Pos_ref,
+    ddgf_median = as.numeric(ddgf_median),
+    ddgb_median = as.numeric(ddgb_median),
+    esm1v_median = as.numeric(esm1v_median)
+  ) %>%
+  filter(if_all(c(ddgf_median, ddgb_median, esm1v_median), ~ !is.na(.)))
 
+# Color mapping: red (low) → grey → blue (high)
+pal <- colorRampPalette(c("red", "grey90", "blue"))(256)
+rng <- range(df_plot$esm1v_median, na.rm = TRUE)
+scaled <- (df_plot$esm1v_median - rng[1]) / (rng[2] - rng[1] + 1e-12)
+cols <- pal[pmax(1, pmin(256, floor(scaled * 255) + 1))]
 
+# 3D scatter
+scatterplot3d(
+  x = df_plot$ddgf_median,
+  y = df_plot$ddgb_median,
+  z = df_plot$esm1v_median,
+  pch = 16,
+  color = cols,
+  xlab = "Median ddGf",
+  ylab = "Median ddGb",
+  zlab = "Median ESM1v",
+  angle = 50,                     # ⬅ tilt / rotation (try 30–70)
+  main = "PSD95-PDZ3"
+)
 
+# Legend (fix low/high ordering)
+legend(
+  "topright",
+  legend = c(
+    sprintf("Low ESM1v (%.2f)", rng[1]),
+    sprintf("High ESM1v (%.2f)", rng[2])
+  ),
+  pch = 16,
+  col = c("red", "blue"),
+  bty = "n"
+)
+```
 
+```{r, fig.width=5, fig.height=5}
+# 1. Prepare Data 
+df_plot <- test_residue %>%
+  transmute(
+    Pos_ref,
+    ddgf_median = as.numeric(ddgf_median),
+    ddgb_median = as.numeric(ddgb_median),
+    esm2_median = as.numeric(esm2_median)
+  ) %>%
+  filter(if_all(c(ddgf_median, ddgb_median, esm2_median), ~ !is.na(.)))
 
+# 2. Open the PDF Device
+pdf(file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_pdz3_3d.pdf", width = 4, height = 4)
 
+# ---- Start Plotting Code ----
 
+# Color mapping
+pal <- colorRampPalette(c("red", "grey90", "blue"))(256)
+rng <- range(df_plot$esm2_median, na.rm = TRUE)
+scaled <- (df_plot$esm2_median - rng[1]) / (rng[2] - rng[1] + 1e-12)
+cols <- pal[pmax(1, pmin(256, floor(scaled * 255) + 1))]
 
+# 3D scatter
+p_3d <- scatterplot3d(
+  x = df_plot$ddgf_median,
+  y = df_plot$ddgb_median,
+  z = df_plot$esm2_median,
+  pch = 16,
+  color = cols,
+  xlab = "Median ddGf",
+  ylab = "Median ddGb",
+  zlab = "Median ESM2",
+  angle = 50,
+  main = "PSD95-PDZ3"
+)
 
+# Legend
+legend(
+  "topright",
+  legend = c(
+    sprintf("Low ESM2 (%.2f)", rng[1]),
+    sprintf("High ESM2 (%.2f)", rng[2])
+  ),
+  pch = 16,
+  col = c("red", "blue"),
+  bty = "n"
+)
 
+# ---- End Plotting Code ----
 
-
-
-
+# 3. Close the device to save the file
+dev.off()
+```
 
 
 

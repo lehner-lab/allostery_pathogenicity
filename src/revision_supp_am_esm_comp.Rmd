@@ -1,0 +1,492 @@
+---
+title: "revision_supp_am_esm_comp.Rmd"
+output: html_document
+date: "2026-01-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+library('ProjectTemplate')
+library(ggExtra)
+library(bio3d)
+library(ggrepel)
+```
+
+```{r, fig.width=5, fig.height=5}
+analyze_ddg_vs_esm1v <- function(ddg_file, esm_file, protein_name = "Protein") {
+  # Load data
+  test_ddg <- fread(ddg_file)
+  test_esm <- fread(esm_file)
+  
+  # Prepare ESM1v column
+  colnames(test_esm)[2] <- "ESM1v"
+  
+  # Construct variant column in ddg data
+  test_ddg[, new_position := pos + 1]
+  test_ddg[, variant := paste0(wtAA, new_position, mutAA)]
+  
+  # Merge on variant
+  test_df <- merge(test_ddg, test_esm, by = "variant")
+  
+  # Rename ddG column
+  test_df <- test_df %>% dplyr::rename(ddG_pred = `ddG (kcal/mol)`)
+  
+  # Spearman correlation
+  spearman_rho <- cor.test(test_df$ddG_pred, test_df$ESM1v, method = "spearman")
+  rho_value <- round(spearman_rho$estimate, 2)
+  
+  # Plot
+  p <- ggplot(test_df, aes(x = ddG_pred, y = ESM1v)) +
+    geom_bin2d(bins = 100) +
+    scale_fill_continuous(type = "viridis") +
+    theme_classic() +
+    labs(
+      x = "Predicted ddGf",
+      y = "ESM1v",
+      title = protein_name,
+      subtitle = paste("Spearman's rho =", rho_value)
+    ) +
+    theme(
+      text = element_text(size = 12),
+      legend.position = "right"
+    )
+  
+  # Output
+  list(
+    spearman_rho = spearman_rho,
+    plot = p,
+    merged_data = test_df
+  )
+}
+chk1_pred <- analyze_ddg_vs_esm1v(
+  ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/CHK1/AF-O14757-F1-model_v4.csv",
+  esm_file = "/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/O14757.csv",
+  protein_name = "CHK1"
+)
+```
+
+```{r, fig.width=5, fig.height=5}
+plot_loess_residuals_esm1v <- function(test_df, active_site_positions,
+                                 span = 0.7, protein_name = "chk1") {
+  
+  # Filter out active site positions
+  test_df_fil <- test_df %>% filter(!new_position %in% active_site_positions)
+  
+  # Fit loess model on filtered data
+  loess_fit <- loess(ESM1v ~ ddG_pred, data = test_df_fil, span = span, family = "symmetric")
+  
+  # Predict on all data
+  test_df$fitted_pred <- predict(loess_fit, newdata = test_df)
+  test_df$residuals_pred <- test_df$ESM1v - test_df$fitted_pred
+  
+  # Fit line data for the smooth curve
+  fit_line_df <- data.frame(
+    ddG_pred = seq(0,
+                   max(test_df$ddG_pred, na.rm = TRUE),
+                   length.out = 200)
+  )
+  fit_line_df$ESM1v <- predict(loess_fit, newdata = fit_line_df)
+  
+  # Spearman correlation
+  spearman_result <- suppressWarnings(cor.test(test_df$ddG_pred, test_df$ESM1v, method = "spearman"))
+  spearman_rho <- spearman_result$estimate
+  spearman_p <- spearman_result$p.value
+  
+  # Axis and color scale limits
+  xlim_vals <- range(test_df$ddG_pred, na.rm = TRUE)
+  ylim_vals <- range(test_df$ESM1v, na.rm = TRUE)
+  resid_limit <- max(abs(test_df$residuals_pred), na.rm = TRUE)
+  
+  # Main plot
+  p <- ggplot(test_df, aes(x = ddG_pred , y = ESM1v, color = residuals_pred)) +
+    geom_point(size = 2, alpha = 0.35) +
+    geom_line(data = fit_line_df, aes(x = ddG_pred, y = ESM1v),
+              inherit.aes = FALSE, color = "black", linewidth = 0.6) +
+    labs(
+      title = paste0(protein_name, ": ", nrow(test_df), " mutations"),
+      subtitle = paste0("Spearman's rho = ", round(spearman_rho, 2)),
+      x = "ThermoMPNN predicted ddGf",
+      y = "ESM1v Pathogenicity",
+      color = "ESM1v-ddGf residuals"
+    ) +
+    theme_classic() +
+    xlim(xlim_vals) +
+    ylim(ylim_vals) +
+    scale_color_gradient2(
+      low = "red", mid = "grey", high = "blue", midpoint = 0,
+      limits = c(-resid_limit, resid_limit), name = "Residuals"
+    ) +
+    theme(legend.position = "left")
+  
+  # Add marginal density plots
+  p_marginal <- ggMarginal(
+    p,
+    type = "density",
+    margins = "both",
+    groupColour = FALSE,
+    groupFill = FALSE,
+    size = 10,
+    colour = "grey",
+    fill = "lightgrey"
+  )
+  
+  return(list(
+    plot = p_marginal,
+    data = test_df
+  ))
+}
+
+chk1_pred_residual_esm1v <- plot_loess_residuals_esm1v(chk1_pred$merged_data, active_site_positions = c(15,  16,  23 , 36 , 38 , 55,  59 , 68 , 84 , 85 , 86,  87 , 88 , 89 , 90 , 91,  94 ,137 ,147 ,148 ,149 ,150), protein_name = "CHK1")
+p1 <- chk1_pred_residual_esm1v$plot
+p1
+```
+```{r}
+epsilon <- 1e-5
+
+analyze_ddg_vs_am <- function(ddg_file, am_file, protein_name = "Protein") {
+  # Load data
+  test_ddg <- fread(ddg_file)
+  test_am <- fread(am_file)
+  colnames(test_am)[1] <- "variant"
+  colnames(test_am)[2] <- "AM"  # Rename second column to AM
+  
+  # Clamp AM scores and compute logits
+  test_am[, AM_clamped := pmin(pmax(AM, epsilon), 1 - epsilon)]
+  test_am[, AM_logit := log(AM_clamped / (1 - AM_clamped))]
+  
+  # Adjust position and create variant for merging
+  test_ddg[, new_position := pos + 1]
+  test_ddg[, variant := paste0(wtAA, new_position, mutAA)]
+  
+  # Merge ddG and AM data
+  test_df <- merge(test_ddg, test_am, by = "variant")
+  test_df <- test_df %>% dplyr::rename(ddG_pred = `ddG (kcal/mol)`)
+  
+  # Spearman correlation
+  spearman_rho <- cor.test(test_df$ddG_pred, test_df$AM_logit, method = "spearman")
+  rho_value <- round(spearman_rho$estimate, 2)
+  
+  # Plot
+  p <- ggplot(test_df, aes(x = ddG_pred, y = AM_logit)) +
+    geom_bin2d(bins = 100) +
+    scale_fill_continuous(type = "viridis") +
+    theme_classic() +
+    labs(
+      x = "Predicted ddGf",
+      y = "AM logit",
+      title = protein_name,
+      subtitle = paste("Spearman's rho =", rho_value)
+    ) +
+    theme(
+      text = element_text(size = 12),
+      legend.position = "right"
+    )
+  
+  # Output
+  list(
+    spearman_rho = spearman_rho,
+    plot = p,
+    merged_data = test_df
+  )
+}
+chk1_pred_am <- analyze_ddg_vs_am(
+  ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/CHK1/AF-O14757-F1-model_v4.csv",
+  am_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/fig5_am/O14757.csv",
+  protein_name = "CHK1"
+)
+```
+
+```{r}
+plot_loess_residuals <- function(test_df, active_site_positions,
+                                 span = 0.7, protein_name = "GCK") {
+  
+  # 1. Invert AM_logit immediately so all downstream analysis uses the negative value
+  test_df$AM_logit <- test_df$AM_logit * (-1)
+  
+  # Filter out active site positions
+  test_df_fil <- test_df %>% filter(!new_position %in% active_site_positions)
+  
+  # Fit loess model on filtered data (using the inverted AM_logit)
+  loess_fit <- loess(AM_logit ~ ddG_pred, data = test_df_fil, span = span, family = "symmetric")
+  
+  # Predict on all data
+  test_df$fitted_pred <- predict(loess_fit, newdata = test_df)
+  test_df$residuals_pred <- test_df$AM_logit - test_df$fitted_pred
+  
+  # Fit line data for the smooth curve
+  fit_line_df <- data.frame(
+    ddG_pred = seq(0,
+                   max(test_df$ddG_pred, na.rm = TRUE),
+                   length.out = 200)
+  )
+  fit_line_df$AM_logit <- predict(loess_fit, newdata = fit_line_df)
+  
+  # Spearman correlation (will reflect the inverted relationship)
+  spearman_result <- suppressWarnings(cor.test(test_df$ddG_pred, test_df$AM_logit, method = "spearman"))
+  spearman_rho <- spearman_result$estimate
+  spearman_p <- spearman_result$p.value
+  
+  # Axis and color scale limits
+  xlim_vals <- range(test_df$ddG_pred, na.rm = TRUE)
+  ylim_vals <- range(test_df$AM_logit, na.rm = TRUE)
+  resid_limit <- max(abs(test_df$residuals_pred), na.rm = TRUE)
+  
+  # Main plot
+  p <- ggplot(test_df, aes(x = ddG_pred , y = AM_logit, color = residuals_pred)) +
+    geom_point(size = 2, alpha = 0.35) +
+    geom_line(data = fit_line_df, aes(x = ddG_pred, y = AM_logit),
+              inherit.aes = FALSE, color = "black", linewidth = 0.6) +
+    labs(
+      title = paste0(protein_name, ": ", nrow(test_df), " mutations"),
+      subtitle = paste0("Spearman's rho = ", round(spearman_rho, 2)),
+      x = "ThermoMPNN predicted ddGf",
+      y = "-AM_logit",  # Updated label to reflect the inversion
+      color = "Residuals"
+    ) +
+    theme_classic() +
+    xlim(xlim_vals) +
+    ylim(ylim_vals) +
+    scale_color_gradient2(
+      low = "red", mid = "grey", high = "blue", midpoint = 0,
+      limits = c(-resid_limit, resid_limit), name = "Residuals"
+    ) +
+    theme(legend.position = "left")
+  
+  # Add marginal density plots
+  p_marginal <- ggMarginal(
+    p,
+    type = "density",
+    margins = "both",
+    groupColour = FALSE,
+    groupFill = FALSE,
+    size = 10,
+    colour = "grey",
+    fill = "lightgrey"
+  )
+  
+  return(list(
+    plot = p_marginal,
+    data = test_df
+  ))
+}
+
+chk1_pred_residual <- plot_loess_residuals(
+  chk1_pred_am$merged_data, 
+  active_site_positions = c(15,  16,  23 , 36 , 38 , 55,  59 , 68 , 84 , 85 , 86,  87 , 88 , 89 , 90 , 91,  94 ,137 ,147 ,148 ,149 ,150), 
+  protein_name = "CHK1"
+)
+```
+
+
+```{r}
+nrow(chk1_pred_residual$data)
+nrow(chk1_pred_residual_esm1v$data)
+
+chk1_pred_residual$data <- chk1_pred_residual$data %>% dplyr::rename(residuals_pred_am = residuals_pred)
+chk1_pred_residual_esm1v$data <- chk1_pred_residual_esm1v$data %>% dplyr::rename(residuals_pred_esm = residuals_pred)
+
+chk1_merged <- merge(chk1_pred_residual$data, chk1_pred_residual_esm1v$data, by = "variant")
+cor.test(chk1_merged$residuals_pred_am, chk1_merged$residuals_pred_esm, method = "spearman")
+# data:  chk1_merged$residuals_pred_am and chk1_merged$residuals_pred_esm
+# S = 4.2215e+10, p-value < 2.2e-16
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#       rho 
+# 0.6574832 
+```
+```{r}
+casp1_pred <- analyze_ddg_vs_esm1v(
+  ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/CASP1/AF-P29466-F1-model_v4.csv",
+  esm_file = "/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P29466.csv",
+  protein_name = "casp1"
+)
+
+casp1_pred_residual_esm1v <- plot_loess_residuals_esm1v(casp1_pred$merged_data, active_site_positions = c(179, 235, 236, 237, 238, 239, 283, 284, 285, 338, 339, 340, 341, 342,343, 347 ,348, 383), protein_name = "casp1")
+
+casp1_pred_am <- analyze_ddg_vs_am(
+  ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/CASP1/AF-P29466-F1-model_v4.csv",
+  am_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/fig5_am/P29466.csv",
+  protein_name = "casp1"
+)
+
+casp1_pred_residual <- plot_loess_residuals(
+  casp1_pred_am$merged_data, 
+  active_site_positions = c(179, 235, 236, 237, 238, 239, 283, 284, 285, 338, 339, 340, 341, 342,343, 347 ,348, 383), 
+  protein_name = "casp1"
+)
+```
+
+```{r}
+nrow(casp1_pred_residual$data)
+nrow(casp1_pred_residual_esm1v$data)
+
+casp1_pred_residual$data <- casp1_pred_residual$data %>% dplyr::rename(residuals_pred_am = residuals_pred)
+casp1_pred_residual_esm1v$data <- casp1_pred_residual_esm1v$data %>% dplyr::rename(residuals_pred_esm = residuals_pred)
+
+casp1_merged <- merge(casp1_pred_residual$data, casp1_pred_residual_esm1v$data, by = "variant")
+cor.test(casp1_merged$residuals_pred_am, casp1_merged$residuals_pred_esm, method = "spearman")
+# data:  casp1_merged$residuals_pred_am and casp1_merged$residuals_pred_esm
+# S = 2.6303e+10, p-value < 2.2e-16
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#       rho 
+# 0.6510637 
+```
+```{r}
+idh_pred <- analyze_ddg_vs_esm1v(
+  ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/IDH/AF-O75874-F1-model_v4.csv",
+  esm_file = "/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/O75874.csv",
+  protein_name = "idh"
+)
+
+idh_pred_residual_esm1v <- plot_loess_residuals_esm1v(idh_pred$merged_data, active_site_positions = c(15,  16,  17,  18,  19,  21 , 22,  23,  44,  45,  71 , 72 , 73 , 74 , 75 , 76 , 77 , 78 , 79,  80,  81,  82,  83 , 85 , 86 , 91 , 92,  93 , 94 , 95 , 96,  97,  98,  99 ,100, 107, 109, 121, 122, 123, 252,253 ,254, 255, 256, 257, 258, 259, 260 ,276 ,279 ,280 ,281, 282, 283 ,284, 285, 286 ,287, 288 ,289 ,291 ,292 ,293, 294, 295 ,304 ,305 ,306 ,307 ,308, 309, 310, 311, 312, 313, 314, 315 ,316, 317, 325, 326,327, 328 ,329, 330 ,331 ,332, 333 ,334 ,335 ,372, 373, 374 ,375 ,376, 377, 393, 394, 397), protein_name = "idh")
+
+idh_pred_am <- analyze_ddg_vs_am(
+  ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/IDH/AF-O75874-F1-model_v4.csv",
+  am_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/fig5_am/O75874.csv",
+  protein_name = "idh"
+)
+
+idh_pred_residual <- plot_loess_residuals(
+  idh_pred_am$merged_data, 
+  active_site_positions = c(15,  16,  17,  18,  19,  21 , 22,  23,  44,  45,  71 , 72 , 73 , 74 , 75 , 76 , 77 , 78 , 79,  80,  81,  82,  83 , 85 , 86 , 91 , 92,  93 , 94 , 95 , 96,  97,  98,  99 ,100, 107, 109, 121, 122, 123, 252,253 ,254, 255, 256, 257, 258, 259, 260 ,276 ,279 ,280 ,281, 282, 283 ,284, 285, 286 ,287, 288 ,289 ,291 ,292 ,293, 294, 295 ,304 ,305 ,306 ,307 ,308, 309, 310, 311, 312, 313, 314, 315 ,316, 317, 325, 326,327, 328 ,329, 330 ,331 ,332, 333 ,334 ,335 ,372, 373, 374 ,375 ,376, 377, 393, 394, 397), 
+  protein_name = "idh"
+)
+```
+
+```{r}
+nrow(idh_pred_residual$data)
+nrow(idh_pred_residual_esm1v$data)
+
+idh_pred_residual$data <- idh_pred_residual$data %>% dplyr::rename(residuals_pred_am = residuals_pred)
+idh_pred_residual_esm1v$data <- idh_pred_residual_esm1v$data %>% dplyr::rename(residuals_pred_esm = residuals_pred)
+
+idh_merged <- merge(idh_pred_residual$data, idh_pred_residual_esm1v$data, by = "variant")
+cor.test(idh_merged$residuals_pred_am, idh_merged$residuals_pred_esm, method = "spearman")
+# data:  idh_merged$residuals_pred_am and idh_merged$residuals_pred_esm
+# S = 1.6929e+10, p-value < 2.2e-16
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#       rho 
+# 0.7912986 
+```
+
+```{r}
+gck_pred <- analyze_ddg_vs_esm1v(
+  ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/GCK/AF-P35557-F1-model_v4.csv",
+  esm_file = "/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P35557.csv",
+  protein_name = "GCK"
+)
+
+gck_pred_residual_esm1v <- plot_loess_residuals_esm1v(gck_pred$merged_data, active_site_positions =  c(80, 151, 152, 153, 168, 169, 204, 205, 206, 225, 229, 230, 231, 256, 258), protein_name = "GCK")
+
+gck_pred_am <- analyze_ddg_vs_am(
+  ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/GCK/AF-P35557-F1-model_v4.csv",
+  am_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/fig5_am/P35557.csv",
+  protein_name = "GCK"
+)
+
+gck_pred_residual <- plot_loess_residuals(
+  gck_pred_am$merged_data, 
+  active_site_positions =  c(80, 151, 152, 153, 168, 169, 204, 205, 206, 225, 229, 230, 231, 256, 258), 
+  protein_name = "GCK"
+)
+```
+
+```{r}
+nrow(gck_pred_residual$data)
+nrow(gck_pred_residual_esm1v$data)
+
+gck_pred_residual$data <- gck_pred_residual$data %>% dplyr::rename(residuals_pred_am = residuals_pred)
+gck_pred_residual_esm1v$data <- gck_pred_residual_esm1v$data %>% dplyr::rename(residuals_pred_esm = residuals_pred)
+
+gck_merged <- merge(gck_pred_residual$data, gck_pred_residual_esm1v$data, by = "variant")
+cor.test(gck_merged$residuals_pred_am, gck_merged$residuals_pred_esm, method = "spearman")
+# data:  gck_merged$residuals_pred_am and gck_merged$residuals_pred_esm
+# S = 2.5348e+10, p-value < 2.2e-16
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#       rho 
+# 0.7794625 
+```
+```{r}
+ptp1b_pred <- analyze_ddg_vs_esm1v(
+  ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/PTP1B/AF-P18031-F1-model_v4.csv",
+  esm_file = "/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P18031.csv",
+  protein_name = "ptp1b"
+)
+
+ptp1b_pred_residual_esm1v <- plot_loess_residuals_esm1v(ptp1b_pred$merged_data, active_site_positions =  c(21 , 23,  24,  25,  26,  28 , 29,  45,  46,  47 , 48 , 49,  50,  85,  86, 110, 111, 120, 180, 181, 182, 183 ,214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 254, 257, 258,259, 260, 261, 262), protein_name = "ptp1b")
+
+ptp1b_pred_am <- analyze_ddg_vs_am(
+  ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/PTP1B/AF-P18031-F1-model_v4.csv",
+  am_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/fig5_am/P18031.csv",
+  protein_name = "ptp1b"
+)
+
+ptp1b_pred_residual <- plot_loess_residuals(
+  ptp1b_pred_am$merged_data, 
+  active_site_positions =  c(21 , 23,  24,  25,  26,  28 , 29,  45,  46,  47 , 48 , 49,  50,  85,  86, 110, 111, 120, 180, 181, 182, 183 ,214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 254, 257, 258,259, 260, 261, 262), 
+  protein_name = "ptp1b"
+)
+```
+
+```{r}
+nrow(ptp1b_pred_residual$data)
+nrow(ptp1b_pred_residual_esm1v$data)
+
+ptp1b_pred_residual$data <- ptp1b_pred_residual$data %>% dplyr::rename(residuals_pred_am = residuals_pred)
+ptp1b_pred_residual_esm1v$data <- ptp1b_pred_residual_esm1v$data %>% dplyr::rename(residuals_pred_esm = residuals_pred)
+
+ptp1b_merged <- merge(ptp1b_pred_residual$data, ptp1b_pred_residual_esm1v$data, by = "variant")
+cor.test(ptp1b_merged$residuals_pred_am, ptp1b_merged$residuals_pred_esm, method = "spearman")
+# data:  ptp1b_merged$residuals_pred_am and ptp1b_merged$residuals_pred_esm
+# S = 2.7331e+10, p-value < 2.2e-16
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#       rho 
+# 0.7094361 
+```
+```{r}
+pdk1_pred <- analyze_ddg_vs_esm1v(
+  ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/PDK1/AF-O15530-F1-model_v4.csv",
+  esm_file = "/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/O15530.csv",
+  protein_name = "pdk1"
+)
+
+pdk1_pred_residual_esm1v <- plot_loess_residuals_esm1v(pdk1_pred$merged_data, active_site_positions =  c(88 , 89,  90,  91,  92,  93,  94 , 95,  96 ,109, 111, 143 ,159, 160, 161, 162, 165 ,166, 209, 210, 212,223), protein_name = "pdk1")
+
+pdk1_pred_am <- analyze_ddg_vs_am(
+  ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/PDK1/AF-O15530-F1-model_v4.csv",
+  am_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/fig5_am/O15530.csv",
+  protein_name = "pdk1"
+)
+
+pdk1_pred_residual <- plot_loess_residuals(
+  pdk1_pred_am$merged_data, 
+  active_site_positions =  c(88 , 89,  90,  91,  92,  93,  94 , 95,  96 ,109, 111, 143 ,159, 160, 161, 162, 165 ,166, 209, 210, 212,223), 
+  protein_name = "pdk1"
+)
+```
+
+```{r}
+nrow(pdk1_pred_residual$data)
+nrow(pdk1_pred_residual_esm1v$data)
+
+pdk1_pred_residual$data <- pdk1_pred_residual$data %>% dplyr::rename(residuals_pred_am = residuals_pred)
+pdk1_pred_residual_esm1v$data <- pdk1_pred_residual_esm1v$data %>% dplyr::rename(residuals_pred_esm = residuals_pred)
+
+pdk1_merged <- merge(pdk1_pred_residual$data, pdk1_pred_residual_esm1v$data, by = "variant")
+cor.test(pdk1_merged$residuals_pred_am, pdk1_merged$residuals_pred_esm, method = "spearman")
+# data:  pdk1_merged$residuals_pred_am and pdk1_merged$residuals_pred_esm
+# S = 7.8891e+10, p-value < 2.2e-16
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#      rho 
+# 0.598495 
+```
+
+
+
+

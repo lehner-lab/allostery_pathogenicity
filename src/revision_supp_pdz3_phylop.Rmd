@@ -1,0 +1,351 @@
+---
+title: "revision_supp_pdz3_phylop.Rmd"
+output: html_document
+date: "2026-01-14"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+library('ProjectTemplate')
+library(ggExtra)
+library(bio3d)
+library(ggrepel)
+library(dplyr)
+library(scatterplot3d)
+load.project()
+```
+
+```{r}
+proj_dir <- "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1"
+
+# Constants
+ref_offset <- 310  # PDZ3 alignment: pos_am 1 corresponds to Pos_ref 311
+
+pdz3_ddg <- readr::read_csv(file.path(proj_dir, "data/cleaned_ddg/pdz3_ddg_cleaned_mochi_refit.csv"))
+
+pdz3_ddgb <- pdz3_ddg %>%
+filter(trait_name == "Binding") %>%
+transmute(
+pos_am,
+wt_aa,
+mt_aa,
+b_ddg_pred = ddg,
+b_ddg_pred_sd = std_ddg,
+Pos_ref = pos_am + ref_offset,
+variant_match = paste0(wt_aa, Pos_ref, mt_aa)
+)
+
+pdz3_ddgf <- pdz3_ddg %>%
+filter(trait_name == "Folding") %>%
+transmute(
+pos_am,
+wt_aa,
+mt_aa,
+f_ddg_pred = ddg,
+f_ddg_pred_sd = std_ddg,
+Pos_ref = pos_am + ref_offset,
+variant_match = paste0(wt_aa, Pos_ref, mt_aa)
+)
+
+nrow(pdz3_ddgb)  # 1567
+nrow(pdz3_ddgf)
+```
+
+```{r}
+test_ddg <- data.table::fread(file.path(proj_dir, "data/decay_pdb/PSD95/ThermoMPNN_inference_AF-P78352-F1-model_v4.csv"))
+test_esm <- data.table::fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P78352.csv")
+setnames(test_esm, old = names(test_esm)[2], new = "ESM1v")
+
+# helper: variant id in reference numbering
+
+make_variant_id <- function(wt, pos, mt) paste0(wt, pos, mt)
+
+test_df <- test_ddg %>%
+as_tibble() %>%
+mutate(
+Pos_ref = position + 1, 
+variant_match = make_variant_id(wildtype, Pos_ref, mutation)
+) %>%
+left_join(test_esm %>% as_tibble(), by = c("variant_match" = "variant"))
+
+# sanity check alignment anchor
+
+test_df %>% filter(Pos_ref == 311) %>% head()
+```
+
+```{r}
+test_merged_df <- pdz3_ddgb %>%
+  left_join(test_df, by = c("variant_match", "Pos_ref")) %>%
+  left_join(pdz3_ddgf %>% dplyr::select(variant_match, Pos_ref, f_ddg_pred, f_ddg_pred_sd), by = c("variant_match", "Pos_ref"))
+
+stopifnot(nrow(test_merged_df) == 1567)
+test_merged_df %>% dplyr::select(variant_match, Pos_ref, b_ddg_pred, f_ddg_pred, ddG_pred, ESM1v) %>% head()
+```
+```{r}
+phylop <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/phyloP/DLG4_verPhyloP_hg38.csv")
+phylop <- phylop %>%
+  dplyr::rename(variant_match = hgvsp_like)
+phylop
+```
+
+
+```{r}
+test_merged_df <- test_merged_df %>%
+  left_join(phylop, by = "variant_match")
+
+test_merged_df$phylop_mean <- test_merged_df$phylop_mean * (-1)
+test_merged_df
+```
+
+```{r}
+paper_anno <- read.csv(file.path(proj_dir, "data/cleaned_ddg/pdz3_ddg_cleaned.csv"))
+
+# paper_anno pos_am (domain coords) -> convert to reference coords
+
+ortho_list_ref <- unique(paper_anno %>% filter(orthosteric == TRUE) %>% pull(pos_am)) 
+
+ortho_list_ref <- union(ortho_list_ref, c(322, 323, 324, 325, 326, 327, 328, 331, 339, 372, 376, 379, 380))
+ortho_list_ref
+
+
+#pdz3_final_df_ddg_2plot %>%
+#  filter(allosteric == TRUE) %>%
+#  count(Pos_ref.x) %>%
+#  filter(n > 10) %>% pull(Pos_ref.x)
+#312 314 318 329 330 336 338 341 347 357 359 360 362 363 367 375 386 388
+
+allo_list_ref <- c(312, 314, 318, 329, 330, 336, 338, 341, 347, 357, 359, 360, 362, 363, 367, 375, 386, 388)
+
+#core_pos <- unique(paper_anno %>% filter (Pos_class == "core") %>% pull(pos_am)) 
+core_pos <- unique(pdz3_ddgf %>% filter (f_ddg_pred >= 1) %>% pull (pos_am)) + ref_offset
+core_pos
+```
+
+```{r}
+fit_residuals_loess <- function(df, y_col, x_col = "ddG_pred", exclude_pos = NULL, span = 0.7) {
+df_fit <- df
+if (!is.null(exclude_pos)) df_fit <- df_fit %>% filter(!Pos_ref %in% exclude_pos)
+
+f <- as.formula(paste0(y_col, " ~ ", x_col))
+lo <- loess(f, data = df_fit, span = span, family = "symmetric")
+
+fitted <- predict(lo, newdata = df)
+resid  <- df[[y_col]] - fitted
+
+list(loess = lo, fitted = fitted, residual = resid)
+}
+
+# ESM1v residuals
+
+r1 <- fit_residuals_loess(test_merged_df, y_col = "ESM1v", exclude_pos = ortho_list_ref, span = 0.7)
+test_merged_df$fitted_esm1v <- r1$fitted
+test_merged_df$resid_esm1v  <- r1$residual
+
+# ESM2 residuals
+
+r2 <- fit_residuals_loess(test_merged_df, y_col = "phylop_mean", exclude_pos = ortho_list_ref, span = 0.7)
+test_merged_df$fitted_phylop <- r2$fitted
+test_merged_df$resid_phylop  <- r2$residual
+
+sum(is.na(test_merged_df$resid_esm1v))
+sum(is.na(test_merged_df$resid_phylop))
+```
+
+
+```{r}
+test_residue <- test_merged_df %>%
+  group_by(Pos_ref) %>%
+  summarise(resid_median_esm1v = median(resid_esm1v, na.rm = TRUE),
+            resid_median_phylop  = median(resid_phylop,  na.rm = TRUE),
+            ddgb_median        = median(b_ddg_pred,  na.rm = TRUE),
+            ddgf_median        = median(f_ddg_pred,  na.rm = TRUE),
+            esm1v_median       = median(ESM1v,       na.rm = TRUE),
+            phylop_median        = median(phylop_mean,        na.rm = TRUE),
+            .groups = "drop") %>%
+  mutate(site_type = case_when(Pos_ref %in% ortho_list_ref ~ "Binding site",
+                               Pos_ref %in% allo_list_ref  ~ "Allosteric site",
+                               #Pos_ref %in% core_pos ~ "Core site",
+                               TRUE                        ~ "Non-orthosteric site"))
+
+test_residue
+```
+
+```{r, fig.width=8, fig.height=4}
+cor.test(test_residue$phylop_median, test_residue$ddgb_median, method = "spearman") #-0.09811254
+# data:  test_residue$phylop_median and test_residue$ddgb_median
+# S = 108461, p-value = 0.3746
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#         rho 
+# -0.09811254 
+
+cor.test(test_residue$resid_median_phylop, test_residue$ddgb_median, method = "spearman") #-0.02421788 
+# data:  test_residue$resid_median_phylop and test_residue$ddgb_median
+# S = 101162, p-value = 0.8266
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#         rho 
+# -0.02421788 
+
+site_cols <- c(
+"Non-orthosteric site" = "#8DAA9D",
+"Allosteric site"      = "#4DBBD5",
+"Binding site"         = "#E69F00"
+)
+
+p1 <- ggplot(test_residue, aes(x = phylop_median, y = ddgb_median, color = site_type)) +
+  geom_point(size = 2, alpha = 0.6) +
+  scale_color_manual(values = site_cols) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(title = "PSD95-PDZ3",
+       subtitle = "Spearman's rho = -0.10 (p = 0.37)",
+       x = "- Median PhyloP",
+       y = "Median ddGb",
+       color = "") +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+
+p2 <- ggplot(test_residue, aes(x = resid_median_phylop, y = ddgb_median, color = site_type)) +
+  geom_point(size = 2, alpha = 0.6) +
+  scale_color_manual(values = site_cols) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(title = "PSD95-PDZ3",
+       subtitle = "Spearman's rho = -0.02 (p = 0.83)",
+       x = "Median PhyloP-TMPNN ddGf residual",
+       y = "Median ddGb",
+       color = "") +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+
+p3 <- plot_grid(p1,p2,ncol = 2)
+p3
+```
+```{r}
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_pdz3_phylop.pdf", 
+       plot = p3, width = 6, height = 3, dpi = 300)
+```
+
+```{r, fig.width=4, fig.height=4}
+cor.test(test_residue$phylop_median, test_residue$ddgf_median, method = "spearman") #0.1240287
+# data:  test_residue$phylop_median and test_residue$ddgf_median
+# S = 86520, p-value = 0.261
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#       rho 
+# 0.1240287 
+
+site_cols <- c(
+"Non-orthosteric site" = "#8DAA9D",
+"Allosteric site"      = "#4DBBD5",
+"Binding site"         = "#E69F00"
+)
+
+p4 <- ggplot(test_residue, aes(x = phylop_median, y = ddgf_median, color = site_type)) +
+  geom_point(size = 2, alpha = 0.6) +
+  scale_color_manual(values = site_cols) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(title = "PSD95-PDZ3",
+       subtitle = "Spearman's rho = -0.12 (p = 0.26)",
+       x = "- Median PhyloP",
+       y = "Median ddGf",
+       color = "") +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+
+p4
+```
+```{r}
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_pdz3_phylop_ddgf.pdf", 
+       plot = p4, width = 3, height = 3, dpi = 300)
+```
+
+```{r, fig.width=8, fig.height=4}
+cor.test(test_residue$resid_median_esm1v, test_residue$ddgb_median, method = "spearman") #-0.4115015 
+cor.test(test_residue$esm1v_median, test_residue$ddgb_median, method = "spearman") #-0.7121798
+test_residue
+
+p3 <- ggplot(test_residue, aes(x = esm1v_median, y = ddgb_median, color = site_type)) +
+  geom_point(size = 2, alpha = 0.6) +
+  scale_color_manual(values = site_cols) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(title = "PSD95-PDZ3",
+       subtitle = "Spearman's rho = -0.71",
+       x = "Median ESM-1v",
+       y = "Median ddGb",
+       color = "") +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+
+p4 <- ggplot(test_residue, aes(x = resid_median_esm1v, y = ddgb_median, color = site_type)) +
+  geom_point(size = 2, alpha = 0.6) +
+  scale_color_manual(values = site_cols) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(title = "PSD95-PDZ3",
+       subtitle = "Spearman's rho = -0.41",
+       x = "Median ESM-1v-TMPNN ddGf residual",
+       y = "Median ddGb",
+       color = "") +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+
+p3+p4
+```
+
+```{r, fig.width=5, fig.height=5}
+df_plot <- test_residue %>%
+  transmute(
+    Pos_ref,
+    ddgf_median = as.numeric(ddgf_median),
+    ddgb_median = as.numeric(ddgb_median),
+    esm1v_median = as.numeric(esm1v_median)
+  ) %>%
+  filter(if_all(c(ddgf_median, ddgb_median, esm1v_median), ~ !is.na(.)))
+
+# Color mapping: red (low) → grey → blue (high)
+pal <- colorRampPalette(c("red", "grey90", "blue"))(256)
+rng <- range(df_plot$esm1v_median, na.rm = TRUE)
+scaled <- (df_plot$esm1v_median - rng[1]) / (rng[2] - rng[1] + 1e-12)
+cols <- pal[pmax(1, pmin(256, floor(scaled * 255) + 1))]
+
+# 3D scatter
+scatterplot3d(
+  x = df_plot$ddgf_median,
+  y = df_plot$ddgb_median,
+  z = df_plot$esm1v_median,
+  pch = 16,
+  color = cols,
+  xlab = "Median ddGf",
+  ylab = "Median ddGb",
+  zlab = "Median ESM1v",
+  angle = 30,                     # ⬅ tilt / rotation (try 30–70)
+  main = "PSD95-PDZ3"
+)
+
+# Legend (fix low/high ordering)
+legend(
+  "topright",
+  legend = c(
+    sprintf("Low ESM1v (%.2f)", rng[1]),
+    sprintf("High ESM1v (%.2f)", rng[2])
+  ),
+  pch = 16,
+  col = c("red", "blue"),
+  bty = "n"
+)
+```
+
+
+
+
+
+
+
+
+
+

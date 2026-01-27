@@ -294,15 +294,14 @@ p1 <- ggplot(r2_df,
   
   labs(title = "VAMP-seq Datasets: 9 Full-length Human Proteins", 
        subtitle = "Linear regression",
-       x = "Protein", y = "R squared") +
+       x = "", y = "R squared") +
   theme_classic(base_size = 14) +
   scale_fill_manual(values = c("Enzyme" = "darkolivegreen3",
                                "Transporter" = "darkorchid2")) +
   theme(axis.text.x = element_text(size = 12, angle = 45, hjust = 1),
         legend.position = "right") +
   # give some headroom for the n labels
-  ylim(0, 1) +
-  coord_flip()
+  ylim(0, 1) 
 
 p1
 
@@ -310,5 +309,6 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig1
        plot = p1, width = 8, height = 4, dpi = 300)
 p1
 ```
+
 
 

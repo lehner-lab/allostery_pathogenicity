@@ -1,0 +1,221 @@
+---
+title: "revision_supp_dca_sh3.Rmd"
+output: html_document
+date: "2026-01-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+library('ProjectTemplate')
+library(ggExtra)
+library(bio3d)
+library(ggrepel)
+library(tidyverse)
+library(data.table)
+```
+
+```{r}
+freq <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/dca/grb2_evcoupling_legacy/align/140b370370a17221489d7c8e78639193_b0.2_frequencies.csv",check.names = FALSE)
+
+freq <- freq |>
+  dplyr::rename(gap_freq = `-`) |>
+  dplyr::mutate(
+    depth_raw = (1 - gap_freq)
+  ) |>
+  dplyr::select(
+    position = i,
+    wt = A_i,
+    depth_raw,
+    gap_freq,
+    conservation
+  )
+freq
+```
+
+```{r}
+sh3_final_df_ddgb <- read_tsv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domains_andre/GRB2-SH3/Abundance/mochi_project/task_1/weights/weights_Binding.txt')
+sh3_final_df_ddgb <- sh3_final_df_ddgb %>% dplyr::select(id_ref, Pos_ref, `mean_kcal/mol`, `std_kcal/mol`)
+dim(sh3_final_df_ddgb) #757   4
+
+sh3_final_df_ddgb <- sh3_final_df_ddgb %>%
+  mutate(wt_aa = str_extract(id_ref, '^[A-Za-z]+'),
+         mt_aa = str_extract(id_ref, '[A-Za-z]+$')) %>%
+  dplyr::rename(old_id = id_ref) %>%
+  dplyr::rename(old_Pos = Pos_ref) %>%
+  dplyr::rename(b_ddg_pred = `mean_kcal/mol`) %>%
+  dplyr::rename(b_ddg_pred_sd = `std_kcal/mol`) %>%
+  mutate(Pos_ref = as.numeric(old_Pos) + 158) %>%
+  mutate(id_ref = paste0(wt_aa, Pos_ref, mt_aa))
+
+sh3_final_df_ddgb <- sh3_final_df_ddgb %>% filter(old_id != "WT")
+head(sh3_final_df_ddgb)
+```
+
+```{r}
+test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/GRB2/ThermoMPNN_inference_AF-P62993-F1-model_v4.csv")
+test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P62993.csv")
+  
+colnames(test_esm)[2] <- "ESM1v"
+  
+test_ddg[, new_position := position + 1]
+test_ddg[, variant := paste0(wildtype, new_position, mutation)]
+  
+test_df <- merge(test_ddg, test_esm, by = "variant")
+
+pred_seq <-  ali_process_sequence(test_df, "new_position", "wildtype")
+exp_seq <- ali_process_sequence(sh3_final_df_ddgb, "old_Pos", "wt_aa")
+ali_find_sequence_overlap(pred_seq, exp_seq ,"sequence")
+#"sequence starts at index 159 in the reference sequence."
+nrow(sh3_final_df_ddgb) #756
+test_merged_df <- merge(sh3_final_df_ddgb, test_df, by.x="id_ref", by.y="variant")
+nrow(test_merged_df) #756
+head(test_merged_df)
+```
+
+```{r}
+paper_anno <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/sh3_ddg_cleaned.csv")
+table(paper_anno$orthosteric)
+head(paper_anno)
+ortho_list <- unique(paper_anno %>% filter(orthosteric == TRUE) %>% pull(Pos_real))
+
+ortho_list<- append(ortho_list, c(170 ,192 ,195 ,204 ,209))
+length(ortho_list)
+
+fil_test_merged_df <- test_merged_df %>%
+  filter(!Pos_ref %in% ortho_list)
+
+# Fit a loess model using the filtered data
+loess_fit_comp <- loess(ESM1v ~ ddG_pred, data = fil_test_merged_df, span = 0.7, family = "symmetric")
+
+# Predict fitted values for ALL data points using the loess model trained on fil_gck_df
+test_merged_df$fitted_comp <- predict(loess_fit_comp, newdata = test_merged_df)
+
+# Calculate residuals for ALL points
+test_merged_df$residuals_comp <- test_merged_df$ESM1v - test_merged_df$fitted_comp
+sum(is.na(test_merged_df$residuals_comp)) #0
+head(test_merged_df)
+
+position_residuals <- test_merged_df %>%
+  group_by(Pos_ref) %>%
+  summarize(
+    # We take the median magnitude of residuals at this site
+    median_residual = median(residuals_comp, na.rm = TRUE),
+    median_ddgb = median(b_ddg_pred, na.rm = TRUE)
+  )
+merged <- merge(freq, position_residuals, by.x ="position", by.y = "Pos_ref")
+merged
+```
+
+
+
+
+```{r}
+df <-  read.csv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/dca/grb2_evcoupling_legacy/couplings/CouplingScores.csv', sep = ',')
+
+edges <- df %>%
+  #filter(probability > 0.9) %>%
+  transmute(i = as.integer(i), j = as.integer(j), cn = as.numeric(cn))
+
+ortho_set <- c(190, 171, 174, 165, 167, 208, 206, 193 ,170, 192, 195, 204, 209)
+
+dca_to_ortho <- edges %>%
+  filter(i %in% ortho_list | j %in% ortho_list) %>%
+  filter(!(i %in% ortho_list & j %in% ortho_list)) %>%   # drop ortho-ortho
+  mutate(position = ifelse(i %in% ortho_list, j, i)) %>% # now guaranteed non-ortho
+  group_by(position) %>%
+  summarise(
+    dca_to_ortho_max = max(cn, na.rm = TRUE),
+    dca_to_ortho_sum = sum(cn, na.rm = TRUE),
+    dca_to_ortho_sumTop3 = sum(sort(cn, decreasing = TRUE)[1:min(3, n())], na.rm = TRUE),
+    .groups = "drop"
+  )
+
+dca_to_ortho
+```
+
+
+```{r}
+high_depth_positions <- freq %>%
+  filter(depth_raw >= 0.5)
+high_depth_positions
+
+dca_to_ortho <- dca_to_ortho %>%
+  inner_join(high_depth_positions, by = "position")
+dca_to_ortho
+```
+```{r}
+ddgb_res <- sh3_final_df_ddgb %>%
+  group_by(Pos_ref) %>%
+  summarize(
+    median_ddgb = median(b_ddg_pred, na.rm = TRUE)
+  )
+ddgb_res
+
+merged <- merge(dca_to_ortho, ddgb_res, by.x = "position", by.y = "Pos_ref")
+merged
+```
+
+```{r, fig.width=4, fig.height=4.5}
+#173, 183, 203
+positions_to_highlight <- c(173, 183, 203)
+
+merged <- merged %>%
+  mutate(
+    label_text = ifelse(position %in% positions_to_highlight, as.character(position), ""),
+    # Optional: Create a column to make these points look different (e.g., bigger/bolder)
+    is_highlighted = position %in% positions_to_highlight
+  ) 
+
+rho_val <- cor(merged$dca_to_ortho_max, merged$median_ddgb, method = "spearman", use = "complete.obs")
+subtitle_text <- paste0("Spearman's rho = ", round(rho_val, 2))
+
+p1 <- ggplot(merged, aes(x = dca_to_ortho_max, y = median_ddgb, color = median_ddgb)) +
+  geom_point(alpha = 0.7) +
+  scale_color_gradient2(
+    low = "blue", 
+    mid = "grey", 
+    high = "red", 
+    midpoint = 0
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom"
+  ) +
+  labs(
+    title = "GRB2-SH3",
+    subtitle = subtitle_text,  # <--- Added Subtitle Here
+    x = "Maximum DCA coupling strength",
+    y = "Median ddGb"
+  ) +
+  geom_text_repel(
+    aes(label = label_text),
+    size = 4,
+    fontface = "bold",
+    box.padding = 0.5,
+    max.overlaps = Inf,
+    point.padding = 0.3,
+    min.segment.length = 0
+  )
+p1
+```
+
+```{r}
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_dca_sh3.pdf", 
+       plot = p1, width = 3, height = 4, dpi = 300)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

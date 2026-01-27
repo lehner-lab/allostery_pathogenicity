@@ -6,6 +6,15 @@ date: "2026-01-08"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(data.table)
+library(ggrepel)
+library(ggExtra)
+library(cowplot)
+
+# Set paths once
+proj_dir <- "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1"
+setwd(proj_dir)
 ```
 
 ```{r}
@@ -16,10 +25,10 @@ dim(sh3_final_df_ddgf)
 sh3_final_df_ddgf <- sh3_final_df_ddgf %>%
   mutate(wt_aa = str_extract(id_ref, '^[A-Za-z]+'),
          mt_aa = str_extract(id_ref, '[A-Za-z]+$')) %>%
-  rename(old_id = id_ref) %>%
-  rename(old_Pos = Pos_ref) %>%
-    rename(f_ddg_pred = `mean_kcal/mol`) %>%
-  rename(f_ddg_pred_sd = `std_kcal/mol`) %>%
+  dplyr::rename(old_id = id_ref) %>%
+  dplyr::rename(old_Pos = Pos_ref) %>%
+  dplyr::rename(f_ddg_pred = `mean_kcal/mol`) %>%
+  dplyr::rename(f_ddg_pred_sd = `std_kcal/mol`) %>%
   mutate(Pos_ref = as.numeric(old_Pos) + 158) %>%
   mutate(id_ref = paste0(wt_aa, Pos_ref, mt_aa))
 
@@ -36,10 +45,10 @@ dim(sh3_final_df_ddgb) #757   4
 sh3_final_df_ddgb <- sh3_final_df_ddgb %>%
   mutate(wt_aa = str_extract(id_ref, '^[A-Za-z]+'),
          mt_aa = str_extract(id_ref, '[A-Za-z]+$')) %>%
-  rename(old_id = id_ref) %>%
-  rename(old_Pos = Pos_ref) %>%
-    rename(b_ddg_pred = `mean_kcal/mol`) %>%
-  rename(b_ddg_pred_sd = `std_kcal/mol`) %>%
+  dplyr::rename(old_id = id_ref) %>%
+  dplyr::rename(old_Pos = Pos_ref) %>%
+  dplyr::rename(b_ddg_pred = `mean_kcal/mol`) %>%
+  dplyr::rename(b_ddg_pred_sd = `std_kcal/mol`) %>%
   mutate(Pos_ref = as.numeric(old_Pos) + 158) %>%
   mutate(id_ref = paste0(wt_aa, Pos_ref, mt_aa))
 
@@ -76,6 +85,11 @@ ortho_list
 test_merged_df
 ```
 
+```{r}
+test_merged_df <- merge(test_merged_df, sh3_final_df_ddgf, by = "id_ref")
+test_merged_df
+```
+
 
 ```{r}
 ref_offset <- 158
@@ -92,12 +106,6 @@ test_merged_df <- test_merged_df %>%
 
 test_merged_df
 ```
-
-```{r}
-range(test_merged_df$Pos_ref.x)
-test_merged_df %>% filter (Pos_ref.x == 159)
-```
-
 
 ```{r}
 allo_pos <- c(173, 183, 203)
@@ -141,42 +149,65 @@ test_residue <- test_merged_df %>%
   summarise(resid_median_esm1v = median(resid_esm1v, na.rm = TRUE),
             resid_median_esm2  = median(resid_esm2,  na.rm = TRUE),
             ddgb_median        = median(b_ddg_pred,  na.rm = TRUE),
+            ddgf_median        = median(f_ddg_pred,  na.rm = TRUE),
             esm1v_median       = median(ESM1v,       na.rm = TRUE),
             esm2_median        = median(esm2,        na.rm = TRUE),
             .groups = "drop") %>%
   mutate(site_type = case_when(Pos_ref.x %in% ortho_list ~ "Binding site",
                                Pos_ref.x %in% allo_pos ~ "Allosteric site",
-                               Pos_ref.x %in% core_pos ~ "Core site",
+                               #Pos_ref.x %in% core_pos ~ "Core site",
                                TRUE                        ~ "Non-orthosteric site"))
 ```
 
-```{r, fig.width=16, fig.height=4}
+```{r, fig.width=8, fig.height=4}
 site_cols <- c(
-"Non-orthosteric site" = "darkgreen",
-"Allosteric site"      = "cyan",
-"Binding site"         = "orange",
-"Core site" = "red"
+"Non-orthosteric site" = "#8DAA9D",
+"Allosteric site"      = "#4DBBD5",
+"Binding site"         = "#E69F00"
 )
 nrow(test_residue)
 cor.test(test_residue$esm1v_median, test_residue$ddgb_median, method="spearman") #-0.52
+# data:  test_residue$esm1v_median and test_residue$ddgb_median
+# S = 44556, p-value = 4.656e-05
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.5227614 
 cor.test(test_residue$esm2_median, test_residue$ddgb_median, method="spearman") #-0.40
+# data:  test_residue$esm2_median and test_residue$ddgb_median
+# S = 40940, p-value = 0.00248
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.3991798
 cor.test(test_residue$resid_median_esm1v, test_residue$ddgb_median, method="spearman") #-0.51
+# data:  test_residue$resid_median_esm1v and test_residue$ddgb_median
+# S = 44220, p-value = 7.164e-05
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.5112782
 cor.test(test_residue$resid_median_esm2, test_residue$ddgb_median, method="spearman") #-0.45
+# data:  test_residue$resid_median_esm2 and test_residue$ddgb_median
+# S = 42496, p-value = 0.0005309
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.4523582 
 
 p6 <- ggplot(test_residue, aes(x = ddgb_median , y = esm1v_median, color = site_type)) +
   geom_point(size = 2, alpha = 0.5) +
   labs(
     title = "GRB2-SH3: 56 residues",
-    subtitle = "Spearman's rho = -0.52",
+    subtitle = "Spearman's rho = -0.52 (p = 4.656e-05)",
     x = "Experimental median ddGb",
     y = "Median ESM1v",
     color = "") +
   theme_classic() +
   scale_color_manual(values = c(
-    "Non-orthosteric site" = "darkgreen",
-    "Allosteric site" = "cyan",
-    "Binding site" = "orange",
-    "Core site" = "red"
+"Non-orthosteric site" = "#8DAA9D",
+"Allosteric site"      = "#4DBBD5",
+"Binding site"         = "#E69F00"
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
@@ -185,16 +216,15 @@ p7 <- ggplot(test_residue, aes(x = ddgb_median , y = esm2_median, color = site_t
   geom_point(size = 2, alpha = 0.5) +
   labs(
     title = "GRB2-SH3: 56 residues",
-    subtitle = "Spearman's rho = -0.40",
+    subtitle = "Spearman's rho = -0.40 (p = 0.00248)",
     x = "Experimental median ddGb",
     y = "Median ESM2",
     color = "") +
   theme_classic() +
   scale_color_manual(values = c(
-    "Non-orthosteric site" = "darkgreen",
-    "Allosteric site" = "cyan",
-    "Binding site" = "orange",
-    "Core site" = "red"
+"Non-orthosteric site" = "#8DAA9D",
+"Allosteric site"      = "#4DBBD5",
+"Binding site"         = "#E69F00"
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
@@ -209,10 +239,9 @@ p8 <- ggplot(test_residue, aes(x = ddgb_median , y = resid_median_esm1v, color =
     color = "") +
   theme_classic() +
   scale_color_manual(values = c(
-    "Non-orthosteric site" = "darkgreen",
-    "Allosteric site" = "cyan",
-    "Binding site" = "orange",
-    "Core site" = "red"
+"Non-orthosteric site" = "#8DAA9D",
+"Allosteric site"      = "#4DBBD5",
+"Binding site"         = "#E69F00"
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
@@ -227,17 +256,177 @@ p9 <- ggplot(test_residue, aes(x = ddgb_median , y = resid_median_esm2, color = 
     color = "") +
   theme_classic() +
   scale_color_manual(values = c(
-    "Non-orthosteric site" = "darkgreen",
-    "Allosteric site" = "cyan",
-    "Binding site" = "orange",
-    "Core site" = "red"
+"Non-orthosteric site" = "#8DAA9D",
+"Allosteric site"      = "#4DBBD5",
+"Binding site"         = "#E69F00"
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
 
-plot_grid(p6,p7,p8,p9,ncol=4)
+p10 <- plot_grid(p6,p7,ncol=2)
+p10
+```
+```{r}
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_sh3_esm2.pdf", 
+       plot = p10, width = 6, height = 3, dpi = 300)
 ```
 
+```{r}
+cor.test(test_residue$esm1v_median, test_residue$ddgf_median, method="spearman") 
+# data:  test_residue$esm1v_median and test_residue$ddgf_median
+# S = 45164, p-value = 2.058e-05
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.5435407
+cor.test(test_residue$esm1v_median, test_residue$esm2_median, method="spearman") 
+# data:  test_residue$esm1v_median and test_residue$esm2_median
+# S = 3860, p-value < 2.2e-16
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#       rho 
+# 0.8680793
+p11 <- ggplot(test_residue, aes(x = ddgf_median , y = esm1v_median, color = site_type)) +
+  geom_point(size = 2, alpha = 0.5) +
+  labs(
+    title = "GRB2-SH3",
+    subtitle = "Spearman's rho = -0.54 (p = 2.058e-05)",
+    x = "Experimental median ddGf",
+    y = "Median ESM1v",
+    color = "") +
+  theme_classic() +
+  scale_color_manual(values = c(
+    "Non-orthosteric site" = "#8DAA9D",
+    "Allosteric site" = "#4DBBD5",
+    "Binding site" = "#E69F00"
+  )) + theme(legend.position = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+
+p12 <- ggplot(test_residue, aes(x = esm1v_median , y = esm2_median, color = site_type)) +
+  geom_point(size = 2, alpha = 0.5) +
+  labs(
+    title = "GRB2-SH3",
+    subtitle = "Spearman's rho = 0.87 (p < 2.2e-16)",
+    x = "Median ESM-1v",
+    y = "Median ESM2-",
+    color = "") +
+  theme_classic() +
+  scale_color_manual(values = c(
+    "Non-orthosteric site" = "#8DAA9D",
+    "Allosteric site" = "#4DBBD5",
+    "Binding site" = "#E69F00"
+  )) + theme(legend.position = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+
+p13 <- plot_grid(p11,p12, ncol=2)
+p13
+```
+```{r}
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_sh3_esm2_ddgf.pdf", 
+       plot = p13, width = 6, height = 3, dpi = 300)
+```
+
+```{r, fig.width=5, fig.height=5}
+library(scatterplot3d)
+library(dplyr)
+
+# 1. Prepare Data 
+df_plot <- test_residue %>%
+  transmute(
+    Pos_ref.x,
+    ddgf_median = as.numeric(ddgf_median),
+    ddgb_median = as.numeric(ddgb_median),
+    esm2_median = as.numeric(esm2_median)
+  ) %>%
+  filter(if_all(c(ddgf_median, ddgb_median, esm2_median), ~ !is.na(.)))
+
+# 2. Open the PDF Device
+pdf(file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_sh3_3d.pdf", width = 4, height = 4)
+
+# ---- Start Plotting Code ----
+
+# Color mapping
+pal <- colorRampPalette(c("red", "grey90", "blue"))(256)
+rng <- range(df_plot$esm2_median, na.rm = TRUE)
+scaled <- (df_plot$esm2_median - rng[1]) / (rng[2] - rng[1] + 1e-12)
+cols <- pal[pmax(1, pmin(256, floor(scaled * 255) + 1))]
+
+# 3D scatter
+p_3d <- scatterplot3d(
+  x = df_plot$ddgf_median,
+  y = df_plot$ddgb_median,
+  z = df_plot$esm2_median,
+  pch = 16,
+  color = cols,
+  xlab = "Median ddGf",
+  ylab = "Median ddGb",
+  zlab = "Median ESM2",
+  angle = 50,
+  main = "GRB2-SH3"
+)
+
+# Legend
+legend(
+  "topright",
+  legend = c(
+    sprintf("Low ESM2 (%.2f)", rng[1]),
+    sprintf("High ESM2 (%.2f)", rng[2])
+  ),
+  pch = 16,
+  col = c("red", "blue"),
+  bty = "n"
+)
+
+# ---- End Plotting Code ----
+
+# 3. Close the device to save the file
+dev.off()
+```
+
+```{r, fig.width=5, fig.height=5}
+df_plot <- test_residue %>%
+  transmute(
+    Pos_ref.x,
+    ddgf_median = as.numeric(ddgf_median),
+    ddgb_median = as.numeric(ddgb_median),
+    esm2_median = as.numeric(esm2_median)
+  ) %>%
+  filter(if_all(c(ddgf_median, ddgb_median, esm2_median), ~ !is.na(.)))
+
+# Color mapping: red (low) → grey → blue (high)
+pal <- colorRampPalette(c("red", "grey90", "blue"))(256)
+rng <- range(df_plot$esm2_median, na.rm = TRUE)
+scaled <- (df_plot$esm2_median - rng[1]) / (rng[2] - rng[1] + 1e-12)
+cols <- pal[pmax(1, pmin(256, floor(scaled * 255) + 1))]
+
+# 3D scatter
+scatterplot3d(
+  x = df_plot$ddgf_median,
+  y = df_plot$ddgb_median,
+  z = df_plot$esm2_median,
+  pch = 16,
+  color = cols,
+  xlab = "Median ddGf",
+  ylab = "Median ddGb",
+  zlab = "Median ESM2",
+  angle = 50,                     # ⬅ tilt / rotation (try 30–70)
+  main = "GRB2-SH3"
+)
+
+# Legend (fix low/high ordering)
+legend(
+  "topright",
+  legend = c(
+    sprintf("Low ESM2 (%.2f)", rng[1]),
+    sprintf("High ESM2 (%.2f)", rng[2])
+  ),
+  pch = 16,
+  col = c("red", "blue"),
+  bty = "n"
+)
+```
 
 
 

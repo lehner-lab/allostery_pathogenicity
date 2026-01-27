@@ -61,7 +61,7 @@ plot_loess_residuals <- function(test_df, active_site_positions,
       title = paste0(protein_name, ": ", nrow(test_df), " mutations"),
       subtitle = paste0("Spearman's rho = ", round(spearman_rho, 2)),
       x = "ThermoMPNN predicted ddGf",
-      y = "ESM.1v",  # Updated label to reflect the inversion
+      y = "ESM-1v",  # Updated label to reflect the inversion
       color = "Residuals"
     ) +
     theme_classic() +
@@ -71,7 +71,7 @@ plot_loess_residuals <- function(test_df, active_site_positions,
       low = "red", mid = "grey", high = "blue", midpoint = 0,
       limits = c(-resid_limit, resid_limit), name = "Residuals"
     ) +
-    theme(legend.position = "none")
+    theme(legend.position = "bottom")
   
   # Add marginal density plots
   p_marginal <- ggMarginal(
@@ -101,90 +101,97 @@ p1 <- df_residual$plot
 p1
 ```
 ```{r}
-head(df_residual$data)
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_hypermutant_scatter1.pdf", 
+       plot = p1, width = 3, height = 4, dpi = 300)
 ```
 
 
 ```{r}
-# 1. Load PDB (Ensure this path is correct)
-pdb <- read.pdb("~/Downloads/AF-A0A075B6X5-F1-model_v6.pdb", rm.alt = TRUE)
+#https://www.sciencedirect.com/science/article/pii/S0145305X02000393
+# defined by AF2 structure 
+# 1. Load PDB 
+pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/hypermutant/AF-A0A075B6X5-F1-model_v6.pdb", rm.alt = TRUE)
 # 2. Define Active Sites
-active_site_resnos <- c(45:50, 68:73, 105:111)
+active_site_resnos <- c(26:37, 46:51, 69:81)
+#defined by finding CDR loops in AF2 pdb in chimeraX
 
-# 3. Get Active Site Coordinates (Using the CORRECT 'string' argument)
-# This was likely the missing piece in your previous environment
-site_inds <- atom.select(pdb, resno = active_site_resnos, string = "noh")
-site_xyz <- pdb$xyz[site_inds$xyz]
+# A. Define Basic Groups
+sele_protein <- atom.select(pdb, "protein", verbose=FALSE)
+sele_sc      <- atom.select(pdb, "sidechain", verbose=FALSE)
+sele_glyca   <- atom.select(pdb, resid = "GLY", string = "calpha", verbose=FALSE)
+sele_H       <- atom.select(pdb, "h", verbose=FALSE)
+sele_water   <- atom.select(pdb, "water", verbose=FALSE)
 
-# Check immediately
-if (length(site_inds$atom) == 0) {
-  stop("STOP: Active site atoms are 0. The Code will not work.")
-} else {
-  print(paste("Active Site Loaded: Found", length(site_inds$atom), "atoms."))
-}
+# B. Define SOURCE Atoms (The atoms we are measuring FROM)
+# Logic: Protein Side-Chain Heavy Atoms + Glycine C-alphas
+sele_prot_sc       <- combine.select(sele_protein, sele_sc, operator = "AND", verbose=FALSE)
+sele_prot_sc_glyca <- combine.select(sele_prot_sc, sele_glyca, operator = "OR", verbose=FALSE)
+# Exclude Hydrogens and Water
+sele_source_final  <- combine.select(sele_prot_sc_glyca, sele_H, sele_water, operator = "-", verbose=FALSE)
 
-# 4. Redefine the Function (The Robust Version)
-calc_min_heavy_dist <- function(res_num, pdb_obj, site_coords) {
-  
-  # Bio3D is strict: 'resno' must be numeric. 
-  # We force it here to fix the error you saw in Test B.
-  res_num <- as.numeric(as.character(res_num))
-  
-  # Use 'string = "noh"' (The fix confirmed by Test A)
-  target_inds <- atom.select(pdb_obj, resno = res_num, string = "noh")
-  
-  # Safety catch for missing residues
-  if (length(target_inds$atom) == 0) return(NA)
-  
-  # Calculate
-  target_xyz <- pdb_obj$xyz[target_inds$xyz]
-  t_mat <- matrix(target_xyz, ncol = 3, byrow = TRUE)
-  s_mat <- matrix(site_coords, ncol = 3, byrow = TRUE)
-  
-  return(min(dist.xyz(t_mat, s_mat), na.rm = TRUE))
-}
+# C. Define TARGET Atoms (The atoms we are measuring TO)
+# Logic: All Heavy Atoms (Backbone + Sidechain) of the residues in the list
+sele_target_raw    <- atom.select(pdb, resno = active_site_resnos, verbose=FALSE)
+# Exclude Hydrogens and Water
+sele_target_final  <- combine.select(sele_target_raw, sele_H, sele_water, operator = "-", verbose=FALSE)
 
-# 5. Run Calculation
-unique_positions <- unique(plotting_data$mutation_position)
+# Safety Check
+if(length(sele_target_final$atom) == 0) stop("Error: No heavy atoms found for the residues in 'target_resnos'. Check residue numbers.")
 
-print("Starting calculation loop...")
+# ---- Step 2: Compute Atomic Distances ----
 
-dist_vals <- sapply(unique_positions, function(x) {
-  calc_min_heavy_dist(x, pdb, site_xyz)
-})
+# A. Trim PDB to separate objects
+# pdb_source contains side-chain atoms of the whole protein
+# pdb_target contains all heavy atoms of the target residue list
+pdb_source <- trim.pdb(pdb, sele_source_final)
+pdb_target <- trim.pdb(pdb, sele_target_final)
 
-# 6. Map Back Safely
-# explicitly name the vector to ensure matching works
-names(dist_vals) <- as.character(unique_positions) 
+# B. Calculate Pairwise Distance Matrix 
+# Rows = Source Atoms, Cols = Target Atoms
+dist_mat <- dist.xyz(pdb_source$xyz, pdb_target$xyz)
 
-plotting_data <- df_residual$data
-# Assign based on character matching
-plotting_data$min_dist_to_site <- dist_vals[as.character(plotting_data$new_position)]
+# C. Find Minimum Distance per Source Atom
+# For every atom in the protein side-chains, find the closest atom in the target list
+min_dist_per_atom <- apply(dist_mat, 1, min, na.rm = TRUE)
 
-# 7. Final Result
-print(paste("Final NAs:", sum(is.na(plotting_data$min_dist_to_site))))
-head(plotting_data$min_dist_to_site)
+# ---- Step 3: Aggregate to Residue Level ----
 
-# If NAs remain, it means those specific residues are missing from the PDB structure 
-# (common in loop regions), which is normal.
-# Filter out NAs (residues not found in PDB structure)
-plotting_data <- plotting_data %>% filter(!is.na(min_dist_to_site))
-nrow(plotting_data) #
-plotting_data
+# Add data back to the atom dataframe
+atom_df <- pdb_source$atom
+atom_df$dist_to_target <- min_dist_per_atom
+
+# D. Group by Residue
+min_dist_df <- atom_df %>%
+  group_by(resno, resid, chain) %>%
+  summarise(
+    # The minimum distance from ANY of this residue's side-chain atoms 
+    # to ANY heavy atom in the target list
+    min_dist_to_list = min(dist_to_target, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+min_dist_df
 ```
 
+```{r}
+merged_df <- merge(df_residual$data, min_dist_df, by.x="new_position", by.y = "resno", all.x = TRUE)
+nrow(merged_df)
+merged_df <- merged_df %>% filter(!is.na(min_dist_to_list))
+nrow(merged_df)
+merged_df
+```
 
 ```{r}
 # --- Merge with prediction data ---
-# Ensure 'gck_pred_residual' is loaded or replaced with your IGHV3-7 data
-merged_df <- plotting_data %>%
+merged_df <- merged_df %>%
   filter(residuals_pred <= 0)
 
+min_dist_df <- min_dist_df %>% dplyr::rename (new_position = resno)
 # --- Residue-level median residuals ---
 merged_df_residue <- merged_df %>%
   group_by(new_position) %>%
   summarise(loess_residual_avg = median(residuals_pred, na.rm = TRUE), .groups = "drop") %>%
-  left_join(plotting_data, by = "new_position" )
+  left_join(min_dist_df, by = "new_position")
 
 # --- Exclude the binding sites themselves for fitting ---
 # (Replacing the previous 'orthosteric_sites' logic)
@@ -193,21 +200,22 @@ merged_df_residue_fil <- merged_df_residue %>%
 
 # --- Fit exponential model ---
 exp_model <- nlsLM(
-  abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_site),
+  abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_list),
   data = merged_df_residue_fil,
   start = list(a = 1, b = 0.1)
 )
 exp_model
-
+```
+```{r}
 # --- Prediction grid ---
-x_vals <- seq(min(merged_df_residue_fil$min_dist_to_site, na.rm = TRUE),
-              max(merged_df_residue_fil$min_dist_to_site, na.rm = TRUE), length.out = 200)
+x_vals <- seq(min(merged_df_residue_fil$min_dist_to_list, na.rm = TRUE),
+              max(merged_df_residue_fil$min_dist_to_list, na.rm = TRUE), length.out = 200)
 
 # --- Bootstrapping for confidence intervals ---
 set.seed(11)
 boot_params <- replicate(1000, {
   samp <- merged_df_residue_fil[sample(nrow(merged_df_residue_fil), replace = TRUE), ]
-  fit <- try(nlsLM(abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_site),
+  fit <- try(nlsLM(abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_list),
                    data = samp, start = list(a = 1, b = 0.1)), silent = TRUE)
   if (inherits(fit, "try-error")) c(NA, NA) else coef(fit)
 })
@@ -216,8 +224,8 @@ boot_params <- t(boot_params)[complete.cases(t(boot_params)), ]
 boot_preds <- apply(boot_params, 1, function(p) p[1] * exp(-p[2] * x_vals))
 
 fit_df_residue <- data.frame(
-  min_dist_to_site = x_vals,
-  loess_residual_pred = predict(exp_model, newdata = data.frame(min_dist_to_site = x_vals)),
+  min_dist_to_list = x_vals,
+  loess_residual_pred = predict(exp_model, newdata = data.frame(min_dist_to_list= x_vals)),
   lower = apply(boot_preds, 1, quantile, probs = 0.025),
   upper = apply(boot_preds, 1, quantile, probs = 0.975)
 )
@@ -243,6 +251,8 @@ cat("Parameter a (intercept):", residue_a, "\n")
 cat("Parameter b (decay rate):", residue_b, "\n")
 cat("Half-distance (log(2)/b):", residue_half_d, "\n")
 ```
+
+
 ```{r, fig.width=5, fig.height=5}
 # --- Annotate site types ---
 merged_df_residue <- merged_df_residue %>%
@@ -253,7 +263,7 @@ orange_labs <- active_site_resnos
 cyan_labs <- c()
 all_labs <- union(orange_labs, cyan_labs)
 
-p2 <- ggplot(merged_df_residue, aes(x = min_dist_to_site, y = abs(loess_residual_avg))) +
+p2 <- ggplot(merged_df_residue, aes(x = min_dist_to_list, y = abs(loess_residual_avg))) +
 
   # Unlabeled points
   geom_point(data = subset(merged_df_residue, !new_position %in% all_labs),
@@ -262,7 +272,7 @@ p2 <- ggplot(merged_df_residue, aes(x = min_dist_to_site, y = abs(loess_residual
   # CI ribbon
   geom_ribbon(
   data = fit_df_residue,
-  aes(x = min_dist_to_site, ymin = lower, ymax = upper),
+  aes(x = min_dist_to_list, ymin = lower, ymax = upper),
   inherit.aes = FALSE,
   fill = "grey70",
   alpha = 0.3) +
@@ -270,41 +280,33 @@ p2 <- ggplot(merged_df_residue, aes(x = min_dist_to_site, y = abs(loess_residual
   # Main fit line
   geom_line(
   data = fit_df_residue,
-  aes(x = min_dist_to_site, y = loess_residual_pred),
+  aes(x = min_dist_to_list, y = loess_residual_pred),
   inherit.aes = FALSE,
   color = "black")+
 
-
   # Labeled orange points
   geom_point(data = subset(merged_df_residue, new_position %in% orange_labs),
-             shape = 16, size = 2, color = "orange") +
-  # Labeled cyan points
-  geom_point(data = subset(merged_df_residue, new_position %in% cyan_labs),
-             shape = 17, size = 3, color = "cyan3") +
-  geom_text_repel(data = subset(merged_df_residue, new_position %in% cyan_labs),
-                  aes(label = new_position), color = "black") +
-
-  # Reference line
-  geom_vline(xintercept = max(merged_df_residue %>% filter(site_type == "orthosteric") %>% pull(min_dist_to_site)),
-             linetype = "dashed", color = "slategrey") +
+             shape = 16, size = 2, color = "#E69F00") +
 
   # Labels and theme
   labs(
-    title = "A0A075B6X5",
-    subtitle = "",
-    x = "Minimal distance to orthosteric sites",
-    y = "|Median ESM1v-ddGf residual|"
+    title = "T cell receptor alpha variable 18",
+    subtitle = "A0A075B6X5",
+    x = "Minimal Distance to CDRs",
+    y = "|Median ESM1v-ddGf Residual|"
   ) +
   theme_classic() +
   theme(legend.position = "none") +
-  scale_color_manual(values = c("non-orthosteric" = "darkgreen", "orthosteric" = "orange")) 
+  scale_color_manual(values = c("non-orthosteric" = "#8DAA9D", "orthosteric" = "#E69F00")) 
 p2
 ```
-
-
-```{r, fig.width=8, fig.height=4}
-plot_grid(p1,p2,ncol=2)
+```{r}
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_hypermutant_decay1.pdf", 
+       plot = p2, width = 3, height = 3, dpi = 300)
 ```
+
+
+
 
 ```{r}
 df <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/supp/P01601_filtered_with_esm1v.csv")
@@ -313,91 +315,99 @@ df_residual <- plot_loess_residuals(
   active_site_positions = c(), 
   protein_name = "P01601"
 )
-p3 <- df_residual$plot
-p3
+
+p1 <- df_residual$plot
+p1
+```
+```{r}
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_hypermutant_scatter2.pdf", 
+       plot = p1, width = 3, height = 4, dpi = 300)
 ```
 
 ```{r}
-plotting_data <- df_residual$data
-plotting_data
-# 1. Load PDB (Ensure this path is correct)
-pdb <- read.pdb("~/Downloads/AF-P01601-F1-model_v6.pdb", rm.alt =  TRUE)
-
+#https://www.uniprot.org/uniprotkb/P01601/entry#family_and_domains
+# 1. Load PDB 
+pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/hypermutant/AF-P01601-F1-model_v6.pdb", rm.alt = TRUE)
 # 2. Define Active Sites
-active_site_resnos <- c(45:56, 72:78, 111:117)
+active_site_resnos <- c(30:40, 48:54, 70:80)
 
-# 3. Get Active Site Coordinates (Using the CORRECT 'string' argument)
-# This was likely the missing piece in your previous environment
-site_inds <- atom.select(pdb, resno = active_site_resnos, string = "noh")
-site_xyz <- pdb$xyz[site_inds$xyz]
+# A. Define Basic Groups
+sele_protein <- atom.select(pdb, "protein", verbose=FALSE)
+sele_sc      <- atom.select(pdb, "sidechain", verbose=FALSE)
+sele_glyca   <- atom.select(pdb, resid = "GLY", string = "calpha", verbose=FALSE)
+sele_H       <- atom.select(pdb, "h", verbose=FALSE)
+sele_water   <- atom.select(pdb, "water", verbose=FALSE)
 
-# Check immediately
-if (length(site_inds$atom) == 0) {
-  stop("STOP: Active site atoms are 0. The Code will not work.")
-} else {
-  print(paste("Active Site Loaded: Found", length(site_inds$atom), "atoms."))
-}
+# B. Define SOURCE Atoms (The atoms we are measuring FROM)
+# Logic: Protein Side-Chain Heavy Atoms + Glycine C-alphas
+sele_prot_sc       <- combine.select(sele_protein, sele_sc, operator = "AND", verbose=FALSE)
+sele_prot_sc_glyca <- combine.select(sele_prot_sc, sele_glyca, operator = "OR", verbose=FALSE)
+# Exclude Hydrogens and Water
+sele_source_final  <- combine.select(sele_prot_sc_glyca, sele_H, sele_water, operator = "-", verbose=FALSE)
 
-# 4. Redefine the Function (The Robust Version)
-calc_min_heavy_dist <- function(res_num, pdb_obj, site_coords) {
-  
-  # Bio3D is strict: 'resno' must be numeric. 
-  # We force it here to fix the error you saw in Test B.
-  res_num <- as.numeric(as.character(res_num))
-  
-  # Use 'string = "noh"' (The fix confirmed by Test A)
-  target_inds <- atom.select(pdb_obj, resno = res_num, string = "noh")
-  
-  # Safety catch for missing residues
-  if (length(target_inds$atom) == 0) return(NA)
-  
-  # Calculate
-  target_xyz <- pdb_obj$xyz[target_inds$xyz]
-  t_mat <- matrix(target_xyz, ncol = 3, byrow = TRUE)
-  s_mat <- matrix(site_coords, ncol = 3, byrow = TRUE)
-  
-  return(min(dist.xyz(t_mat, s_mat), na.rm = TRUE))
-}
+# C. Define TARGET Atoms (The atoms we are measuring TO)
+# Logic: All Heavy Atoms (Backbone + Sidechain) of the residues in the list
+sele_target_raw    <- atom.select(pdb, resno = active_site_resnos, verbose=FALSE)
+# Exclude Hydrogens and Water
+sele_target_final  <- combine.select(sele_target_raw, sele_H, sele_water, operator = "-", verbose=FALSE)
 
-# 5. Run Calculation
-unique_positions <- unique(plotting_data$new_position)
+# Safety Check
+if(length(sele_target_final$atom) == 0) stop("Error: No heavy atoms found for the residues in 'target_resnos'. Check residue numbers.")
 
-print("Starting calculation loop...")
+# ---- Step 2: Compute Atomic Distances ----
 
-dist_vals <- sapply(unique_positions, function(x) {
-  calc_min_heavy_dist(x, pdb, site_xyz)
-})
+# A. Trim PDB to separate objects
+# pdb_source contains side-chain atoms of the whole protein
+# pdb_target contains all heavy atoms of the target residue list
+pdb_source <- trim.pdb(pdb, sele_source_final)
+pdb_target <- trim.pdb(pdb, sele_target_final)
 
-# 6. Map Back Safely
-# explicitly name the vector to ensure matching works
-names(dist_vals) <- as.character(unique_positions) 
+# B. Calculate Pairwise Distance Matrix 
+# Rows = Source Atoms, Cols = Target Atoms
+dist_mat <- dist.xyz(pdb_source$xyz, pdb_target$xyz)
 
-# Assign based on character matching
-plotting_data$min_dist_to_site <- dist_vals[as.character(plotting_data$new_position)]
+# C. Find Minimum Distance per Source Atom
+# For every atom in the protein side-chains, find the closest atom in the target list
+min_dist_per_atom <- apply(dist_mat, 1, min, na.rm = TRUE)
 
-# 7. Final Result
-print(paste("Final NAs:", sum(is.na(plotting_data$min_dist_to_site))))
-head(plotting_data$min_dist_to_site)
+# ---- Step 3: Aggregate to Residue Level ----
 
-# If NAs remain, it means those specific residues are missing from the PDB structure 
-# (common in loop regions), which is normal.
-# Filter out NAs (residues not found in PDB structure)
-plotting_data <- plotting_data %>% filter(!is.na(min_dist_to_site))
-nrow(plotting_data) #
-plotting_data
+# Add data back to the atom dataframe
+atom_df <- pdb_source$atom
+atom_df$dist_to_target <- min_dist_per_atom
+
+# D. Group by Residue
+min_dist_df <- atom_df %>%
+  group_by(resno, resid, chain) %>%
+  summarise(
+    # The minimum distance from ANY of this residue's side-chain atoms 
+    # to ANY heavy atom in the target list
+    min_dist_to_list = min(dist_to_target, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+min_dist_df
+```
+
+```{r}
+merged_df <- merge(df_residual$data, min_dist_df, by.x="new_position", by.y = "resno", all.x = TRUE)
+nrow(merged_df)
+merged_df <- merged_df %>% filter(!is.na(min_dist_to_list))
+nrow(merged_df)
+merged_df
 ```
 
 ```{r}
 # --- Merge with prediction data ---
-# Ensure 'gck_pred_residual' is loaded or replaced with your IGHV3-7 data
-merged_df <- plotting_data %>%
+merged_df <- merged_df %>%
   filter(residuals_pred <= 0)
 
+min_dist_df <- min_dist_df %>% dplyr::rename (new_position = resno)
 # --- Residue-level median residuals ---
 merged_df_residue <- merged_df %>%
   group_by(new_position) %>%
   summarise(loess_residual_avg = median(residuals_pred, na.rm = TRUE), .groups = "drop") %>%
-  left_join(plotting_data, by = "new_position" )
+  left_join(min_dist_df, by = "new_position")
 
 # --- Exclude the binding sites themselves for fitting ---
 # (Replacing the previous 'orthosteric_sites' logic)
@@ -406,24 +416,22 @@ merged_df_residue_fil <- merged_df_residue %>%
 
 # --- Fit exponential model ---
 exp_model <- nlsLM(
-  abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_site),
+  abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_list),
   data = merged_df_residue_fil,
   start = list(a = 1, b = 0.1)
 )
 exp_model
 ```
-
-
 ```{r}
 # --- Prediction grid ---
-x_vals <- seq(min(merged_df_residue_fil$min_dist_to_site, na.rm = TRUE),
-              max(merged_df_residue_fil$min_dist_to_site, na.rm = TRUE), length.out = 200)
+x_vals <- seq(min(merged_df_residue_fil$min_dist_to_list, na.rm = TRUE),
+              max(merged_df_residue_fil$min_dist_to_list, na.rm = TRUE), length.out = 200)
 
 # --- Bootstrapping for confidence intervals ---
 set.seed(11)
 boot_params <- replicate(1000, {
   samp <- merged_df_residue_fil[sample(nrow(merged_df_residue_fil), replace = TRUE), ]
-  fit <- try(nlsLM(abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_site),
+  fit <- try(nlsLM(abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_list),
                    data = samp, start = list(a = 1, b = 0.1)), silent = TRUE)
   if (inherits(fit, "try-error")) c(NA, NA) else coef(fit)
 })
@@ -432,8 +440,8 @@ boot_params <- t(boot_params)[complete.cases(t(boot_params)), ]
 boot_preds <- apply(boot_params, 1, function(p) p[1] * exp(-p[2] * x_vals))
 
 fit_df_residue <- data.frame(
-  min_dist_to_site = x_vals,
-  loess_residual_pred = predict(exp_model, newdata = data.frame(min_dist_to_site = x_vals)),
+  min_dist_to_list = x_vals,
+  loess_residual_pred = predict(exp_model, newdata = data.frame(min_dist_to_list= x_vals)),
   lower = apply(boot_preds, 1, quantile, probs = 0.025),
   upper = apply(boot_preds, 1, quantile, probs = 0.975)
 )
@@ -459,7 +467,6 @@ cat("Parameter a (intercept):", residue_a, "\n")
 cat("Parameter b (decay rate):", residue_b, "\n")
 cat("Half-distance (log(2)/b):", residue_half_d, "\n")
 ```
-
 ```{r, fig.width=5, fig.height=5}
 # --- Annotate site types ---
 merged_df_residue <- merged_df_residue %>%
@@ -470,7 +477,7 @@ orange_labs <- active_site_resnos
 cyan_labs <- c()
 all_labs <- union(orange_labs, cyan_labs)
 
-p4 <- ggplot(merged_df_residue, aes(x = min_dist_to_site, y = abs(loess_residual_avg))) +
+p2 <- ggplot(merged_df_residue, aes(x = min_dist_to_list, y = abs(loess_residual_avg))) +
 
   # Unlabeled points
   geom_point(data = subset(merged_df_residue, !new_position %in% all_labs),
@@ -479,7 +486,7 @@ p4 <- ggplot(merged_df_residue, aes(x = min_dist_to_site, y = abs(loess_residual
   # CI ribbon
   geom_ribbon(
   data = fit_df_residue,
-  aes(x = min_dist_to_site, ymin = lower, ymax = upper),
+  aes(x = min_dist_to_list, ymin = lower, ymax = upper),
   inherit.aes = FALSE,
   fill = "grey70",
   alpha = 0.3) +
@@ -487,36 +494,31 @@ p4 <- ggplot(merged_df_residue, aes(x = min_dist_to_site, y = abs(loess_residual
   # Main fit line
   geom_line(
   data = fit_df_residue,
-  aes(x = min_dist_to_site, y = loess_residual_pred),
+  aes(x = min_dist_to_list, y = loess_residual_pred),
   inherit.aes = FALSE,
   color = "black")+
 
-
   # Labeled orange points
   geom_point(data = subset(merged_df_residue, new_position %in% orange_labs),
-             shape = 16, size = 2, color = "orange") +
-  # Labeled cyan points
-  geom_point(data = subset(merged_df_residue, new_position %in% cyan_labs),
-             shape = 17, size = 3, color = "cyan3") +
-  geom_text_repel(data = subset(merged_df_residue, new_position %in% cyan_labs),
-                  aes(label = new_position), color = "black") +
-
-  # Reference line
-  geom_vline(xintercept = max(merged_df_residue %>% filter(site_type == "orthosteric") %>% pull(min_dist_to_site)),
-             linetype = "dashed", color = "slategrey") +
+             shape = 16, size = 2, color = "#E69F00") +
 
   # Labels and theme
   labs(
-    title = "P01601",
-    subtitle = "",
-    x = "Minimal distance to orthosteric sites",
-    y = "|Median ESM1v-ddGf residual|"
+    title = "Immunoglobulin kappa variable 1D-16",
+    subtitle = "P01601",
+    x = "Minimal Distance to CDRs",
+    y = "|Median ESM1v-ddGf Residual|"
   ) +
   theme_classic() +
   theme(legend.position = "none") +
-  scale_color_manual(values = c("non-orthosteric" = "darkgreen", "orthosteric" = "orange")) 
-p4
+  scale_color_manual(values = c("non-orthosteric" = "#8DAA9D", "orthosteric" = "#E69F00")) 
+p2
 ```
+```{r}
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_hypermutant_decay2.pdf", 
+       plot = p2, width = 3, height = 3, dpi = 300)
+```
+
 ```{r}
 df <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/supp/A0A0C4DH55_filtered_with_esm1v.csv")
 df_residual <- plot_loess_residuals(
@@ -524,90 +526,98 @@ df_residual <- plot_loess_residuals(
   active_site_positions = c(), 
   protein_name = "A0A0C4DH55"
 )
-p6 <- df_residual$plot
-p6
+
+p1 <- df_residual$plot
+p1
+```
+```{r}
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_hypermutant_scatter3.pdf", 
+       plot = p1, width = 3, height = 4, dpi = 300)
 ```
 
 ```{r}
-plotting_data <- df_residual$data
-plotting_data
-# 1. Load PDB (Ensure this path is correct)
-pdb <- read.pdb("~/Downloads/AF-A0A0C4DH55-F1-model_v6.pdb", rm.alt =  TRUE)
-
+#https://www.uniprot.org/uniprotkb/P01601/entry#family_and_domains
+# 1. Load PDB 
+pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/hypermutant/AF-A0A0C4DH55-F1-model_v6.pdb", rm.alt = TRUE)
 # 2. Define Active Sites
-active_site_resnos <- c(24:34, 50:56, 89:97)
+active_site_resnos <- c(30:42,48:57,72:86)
 
-# 3. Get Active Site Coordinates (Using the CORRECT 'string' argument)
-# This was likely the missing piece in your previous environment
-site_inds <- atom.select(pdb, resno = active_site_resnos, string = "noh")
-site_xyz <- pdb$xyz[site_inds$xyz]
+# A. Define Basic Groups
+sele_protein <- atom.select(pdb, "protein", verbose=FALSE)
+sele_sc      <- atom.select(pdb, "sidechain", verbose=FALSE)
+sele_glyca   <- atom.select(pdb, resid = "GLY", string = "calpha", verbose=FALSE)
+sele_H       <- atom.select(pdb, "h", verbose=FALSE)
+sele_water   <- atom.select(pdb, "water", verbose=FALSE)
 
-# Check immediately
-if (length(site_inds$atom) == 0) {
-  stop("STOP: Active site atoms are 0. The Code will not work.")
-} else {
-  print(paste("Active Site Loaded: Found", length(site_inds$atom), "atoms."))
-}
+# B. Define SOURCE Atoms (The atoms we are measuring FROM)
+# Logic: Protein Side-Chain Heavy Atoms + Glycine C-alphas
+sele_prot_sc       <- combine.select(sele_protein, sele_sc, operator = "AND", verbose=FALSE)
+sele_prot_sc_glyca <- combine.select(sele_prot_sc, sele_glyca, operator = "OR", verbose=FALSE)
+# Exclude Hydrogens and Water
+sele_source_final  <- combine.select(sele_prot_sc_glyca, sele_H, sele_water, operator = "-", verbose=FALSE)
 
-# 4. Redefine the Function (The Robust Version)
-calc_min_heavy_dist <- function(res_num, pdb_obj, site_coords) {
-  
-  # Bio3D is strict: 'resno' must be numeric. 
-  # We force it here to fix the error you saw in Test B.
-  res_num <- as.numeric(as.character(res_num))
-  
-  # Use 'string = "noh"' (The fix confirmed by Test A)
-  target_inds <- atom.select(pdb_obj, resno = res_num, string = "noh")
-  
-  # Safety catch for missing residues
-  if (length(target_inds$atom) == 0) return(NA)
-  
-  # Calculate
-  target_xyz <- pdb_obj$xyz[target_inds$xyz]
-  t_mat <- matrix(target_xyz, ncol = 3, byrow = TRUE)
-  s_mat <- matrix(site_coords, ncol = 3, byrow = TRUE)
-  
-  return(min(dist.xyz(t_mat, s_mat), na.rm = TRUE))
-}
+# C. Define TARGET Atoms (The atoms we are measuring TO)
+# Logic: All Heavy Atoms (Backbone + Sidechain) of the residues in the list
+sele_target_raw    <- atom.select(pdb, resno = active_site_resnos, verbose=FALSE)
+# Exclude Hydrogens and Water
+sele_target_final  <- combine.select(sele_target_raw, sele_H, sele_water, operator = "-", verbose=FALSE)
 
-# 5. Run Calculation
-unique_positions <- unique(plotting_data$new_position)
+# Safety Check
+if(length(sele_target_final$atom) == 0) stop("Error: No heavy atoms found for the residues in 'target_resnos'. Check residue numbers.")
 
-print("Starting calculation loop...")
+# ---- Step 2: Compute Atomic Distances ----
 
-dist_vals <- sapply(unique_positions, function(x) {
-  calc_min_heavy_dist(x, pdb, site_xyz)
-})
+# A. Trim PDB to separate objects
+# pdb_source contains side-chain atoms of the whole protein
+# pdb_target contains all heavy atoms of the target residue list
+pdb_source <- trim.pdb(pdb, sele_source_final)
+pdb_target <- trim.pdb(pdb, sele_target_final)
 
-# 6. Map Back Safely
-# explicitly name the vector to ensure matching works
-names(dist_vals) <- as.character(unique_positions) 
+# B. Calculate Pairwise Distance Matrix 
+# Rows = Source Atoms, Cols = Target Atoms
+dist_mat <- dist.xyz(pdb_source$xyz, pdb_target$xyz)
 
-# Assign based on character matching
-plotting_data$min_dist_to_site <- dist_vals[as.character(plotting_data$new_position)]
+# C. Find Minimum Distance per Source Atom
+# For every atom in the protein side-chains, find the closest atom in the target list
+min_dist_per_atom <- apply(dist_mat, 1, min, na.rm = TRUE)
 
-# 7. Final Result
-print(paste("Final NAs:", sum(is.na(plotting_data$min_dist_to_site))))
-head(plotting_data$min_dist_to_site)
+# ---- Step 3: Aggregate to Residue Level ----
 
-# If NAs remain, it means those specific residues are missing from the PDB structure 
-# (common in loop regions), which is normal.
-# Filter out NAs (residues not found in PDB structure)
-plotting_data <- plotting_data %>% filter(!is.na(min_dist_to_site))
-nrow(plotting_data) #
-plotting_data
+# Add data back to the atom dataframe
+atom_df <- pdb_source$atom
+atom_df$dist_to_target <- min_dist_per_atom
+
+# D. Group by Residue
+min_dist_df <- atom_df %>%
+  group_by(resno, resid, chain) %>%
+  summarise(
+    # The minimum distance from ANY of this residue's side-chain atoms 
+    # to ANY heavy atom in the target list
+    min_dist_to_list = min(dist_to_target, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+min_dist_df
+```
+
+```{r}
+merged_df <- merge(df_residual$data, min_dist_df, by.x="new_position", by.y = "resno", all.x = TRUE)
+nrow(merged_df)
+merged_df <- merged_df %>% filter(!is.na(min_dist_to_list))
+nrow(merged_df)
+merged_df
 ```
 ```{r}
 # --- Merge with prediction data ---
-# Ensure 'gck_pred_residual' is loaded or replaced with your IGHV3-7 data
-merged_df <- plotting_data %>%
+merged_df <- merged_df %>%
   filter(residuals_pred <= 0)
 
+min_dist_df <- min_dist_df %>% dplyr::rename (new_position = resno)
 # --- Residue-level median residuals ---
 merged_df_residue <- merged_df %>%
   group_by(new_position) %>%
   summarise(loess_residual_avg = median(residuals_pred, na.rm = TRUE), .groups = "drop") %>%
-  left_join(plotting_data, by = "new_position" )
+  left_join(min_dist_df, by = "new_position")
 
 # --- Exclude the binding sites themselves for fitting ---
 # (Replacing the previous 'orthosteric_sites' logic)
@@ -616,22 +626,23 @@ merged_df_residue_fil <- merged_df_residue %>%
 
 # --- Fit exponential model ---
 exp_model <- nlsLM(
-  abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_site),
+  abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_list),
   data = merged_df_residue_fil,
   start = list(a = 1, b = 0.1)
 )
 exp_model
 ```
+
 ```{r}
 # --- Prediction grid ---
-x_vals <- seq(min(merged_df_residue_fil$min_dist_to_site, na.rm = TRUE),
-              max(merged_df_residue_fil$min_dist_to_site, na.rm = TRUE), length.out = 200)
+x_vals <- seq(min(merged_df_residue_fil$min_dist_to_list, na.rm = TRUE),
+              max(merged_df_residue_fil$min_dist_to_list, na.rm = TRUE), length.out = 200)
 
 # --- Bootstrapping for confidence intervals ---
 set.seed(11)
 boot_params <- replicate(1000, {
   samp <- merged_df_residue_fil[sample(nrow(merged_df_residue_fil), replace = TRUE), ]
-  fit <- try(nlsLM(abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_site),
+  fit <- try(nlsLM(abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_list),
                    data = samp, start = list(a = 1, b = 0.1)), silent = TRUE)
   if (inherits(fit, "try-error")) c(NA, NA) else coef(fit)
 })
@@ -640,8 +651,8 @@ boot_params <- t(boot_params)[complete.cases(t(boot_params)), ]
 boot_preds <- apply(boot_params, 1, function(p) p[1] * exp(-p[2] * x_vals))
 
 fit_df_residue <- data.frame(
-  min_dist_to_site = x_vals,
-  loess_residual_pred = predict(exp_model, newdata = data.frame(min_dist_to_site = x_vals)),
+  min_dist_to_list = x_vals,
+  loess_residual_pred = predict(exp_model, newdata = data.frame(min_dist_to_list= x_vals)),
   lower = apply(boot_preds, 1, quantile, probs = 0.025),
   upper = apply(boot_preds, 1, quantile, probs = 0.975)
 )
@@ -678,7 +689,7 @@ orange_labs <- active_site_resnos
 cyan_labs <- c()
 all_labs <- union(orange_labs, cyan_labs)
 
-p7 <- ggplot(merged_df_residue, aes(x = min_dist_to_site, y = abs(loess_residual_avg))) +
+p2 <- ggplot(merged_df_residue, aes(x = min_dist_to_list, y = abs(loess_residual_avg))) +
 
   # Unlabeled points
   geom_point(data = subset(merged_df_residue, !new_position %in% all_labs),
@@ -687,7 +698,7 @@ p7 <- ggplot(merged_df_residue, aes(x = min_dist_to_site, y = abs(loess_residual
   # CI ribbon
   geom_ribbon(
   data = fit_df_residue,
-  aes(x = min_dist_to_site, ymin = lower, ymax = upper),
+  aes(x = min_dist_to_list, ymin = lower, ymax = upper),
   inherit.aes = FALSE,
   fill = "grey70",
   alpha = 0.3) +
@@ -695,468 +706,31 @@ p7 <- ggplot(merged_df_residue, aes(x = min_dist_to_site, y = abs(loess_residual
   # Main fit line
   geom_line(
   data = fit_df_residue,
-  aes(x = min_dist_to_site, y = loess_residual_pred),
+  aes(x = min_dist_to_list, y = loess_residual_pred),
   inherit.aes = FALSE,
   color = "black")+
 
-
   # Labeled orange points
   geom_point(data = subset(merged_df_residue, new_position %in% orange_labs),
-             shape = 16, size = 2, color = "orange") +
-  # Labeled cyan points
-  geom_point(data = subset(merged_df_residue, new_position %in% cyan_labs),
-             shape = 17, size = 3, color = "cyan3") +
-  geom_text_repel(data = subset(merged_df_residue, new_position %in% cyan_labs),
-                  aes(label = new_position), color = "black") +
-
-  # Reference line
-  geom_vline(xintercept = max(merged_df_residue %>% filter(site_type == "orthosteric") %>% pull(min_dist_to_site)),
-             linetype = "dashed", color = "slategrey") +
+             shape = 16, size = 2, color = "#E69F00") +
 
   # Labels and theme
   labs(
-    title = "A0A0C4DH55",
-    subtitle = "",
-    x = "Minimal distance to orthosteric sites",
-    y = "|Median ESM1v-ddGf residual|"
+    title = "Immunoglobulin kappa variable 3D-7",
+    subtitle = "A0A0C4DH55",
+    x = "Minimal Distance to CDRs",
+    y = "|Median ESM1v-ddGf Residual|"
   ) +
   theme_classic() +
   theme(legend.position = "none") +
-  scale_color_manual(values = c("non-orthosteric" = "darkgreen", "orthosteric" = "orange")) 
-p7
-```
-```{r}
-df <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/supp/A0A0A6YYK6_filtered_with_esm1v.csv")
-df_residual <- plot_loess_residuals(
-  df, 
-  active_site_positions = c(), 
-  protein_name = "A0A0A6YYK6"
-)
-p8 <- df_residual$plot
-p8
+  scale_color_manual(values = c("non-orthosteric" = "#8DAA9D", "orthosteric" = "#E69F00")) 
+p2
 ```
 
 ```{r}
-plotting_data <- df_residual$data
-plotting_data
-# 1. Load PDB (Ensure this path is correct)
-pdb <- read.pdb("~/Downloads/AF-A0A0A6YYK6-F1-model_v6.pdb", rm.alt =  TRUE)
-
-# 2. Define Active Sites
-active_site_resnos <- c(27:38, 56:65, 90:102)
-
-# 3. Get Active Site Coordinates (Using the CORRECT 'string' argument)
-# This was likely the missing piece in your previous environment
-site_inds <- atom.select(pdb, resno = active_site_resnos, string = "noh")
-site_xyz <- pdb$xyz[site_inds$xyz]
-
-# Check immediately
-if (length(site_inds$atom) == 0) {
-  stop("STOP: Active site atoms are 0. The Code will not work.")
-} else {
-  print(paste("Active Site Loaded: Found", length(site_inds$atom), "atoms."))
-}
-
-# 4. Redefine the Function (The Robust Version)
-calc_min_heavy_dist <- function(res_num, pdb_obj, site_coords) {
-  
-  # Bio3D is strict: 'resno' must be numeric. 
-  # We force it here to fix the error you saw in Test B.
-  res_num <- as.numeric(as.character(res_num))
-  
-  # Use 'string = "noh"' (The fix confirmed by Test A)
-  target_inds <- atom.select(pdb_obj, resno = res_num, string = "noh")
-  
-  # Safety catch for missing residues
-  if (length(target_inds$atom) == 0) return(NA)
-  
-  # Calculate
-  target_xyz <- pdb_obj$xyz[target_inds$xyz]
-  t_mat <- matrix(target_xyz, ncol = 3, byrow = TRUE)
-  s_mat <- matrix(site_coords, ncol = 3, byrow = TRUE)
-  
-  return(min(dist.xyz(t_mat, s_mat), na.rm = TRUE))
-}
-
-# 5. Run Calculation
-unique_positions <- unique(plotting_data$new_position)
-
-print("Starting calculation loop...")
-
-dist_vals <- sapply(unique_positions, function(x) {
-  calc_min_heavy_dist(x, pdb, site_xyz)
-})
-
-# 6. Map Back Safely
-# explicitly name the vector to ensure matching works
-names(dist_vals) <- as.character(unique_positions) 
-
-# Assign based on character matching
-plotting_data$min_dist_to_site <- dist_vals[as.character(plotting_data$new_position)]
-
-# 7. Final Result
-print(paste("Final NAs:", sum(is.na(plotting_data$min_dist_to_site))))
-head(plotting_data$min_dist_to_site)
-
-# If NAs remain, it means those specific residues are missing from the PDB structure 
-# (common in loop regions), which is normal.
-# Filter out NAs (residues not found in PDB structure)
-plotting_data <- plotting_data %>% filter(!is.na(min_dist_to_site))
-nrow(plotting_data) #
-plotting_data
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_hypermutant_decay3.pdf", 
+       plot = p2, width = 3, height = 3, dpi = 300)
 ```
-```{r}
-# --- Merge with prediction data ---
-# Ensure 'gck_pred_residual' is loaded or replaced with your IGHV3-7 data
-merged_df <- plotting_data %>%
-  filter(residuals_pred <= 0)
-
-# --- Residue-level median residuals ---
-merged_df_residue <- merged_df %>%
-  group_by(new_position) %>%
-  summarise(loess_residual_avg = median(residuals_pred, na.rm = TRUE), .groups = "drop") %>%
-  left_join(plotting_data, by = "new_position" )
-
-# --- Exclude the binding sites themselves for fitting ---
-# (Replacing the previous 'orthosteric_sites' logic)
-merged_df_residue_fil <- merged_df_residue %>%
-  filter(!new_position %in% active_site_resnos)
-
-# --- Fit exponential model ---
-exp_model <- nlsLM(
-  abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_site),
-  data = merged_df_residue_fil,
-  start = list(a = 1, b = 0.1)
-)
-exp_model
-```
-```{r}
-# --- Prediction grid ---
-x_vals <- seq(min(merged_df_residue_fil$min_dist_to_site, na.rm = TRUE),
-              max(merged_df_residue_fil$min_dist_to_site, na.rm = TRUE), length.out = 200)
-
-# --- Bootstrapping for confidence intervals ---
-set.seed(11)
-boot_params <- replicate(1000, {
-  samp <- merged_df_residue_fil[sample(nrow(merged_df_residue_fil), replace = TRUE), ]
-  fit <- try(nlsLM(abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_site),
-                   data = samp, start = list(a = 1, b = 0.1)), silent = TRUE)
-  if (inherits(fit, "try-error")) c(NA, NA) else coef(fit)
-})
-boot_params <- t(boot_params)[complete.cases(t(boot_params)), ]
-
-boot_preds <- apply(boot_params, 1, function(p) p[1] * exp(-p[2] * x_vals))
-
-fit_df_residue <- data.frame(
-  min_dist_to_site = x_vals,
-  loess_residual_pred = predict(exp_model, newdata = data.frame(min_dist_to_site = x_vals)),
-  lower = apply(boot_preds, 1, quantile, probs = 0.025),
-  upper = apply(boot_preds, 1, quantile, probs = 0.975)
-)
-
-# --- Model parameter extraction and derived quantity ---
-model_summary <- summary(exp_model)
-coefs <- coef(exp_model)
-se <- model_summary$coefficients[, "Std. Error"]
-
-residue_a <- c(coefs["a"],
-               coefs["a"] - 1.96 * se["a"],
-               coefs["a"] + 1.96 * se["a"])
-
-residue_b <- c(coefs["b"],
-               coefs["b"] - 1.96 * se["b"],
-               coefs["b"] + 1.96 * se["b"])
-
-half_d <- log(2) / coefs["b"]
-half_d_ci <- quantile(log(2) / boot_params[, "b"], probs = c(0.025, 0.975))
-residue_half_d <- c(half_d, half_d_ci)
-
-cat("Parameter a (intercept):", residue_a, "\n")
-cat("Parameter b (decay rate):", residue_b, "\n")
-cat("Half-distance (log(2)/b):", residue_half_d, "\n")
-```
-
-```{r, fig.width=5, fig.height=5}
-# --- Annotate site types ---
-merged_df_residue <- merged_df_residue %>%
-  mutate(site_type = if_else(new_position %in% active_site_resnos, "orthosteric", "non-orthosteric"))
-
-# --- Plot ---
-orange_labs <- active_site_resnos
-cyan_labs <- c()
-all_labs <- union(orange_labs, cyan_labs)
-
-p8 <- ggplot(merged_df_residue, aes(x = min_dist_to_site, y = abs(loess_residual_avg))) +
-
-  # Unlabeled points
-  geom_point(data = subset(merged_df_residue, !new_position %in% all_labs),
-             aes(color = site_type), size = 2, alpha = 0.5) +
-
-  # CI ribbon
-  geom_ribbon(
-  data = fit_df_residue,
-  aes(x = min_dist_to_site, ymin = lower, ymax = upper),
-  inherit.aes = FALSE,
-  fill = "grey70",
-  alpha = 0.3) +
-
-  # Main fit line
-  geom_line(
-  data = fit_df_residue,
-  aes(x = min_dist_to_site, y = loess_residual_pred),
-  inherit.aes = FALSE,
-  color = "black")+
-
-
-  # Labeled orange points
-  geom_point(data = subset(merged_df_residue, new_position %in% orange_labs),
-             shape = 16, size = 2, color = "orange") +
-  # Labeled cyan points
-  geom_point(data = subset(merged_df_residue, new_position %in% cyan_labs),
-             shape = 17, size = 3, color = "cyan3") +
-  geom_text_repel(data = subset(merged_df_residue, new_position %in% cyan_labs),
-                  aes(label = new_position), color = "black") +
-
-  # Reference line
-  geom_vline(xintercept = max(merged_df_residue %>% filter(site_type == "orthosteric") %>% pull(min_dist_to_site)),
-             linetype = "dashed", color = "slategrey") +
-
-  # Labels and theme
-  labs(
-    title = "A0A0A6YYK6",
-    subtitle = "",
-    x = "Minimal distance to orthosteric sites",
-    y = "|Median ESM1v-ddGf residual|"
-  ) +
-  theme_classic() +
-  theme(legend.position = "none") +
-  scale_color_manual(values = c("non-orthosteric" = "darkgreen", "orthosteric" = "orange")) 
-p8
-```
-```{r}
-df <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/supp/A0A075B6U4_filtered_with_esm1v.csv")
-df_residual <- plot_loess_residuals(
-  df, 
-  active_site_positions = c(), 
-  protein_name = "A0A075B6U4"
-)
-p9 <- df_residual$plot
-p9
-```
-```{r}
-plotting_data <- df_residual$data
-plotting_data
-# 1. Load PDB (Ensure this path is correct)
-pdb <- read.pdb("~/Downloads/AF-A0A075B6U4-F1-model_v6.pdb", rm.alt =  TRUE)
-
-# 2. Define Active Sites
-active_site_resnos <- c(25:35, 50:65, 90:105)
-
-# 3. Get Active Site Coordinates (Using the CORRECT 'string' argument)
-# This was likely the missing piece in your previous environment
-site_inds <- atom.select(pdb, resno = active_site_resnos, string = "noh")
-site_xyz <- pdb$xyz[site_inds$xyz]
-
-# Check immediately
-if (length(site_inds$atom) == 0) {
-  stop("STOP: Active site atoms are 0. The Code will not work.")
-} else {
-  print(paste("Active Site Loaded: Found", length(site_inds$atom), "atoms."))
-}
-
-# 4. Redefine the Function (The Robust Version)
-calc_min_heavy_dist <- function(res_num, pdb_obj, site_coords) {
-  
-  # Bio3D is strict: 'resno' must be numeric. 
-  # We force it here to fix the error you saw in Test B.
-  res_num <- as.numeric(as.character(res_num))
-  
-  # Use 'string = "noh"' (The fix confirmed by Test A)
-  target_inds <- atom.select(pdb_obj, resno = res_num, string = "noh")
-  
-  # Safety catch for missing residues
-  if (length(target_inds$atom) == 0) return(NA)
-  
-  # Calculate
-  target_xyz <- pdb_obj$xyz[target_inds$xyz]
-  t_mat <- matrix(target_xyz, ncol = 3, byrow = TRUE)
-  s_mat <- matrix(site_coords, ncol = 3, byrow = TRUE)
-  
-  return(min(dist.xyz(t_mat, s_mat), na.rm = TRUE))
-}
-
-# 5. Run Calculation
-unique_positions <- unique(plotting_data$new_position)
-
-print("Starting calculation loop...")
-
-dist_vals <- sapply(unique_positions, function(x) {
-  calc_min_heavy_dist(x, pdb, site_xyz)
-})
-
-# 6. Map Back Safely
-# explicitly name the vector to ensure matching works
-names(dist_vals) <- as.character(unique_positions) 
-
-# Assign based on character matching
-plotting_data$min_dist_to_site <- dist_vals[as.character(plotting_data$new_position)]
-
-# 7. Final Result
-print(paste("Final NAs:", sum(is.na(plotting_data$min_dist_to_site))))
-head(plotting_data$min_dist_to_site)
-
-# If NAs remain, it means those specific residues are missing from the PDB structure 
-# (common in loop regions), which is normal.
-# Filter out NAs (residues not found in PDB structure)
-plotting_data <- plotting_data %>% filter(!is.na(min_dist_to_site))
-nrow(plotting_data) #
-plotting_data
-```
-```{r}
-# --- Merge with prediction data ---
-# Ensure 'gck_pred_residual' is loaded or replaced with your IGHV3-7 data
-merged_df <- plotting_data %>%
-  filter(residuals_pred <= 0)
-
-# --- Residue-level median residuals ---
-merged_df_residue <- merged_df %>%
-  group_by(new_position) %>%
-  summarise(loess_residual_avg = median(residuals_pred, na.rm = TRUE), .groups = "drop") %>%
-  left_join(plotting_data, by = "new_position" )
-
-# --- Exclude the binding sites themselves for fitting ---
-# (Replacing the previous 'orthosteric_sites' logic)
-merged_df_residue_fil <- merged_df_residue %>%
-  filter(!new_position %in% active_site_resnos)
-
-# --- Fit exponential model ---
-exp_model <- nlsLM(
-  abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_site),
-  data = merged_df_residue_fil,
-  start = list(a = 1, b = 0.1)
-)
-exp_model
-```
-```{r}
-# --- Prediction grid ---
-x_vals <- seq(min(merged_df_residue_fil$min_dist_to_site, na.rm = TRUE),
-              max(merged_df_residue_fil$min_dist_to_site, na.rm = TRUE), length.out = 200)
-
-# --- Bootstrapping for confidence intervals ---
-set.seed(11)
-boot_params <- replicate(1000, {
-  samp <- merged_df_residue_fil[sample(nrow(merged_df_residue_fil), replace = TRUE), ]
-  fit <- try(nlsLM(abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_site),
-                   data = samp, start = list(a = 1, b = 0.1)), silent = TRUE)
-  if (inherits(fit, "try-error")) c(NA, NA) else coef(fit)
-})
-boot_params <- t(boot_params)[complete.cases(t(boot_params)), ]
-
-boot_preds <- apply(boot_params, 1, function(p) p[1] * exp(-p[2] * x_vals))
-
-fit_df_residue <- data.frame(
-  min_dist_to_site = x_vals,
-  loess_residual_pred = predict(exp_model, newdata = data.frame(min_dist_to_site = x_vals)),
-  lower = apply(boot_preds, 1, quantile, probs = 0.025),
-  upper = apply(boot_preds, 1, quantile, probs = 0.975)
-)
-
-# --- Model parameter extraction and derived quantity ---
-model_summary <- summary(exp_model)
-coefs <- coef(exp_model)
-se <- model_summary$coefficients[, "Std. Error"]
-
-residue_a <- c(coefs["a"],
-               coefs["a"] - 1.96 * se["a"],
-               coefs["a"] + 1.96 * se["a"])
-
-residue_b <- c(coefs["b"],
-               coefs["b"] - 1.96 * se["b"],
-               coefs["b"] + 1.96 * se["b"])
-
-half_d <- log(2) / coefs["b"]
-half_d_ci <- quantile(log(2) / boot_params[, "b"], probs = c(0.025, 0.975))
-residue_half_d <- c(half_d, half_d_ci)
-
-cat("Parameter a (intercept):", residue_a, "\n")
-cat("Parameter b (decay rate):", residue_b, "\n")
-cat("Half-distance (log(2)/b):", residue_half_d, "\n")
-```
-
-```{r, fig.width=5, fig.height=5}
-# --- Annotate site types ---
-merged_df_residue <- merged_df_residue %>%
-  mutate(site_type = if_else(new_position %in% active_site_resnos, "orthosteric", "non-orthosteric"))
-
-# --- Plot ---
-orange_labs <- active_site_resnos
-cyan_labs <- c()
-all_labs <- union(orange_labs, cyan_labs)
-
-p10 <- ggplot(merged_df_residue, aes(x = min_dist_to_site, y = abs(loess_residual_avg))) +
-
-  # Unlabeled points
-  geom_point(data = subset(merged_df_residue, !new_position %in% all_labs),
-             aes(color = site_type), size = 2, alpha = 0.5) +
-
-  # CI ribbon
-  geom_ribbon(
-  data = fit_df_residue,
-  aes(x = min_dist_to_site, ymin = lower, ymax = upper),
-  inherit.aes = FALSE,
-  fill = "grey70",
-  alpha = 0.3) +
-
-  # Main fit line
-  geom_line(
-  data = fit_df_residue,
-  aes(x = min_dist_to_site, y = loess_residual_pred),
-  inherit.aes = FALSE,
-  color = "black")+
-
-
-  # Labeled orange points
-  geom_point(data = subset(merged_df_residue, new_position %in% orange_labs),
-             shape = 16, size = 2, color = "orange") +
-  # Labeled cyan points
-  geom_point(data = subset(merged_df_residue, new_position %in% cyan_labs),
-             shape = 17, size = 3, color = "cyan3") +
-  geom_text_repel(data = subset(merged_df_residue, new_position %in% cyan_labs),
-                  aes(label = new_position), color = "black") +
-
-  # Reference line
-  geom_vline(xintercept = max(merged_df_residue %>% filter(site_type == "orthosteric") %>% pull(min_dist_to_site)),
-             linetype = "dashed", color = "slategrey") +
-
-  # Labels and theme
-  labs(
-    title = "A0A075B6U4",
-    subtitle = "",
-    x = "Minimal distance to orthosteric sites",
-    y = "|Median ESM1v-ddGf residual|"
-  ) +
-  theme_classic() +
-  theme(legend.position = "none") +
-  scale_color_manual(values = c("non-orthosteric" = "darkgreen", "orthosteric" = "orange")) 
-p10
-```
-
-```{r}
-
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

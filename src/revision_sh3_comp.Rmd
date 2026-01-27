@@ -11,7 +11,6 @@ library('ProjectTemplate')
 library(ggExtra)
 library(bio3d)
 library(ggrepel)
-load.project()
 ```
 
 ```{r}
@@ -33,32 +32,6 @@ sh3_final_df_ddgf <- sh3_final_df_ddgf %>% filter(old_id != "WT")
 head(sh3_final_df_ddgf)
 ```
 
-```{r}
-# Assuming your dataframe is named 'df'
-wt_sequence <- sh3_final_df_ddgf %>%
-  # 1. Remove the control row (id = "WT") and any rows where Position is NA
-  filter(id != "WT", !is.na(Pos)) %>%
-  
-  # 2. Extract the first letter of the 'id' column (this is the Wild Type AA)
-  #    and keep the Position column
-  mutate(wt_aa = substr(id, 1, 1)) %>%
-  dplyr::select(Pos, wt_aa) %>%
-  
-  # 3. Remove duplicates (since you have multiple mutations per position, e.g., T1A, T1C...)
-  #    We only need one reference per position.
-  distinct() %>%
-  
-  # 4. Ensure positions are in the correct numerical order (1, 2, 3...)
-  arrange(Pos) %>%
-  
-  # 5. Extract the amino acids and collapse them into a single string
-  pull(wt_aa) %>%
-  paste0(collapse = "")
-
-# Print the result
-print(wt_sequence)
-```
-
 
 ```{r}
 sh3_final_df_ddgb <- read_tsv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domains_andre/GRB2-SH3/Abundance/mochi_project/task_1/weights/weights_Binding.txt')
@@ -68,10 +41,10 @@ dim(sh3_final_df_ddgb) #757   4
 sh3_final_df_ddgb <- sh3_final_df_ddgb %>%
   mutate(wt_aa = str_extract(id_ref, '^[A-Za-z]+'),
          mt_aa = str_extract(id_ref, '[A-Za-z]+$')) %>%
-  rename(old_id = id_ref) %>%
-  rename(old_Pos = Pos_ref) %>%
-    rename(b_ddg_pred = `mean_kcal/mol`) %>%
-  rename(b_ddg_pred_sd = `std_kcal/mol`) %>%
+  dplyr::rename(old_id = id_ref) %>%
+  dplyr::rename(old_Pos = Pos_ref) %>%
+  dplyr::rename(b_ddg_pred = `mean_kcal/mol`) %>%
+  dplyr::rename(b_ddg_pred_sd = `std_kcal/mol`) %>%
   mutate(Pos_ref = as.numeric(old_Pos) + 158) %>%
   mutate(id_ref = paste0(wt_aa, Pos_ref, mt_aa))
 
@@ -246,7 +219,12 @@ test_merged_df_residue <- test_merged_df %>%
     esm_median = median(ESM1v, na.rm = TRUE))
 
 cor.test(test_merged_df_residue$ddgf_median, test_merged_df_residue$tmpnn_median, method = "spearman")#0.7566644 
-
+# data:  test_merged_df_residue$ddgf_median and test_merged_df_residue$tmpnn_median
+# S = 7120, p-value < 2.2e-16
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#       rho 
+# 0.7566644 
 p5 <- ggplot(test_merged_df_residue, aes(x = ddgf_median, y = -tmpnn_median, color = ddgb_median)) +
   geom_point(alpha = 0.6) +
   scale_color_gradient2(
@@ -267,9 +245,21 @@ p5 <- ggplot(test_merged_df_residue, aes(x = ddgf_median, y = -tmpnn_median, col
     text = element_text(size = 12),
     legend.position = "bottom"
   )
+cor.test(test_merged_df_residue$ddgb_median, test_merged_df_residue$esm_median, method = "spearman")
+# data:  test_merged_df_residue$ddgb_median and test_merged_df_residue$esm_median
+# S = 44556, p-value = 4.656e-05
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.5227614
 
 cor.test(test_merged_df_residue$ddgf_median, test_merged_df_residue$esm_median, method = "spearman")#-0.5435407
-
+# data:  test_merged_df_residue$ddgf_median and test_merged_df_residue$esm_median
+# S = 45164, p-value = 2.058e-05
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.5435407
 p6 <- ggplot(test_merged_df_residue, aes(x = ddgf_median, y = esm_median, color = ddgb_median)) +
   geom_point(alpha = 0.6) +  # Alpha adds transparency to see overlapping points
   scale_color_gradient2(
@@ -294,6 +284,12 @@ p6 <- ggplot(test_merged_df_residue, aes(x = ddgf_median, y = esm_median, color 
 plot_grid(p2, p1, p5, p6, ncol = 4)
 ```
 
+```{r}
+p7 <- plot_grid(p5,p6, ncol = 2)
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_fig_sh3_deviance.pdf", 
+       plot = p7, width = 6, height = 3.5, dpi = 300)
+p7
+```
 
 
 

@@ -10,7 +10,6 @@ library('ProjectTemplate')
 library(ggExtra)
 library(bio3d)
 library(ggrepel)
-load.project()
 ```
 
 ```{r}
@@ -460,14 +459,4 @@ p2
 # #PR-AUC: 0.8717 
 ```
 
-
-
-
-
-
-
-
-```{r}
-
-```
 

@@ -2,6 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
-figs/illustrator/fig2.ai
-figs/illustrator/fig2.ai
-figs/illustrator/fig2.ai
+*.ai
+*.tmp
+figs/revision_illustrator/
+*.ai
+*.tmp
+figs/revision_illustrator/

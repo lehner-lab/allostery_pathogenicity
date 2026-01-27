@@ -34,14 +34,6 @@ fil_df <- fil_df %>% arrange(desc(adj_r2))
 head(fil_df)
 ```
 
-```{r}
-
-```
-
-```{r}
-
-```
-
 
 
 

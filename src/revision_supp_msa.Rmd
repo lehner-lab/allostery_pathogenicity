@@ -1,0 +1,442 @@
+---
+title: "revision_supp_msa.Rmd"
+output: html_document
+date: "2025-12-11"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+library('ProjectTemplate')
+library(ggExtra)
+library(bio3d)
+library(ggrepel)
+library(tidyverse)
+library(Biostrings)
+library(DECIPHER)
+library(data.table)
+```
+
+```{r}
+# --- 1. SETUP PATHS ---
+run_prefix <- "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/dca/psd95-pdz3_evcoupling_legacy/align/9655f074b3db5a93024aa4978f15ad89_b0.3"
+msa_path   <- paste0(run_prefix, ".a2m")
+freq_path  <- paste0(run_prefix, "_frequencies.csv")
+
+# --- 2. ESTIMATE GLOBAL NEFF (Using Subsampling) ---
+message("Reading MSA...")
+msa <- readAAStringSet(msa_path)
+N_total <- length(msa)
+
+# We define a "Safe Sample Size" for R. 
+# 15,000 is large enough to capture the diversity of the family,
+# but small enough for R to calculate distance matrices quickly.
+set.seed(123)
+sample_size <- 15000 
+
+if(N_total > sample_size) {
+  message(sprintf("Subsampling %s sequences to estimate Neff...", sample_size))
+  idx <- sample(N_total, sample_size)
+  msa_sub <- msa[idx]
+} else {
+  msa_sub <- msa
+}
+
+# Convert to matrix for distance calculation
+msa_mat <- as.matrix(msa_sub)
+L <- ncol(msa_mat)
+
+# Standard DCA Threshold: 80% identity (Distance < 0.2)
+threshold_dist <- L * 0.2 
+
+message("Calculating sequence weights (this may take a moment)...")
+# Calculate Hamming distance
+dist_obj <- stringDist(msa_sub, method = "hamming")
+dist_mat <- as.matrix(dist_obj)
+
+# Weight = 1 / (Number of sequences within 80% identity)
+# Note: logical matrix (dist_mat <= threshold_dist) converts to 1/0 for rowSums
+weights <- 1 / rowSums(dist_mat <= threshold_dist)
+
+# The sum of weights in a representative sample is our Global Neff
+global_neff <- sum(weights)
+
+message(paste("Estimated Global Neff:", round(global_neff, 2)))
+
+# --- 3. CALCULATE PER-POSITION NEFF ---
+# Load the pre-calculated frequencies
+freq_raw <- read.csv(freq_path, check.names = FALSE)
+
+neff_df <- freq_raw |>
+  dplyr::rename(gap_freq = `-`) |>
+  dplyr::mutate(
+    # Depth (non-gap frequency) is the fraction of coverage
+    depth_raw = (1 - gap_freq),
+    
+    # Neff(pos) = Coverage(pos) * Global_Neff
+    # This tells you how many effective sequences cover this specific position
+    positional_neff = depth_raw * global_neff
+  ) |>
+  dplyr::select(
+    position = i, 
+    wt = A_i, 
+    positional_neff, 
+    conservation
+  )
+
+# --- 4. VIEW RESULTS ---
+neff_df
+```
+
+```{r}
+neff_df$position <- neff_df$position + 310
+neff_df
+```
+
+```{r}
+pdz3_final_df_ddg <- read_csv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/pdz3_ddg_cleaned_mochi_refit.csv')
+pdz3_final_df_ddgb <- pdz3_final_df_ddg %>% filter(trait_name == "Binding") %>% 
+  dplyr::rename(b_ddg_pred = ddg,
+                b_ddg_pred_sd = std_ddg)
+nrow(pdz3_final_df_ddgb) #1567
+head(pdz3_final_df_ddgb)
+```
+```{r}
+test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/PSD95/ThermoMPNN_inference_AF-P78352-F1-model_v4.csv")
+test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P78352.csv")
+  
+colnames(test_esm)[2] <- "ESM1v"
+  
+test_ddg[, new_position := position + 1]
+test_ddg[, variant := paste0(wildtype, new_position, mutation)]
+  
+test_df <- merge(test_ddg, test_esm, by = "variant")
+
+pred_seq <-  ali_process_sequence(test_df, "new_position", "wildtype")
+exp_seq <- ali_process_sequence(pdz3_final_df_ddgb, "pos_am", "WT_aa")
+ali_find_sequence_overlap(pred_seq, exp_seq ,"sequence")
+#sequence starts at index 311 in the reference sequence
+
+test_df %>% filter(new_position == 311)
+pdz3_final_df_ddgb %>% filter (pos_am == 1)
+pdz3_final_df_ddgb$pos_match <- pdz3_final_df_ddgb$pos_am + 310
+pdz3_final_df_ddgb$variant_match <- paste0(pdz3_final_df_ddgb$wt_aa, 
+                                           pdz3_final_df_ddgb$pos_match, 
+                                           pdz3_final_df_ddgb$mt_aa)
+
+test_merged_df <- merge(pdz3_final_df_ddgb, test_df, by.x="variant_match", by.y="variant")
+nrow(test_merged_df) #1567
+head(test_merged_df)
+```
+```{r}
+paper_anno <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/pdz3_ddg_cleaned.csv")
+head(paper_anno)
+table(paper_anno$orthosteric)
+ortho_list <- unique(paper_anno %>% filter(orthosteric == TRUE) %>% pull(pos_am))
+##setdiff(unique(pdz3_out %>% filter(scHAmin_ligand < 4.3) %>% pull(Pos)), unique(merged_df_pdz3 %>% filter(orthosteric == TRUE) %>% pull (Pos_ref.x)))
+ortho_list <- append(ortho_list, c(322, 323, 324 ,325, 326, 327, 328, 331, 339, 372, 376, 379, 380))
+
+fil_test_merged_df <- test_merged_df %>%
+  filter(!Pos_ref %in% ortho_list)
+
+# Fit a loess model using the filtered data
+loess_fit_comp <- loess(ESM1v.y ~ ddG_pred, data = fil_test_merged_df, span = 0.7, family = "symmetric")
+
+# Predict fitted values for ALL data points using the loess model trained on fil_gck_df
+test_merged_df$fitted_comp <- predict(loess_fit_comp, newdata = test_merged_df)
+
+# Calculate residuals for ALL points
+test_merged_df$residuals_comp <- test_merged_df$ESM1v.y - test_merged_df$fitted_comp
+sum(is.na(test_merged_df$residuals_comp)) #6
+head(test_merged_df)
+```
+```{r}
+test_merged_df_residue <- test_merged_df %>%
+  group_by(pos_match) %>%
+  summarise(
+    residual_median = median(residuals_comp, na.rm = TRUE),
+    median_ddgb = median(b_ddg_pred, na.rm = TRUE))
+
+allo_pos <- c(312, 314, 318, 329, 330, 336, 338, 341, 347, 357, 359, 360, 362, 363, 367, 375, 386, 388) 
+
+test_merged_df_residue <- test_merged_df_residue %>%
+  mutate(
+    # Label logic: ONLY label if the position is in your list
+    label_text = ifelse(pos_match %in% allo_pos, as.character(pos_match), ""),
+    
+    # Optional: Create a column to make these points look different (e.g., bigger/bolder)
+    is_highlighted = pos_match %in% allo_pos
+  ) 
+test_merged_df_residue
+```
+
+```{r}
+merged_df <- merge(neff_df, test_merged_df_residue, by.x = "position", by.y = "pos_match")
+merged_df
+```
+
+```{r, fig.width=4, fig.height=4.5}
+# 1. Calculate Spearman's rho
+cor.test(merged_df$positional_neff, merged_df$residual_median, method = "spearman")
+# data:  merged_df$positional_neff and merged_df$residual_median
+# S = 114217, p-value = 0.1554
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.1563902 
+
+# 3. Create the Plot
+p1 <- ggplot(merged_df, aes(x = positional_neff, y = residual_median, color = median_ddgb)) +
+  geom_point() +
+  scale_color_gradient2(
+    low = "blue", 
+    mid = "grey", 
+    high = "red", 
+    midpoint = 0
+  ) +
+  theme_classic() +
+  labs(
+    x = "Neff",
+    y = "Median ESM1v-ddGf residual",
+    title = "PSD95-PDZ3",
+    subtitle = "Spearman's rho = -0.16 (p = 0.16)"  
+  ) +
+  theme(
+    legend.position = "bottom"
+  ) +
+  geom_text_repel(
+    aes(label = label_text),
+    size = 3.5,
+    box.padding = 0.5,
+    max.overlaps = Inf,
+    point.padding = 0.3,
+    min.segment.length = 0
+  ) 
+
+p1
+```
+
+```{r}
+# --- 1. SETUP PATHS ---
+run_prefix <- "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/dca/grb2_evcoupling_legacy/align/140b370370a17221489d7c8e78639193_b0.2"
+msa_path   <- paste0(run_prefix, ".a2m")
+freq_path  <- paste0(run_prefix, "_frequencies.csv")
+
+# --- 2. ESTIMATE GLOBAL NEFF (Using Subsampling) ---
+message("Reading MSA...")
+msa <- readAAStringSet(msa_path)
+N_total <- length(msa)
+
+# We define a "Safe Sample Size" for R. 
+# 15,000 is large enough to capture the diversity of the family,
+# but small enough for R to calculate distance matrices quickly.
+set.seed(123)
+sample_size <- 15000 
+
+if(N_total > sample_size) {
+  message(sprintf("Subsampling %s sequences to estimate Neff...", sample_size))
+  idx <- sample(N_total, sample_size)
+  msa_sub <- msa[idx]
+} else {
+  msa_sub <- msa
+}
+
+# Convert to matrix for distance calculation
+msa_mat <- as.matrix(msa_sub)
+L <- ncol(msa_mat)
+
+# Standard DCA Threshold: 80% identity (Distance < 0.2)
+threshold_dist <- L * 0.2 
+
+message("Calculating sequence weights (this may take a moment)...")
+# Calculate Hamming distance
+dist_obj <- stringDist(msa_sub, method = "hamming")
+dist_mat <- as.matrix(dist_obj)
+
+# Weight = 1 / (Number of sequences within 80% identity)
+# Note: logical matrix (dist_mat <= threshold_dist) converts to 1/0 for rowSums
+weights <- 1 / rowSums(dist_mat <= threshold_dist)
+
+# The sum of weights in a representative sample is our Global Neff
+global_neff <- sum(weights)
+
+message(paste("Estimated Global Neff:", round(global_neff, 2)))
+
+# --- 3. CALCULATE PER-POSITION NEFF ---
+# Load the pre-calculated frequencies
+freq_raw <- read.csv(freq_path, check.names = FALSE)
+
+neff_df <- freq_raw |>
+  dplyr::rename(gap_freq = `-`) |>
+  dplyr::mutate(
+    # Depth (non-gap frequency) is the fraction of coverage
+    depth_raw = (1 - gap_freq),
+    
+    # Neff(pos) = Coverage(pos) * Global_Neff
+    positional_neff = depth_raw * global_neff
+  ) |>
+  dplyr::select(
+    position = i, 
+    wt = A_i, 
+    positional_neff, 
+    conservation
+  )
+
+# --- 4. VIEW RESULTS ---
+neff_df
+```
+
+```{r}
+sh3_final_df_ddgb <- read_tsv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domains_andre/GRB2-SH3/Abundance/mochi_project/task_1/weights/weights_Binding.txt')
+sh3_final_df_ddgb <- sh3_final_df_ddgb %>% dplyr::select(id_ref, Pos_ref, `mean_kcal/mol`, `std_kcal/mol`)
+dim(sh3_final_df_ddgb) #757   4
+
+sh3_final_df_ddgb <- sh3_final_df_ddgb %>%
+  mutate(wt_aa = str_extract(id_ref, '^[A-Za-z]+'),
+         mt_aa = str_extract(id_ref, '[A-Za-z]+$')) %>%
+  dplyr::rename(old_id = id_ref) %>%
+  dplyr::rename(old_Pos = Pos_ref) %>%
+  dplyr::rename(b_ddg_pred = `mean_kcal/mol`) %>%
+  dplyr::rename(b_ddg_pred_sd = `std_kcal/mol`) %>%
+  mutate(Pos_ref = as.numeric(old_Pos) + 158) %>%
+  mutate(id_ref = paste0(wt_aa, Pos_ref, mt_aa))
+
+sh3_final_df_ddgb <- sh3_final_df_ddgb %>% filter(old_id != "WT")
+head(sh3_final_df_ddgb)
+```
+
+```{r}
+test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/GRB2/ThermoMPNN_inference_AF-P62993-F1-model_v4.csv")
+test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P62993.csv")
+  
+colnames(test_esm)[2] <- "ESM1v"
+  
+test_ddg[, new_position := position + 1]
+test_ddg[, variant := paste0(wildtype, new_position, mutation)]
+  
+test_df <- merge(test_ddg, test_esm, by = "variant")
+
+pred_seq <-  ali_process_sequence(test_df, "new_position", "wildtype")
+exp_seq <- ali_process_sequence(sh3_final_df_ddgb, "old_Pos", "wt_aa")
+ali_find_sequence_overlap(pred_seq, exp_seq ,"sequence")
+#"sequence starts at index 159 in the reference sequence."
+nrow(sh3_final_df_ddgb) #756
+test_merged_df <- merge(sh3_final_df_ddgb, test_df, by.x="id_ref", by.y="variant")
+nrow(test_merged_df) #756
+head(test_merged_df)
+```
+
+```{r}
+paper_anno <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/sh3_ddg_cleaned.csv")
+table(paper_anno$orthosteric)
+head(paper_anno)
+ortho_list <- unique(paper_anno %>% filter(orthosteric == TRUE) %>% pull(Pos_real))
+
+ortho_list<- append(ortho_list, c(170 ,192 ,195 ,204 ,209))
+length(ortho_list)
+
+fil_test_merged_df <- test_merged_df %>%
+  filter(!Pos_ref %in% ortho_list)
+
+# Fit a loess model using the filtered data
+loess_fit_comp <- loess(ESM1v ~ ddG_pred, data = fil_test_merged_df, span = 0.7, family = "symmetric")
+
+# Predict fitted values for ALL data points using the loess model trained on fil_gck_df
+test_merged_df$fitted_comp <- predict(loess_fit_comp, newdata = test_merged_df)
+
+# Calculate residuals for ALL points
+test_merged_df$residuals_comp <- test_merged_df$ESM1v - test_merged_df$fitted_comp
+sum(is.na(test_merged_df$residuals_comp)) #0
+head(test_merged_df)
+
+position_residuals <- test_merged_df %>%
+  # If not, fit the model here:
+  # mutate(residual = resid(loess(ESM1v ~ f_ddg_pred, span=0.7))) %>%
+  group_by(Pos_ref) %>%
+  summarize(
+    # We take the median magnitude of residuals at this site
+    median_residual = median(residuals_comp, na.rm = TRUE),
+    median_ddgb = median(b_ddg_pred, na.rm = TRUE)
+  )
+
+positions_to_highlight <- c(173, 183, 203) 
+
+position_residuals <- position_residuals %>%
+  mutate(
+    # Label logic: ONLY label if the position is in your list
+    label_text = ifelse(Pos_ref %in% positions_to_highlight, as.character(Pos_ref), ""),
+    
+    # Optional: Create a column to make these points look different (e.g., bigger/bolder)
+    is_highlighted = Pos_ref %in% positions_to_highlight
+  ) 
+
+position_residuals
+```
+
+```{r}
+merged_df <- merge(neff_df, position_residuals, by.x = "position", by.y = "Pos_ref")
+merged_df
+```
+
+```{r}
+# 1. Calculate Spearman's rho
+cor.test(merged_df$positional_neff, merged_df$median_residual, method = "spearman")
+# data:  merged_df$positional_neff and merged_df$median_residual
+# S = 34677, p-value = 0.172
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.1851194 
+
+# 2. Create the Plot
+p2 <- ggplot(merged_df, aes(x = positional_neff, y = median_residual, color = median_ddgb)) +
+  geom_point() +
+  scale_color_gradient2(
+    low = "blue", 
+    mid = "grey", 
+    high = "red", 
+    midpoint = 0
+  ) +
+  theme_classic() +
+  labs(
+    x = "Neff",
+    y = "Median ESM1v-ddGf residual",
+    title = "GRB2-SH3",
+    subtitle = "Spearman's rhp = -0.19 (p = 0.17)"
+  ) +
+  theme(
+    legend.position = "bottom"
+  ) +
+  geom_text_repel(
+    aes(label = label_text),
+    size = 3.5,
+    box.padding = 0.5,
+    max.overlaps = Inf,
+    point.padding = 0.3,
+    min.segment.length = 0
+  ) 
+
+p2
+```
+
+```{r}
+p3 <- plot_grid(p1,p2,ncol=2)
+p3
+```
+
+```{r}
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_msa.pdf", 
+       plot = p3, width = 6, height = 4, dpi = 300)
+```
+
+
+
+
+
+
+
+
+
+
+
+

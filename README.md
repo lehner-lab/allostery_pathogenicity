@@ -10,7 +10,7 @@ This repository contains the R scripts and metadata used to reproduce main figur
 
 Raw and processed datasets for the human proteome-wide analysis can be accessed from the associated Zenodo records:
 
-- [Zenodo: Proteome-wide raw data](https://zenodo.org/uploads/15586553)  
-- [Zenodo: Proteome-wide meta data](https://zenodo.org/uploads/15681969)
+- [Zenodo: Proteome-wide raw data](https://zenodo.org/records/18381534)  
+- [Zenodo: Proteome-wide meta data](https://zenodo.org/records/18386427)
 
 🧑‍🔧 For any feedback or requests, please get in touch via pull requests or via email: xl7@sanger.ac.uk.

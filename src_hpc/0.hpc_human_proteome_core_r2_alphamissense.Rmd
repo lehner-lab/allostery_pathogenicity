@@ -167,7 +167,7 @@ results_dt %>% filter (lm_success == "FALSE")
 future::plan(multisession)
 
 # Directory containing .rds files
-rds_dir <- "/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/00.human_proteome_unzipped/results_unzipped/AM_results/lm_rds"
+rds_dir <- "/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/00.human_proteome_results/am_lm_rds_jan2026"
 
 # Set the directory path where your RDS files are stored
 dir_path <- rds_dir
@@ -282,14 +282,14 @@ quantile(core_var_r2$adj_r2, 0.75, na.rm = FALSE) #0.2515304
 ```
 
 ```{r}
-all_var_r2 <- read.csv("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/00.human_proteome_results/all_var_alphamissense_lm_r2.csv")
-nrow(all_var_r2) #20139
-sum(!is.na(all_var_r2$adj_r2)) #20139
-median(all_var_r2$adj_r2, na.rm = TRUE) #0.2749491
+all_var_r2 <- read.csv("/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/00.human_proteome_results/all_var_am_lm_r2_jan2026.csv")
+nrow(all_var_r2) #20049
+sum(!is.na(all_var_r2$adj_r2)) #20049
+median(all_var_r2$adj_r2, na.rm = TRUE) #0.2748627
 
-IQR(all_var_r2$adj_r2, na.rm = FALSE) #0.1405919
-quantile(all_var_r2$adj_r2, 0.25, na.rm = FALSE) #0.1953641
-quantile(all_var_r2$adj_r2, 0.75, na.rm = FALSE) #0.335956 
+IQR(all_var_r2$adj_r2, na.rm = FALSE) #0.1406957
+quantile(all_var_r2$adj_r2, 0.25, na.rm = FALSE) #0.1953117
+quantile(all_var_r2$adj_r2, 0.75, na.rm = FALSE) #0.3360074
 ```
 
 
@@ -299,17 +299,14 @@ r2_combined <- bind_rows(
   core_var_r2 %>% mutate(source = "Core")
 )
 
-#min(all_var_r2$adj_r2) #-0.004163465
-
-# Count summaries - 20139
 n_all <- length(unique(all_var_r2$protein_id))
-n_var_all <- 195693294 
+n_var_all <- 194791762 
 
 n_core <- length(unique(core_var_r2$protein_id))
 n_var_core <- 47982923
 
 # Median R²s
-med_all <- median(all_var_r2$adj_r2, na.rm = TRUE) #0.2749491
+med_all <- median(all_var_r2$adj_r2, na.rm = TRUE) #0.2748627
 med_core <- median(core_var_r2$adj_r2) #0.1802369
 
 # Rename column to standardize

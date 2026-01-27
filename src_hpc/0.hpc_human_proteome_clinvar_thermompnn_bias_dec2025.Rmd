@@ -21,16 +21,25 @@ nrow(final_df) #102056
 length(unique(final_df$uniprot)) #12114
 head(final_df)
 ```
+```{r}
+unique(final_df$clinvar_review_status)
+```
+
 
 ```{r}
 nrow(final_df) #102056
-nrow(final_df %>% filter (exposure_plddt < 70))  #39709
-nrow(final_df %>% filter (exposure_plddt < 70)) / nrow(final_df) #0.3890903
+nrow(final_df %>% filter (exposure_plddt <= 70))  #39712
+nrow(final_df %>% filter (exposure_plddt <= 70)) / nrow(final_df) #0.3891197
 
-patho_final_df <- final_df %>% filter (clinvar_clinical_significance %in% c("pathogenic", "likely_pathogenic"))
+patho_final_df <- final_df %>% filter (clinvar_clinical_significance %in% c("pathogenic", "likely_pathogenic")) 
 nrow(patho_final_df) #32147
-nrow(patho_final_df %>% filter (exposure_plddt < 70)) #4416
-nrow(patho_final_df %>% filter (exposure_plddt < 70)) / nrow(patho_final_df) #0.137369
+nrow(patho_final_df %>% filter (exposure_plddt <= 70)) #4418
+nrow(patho_final_df %>% filter (exposure_plddt <= 70)) / nrow(patho_final_df) #0.1374312
+
+benign_final_df <- final_df %>% filter (clinvar_clinical_significance %in% c("benign", "likely_benign")) 
+nrow(benign_final_df) #69909
+nrow(benign_final_df %>% filter (exposure_plddt <= 70)) #35294
+nrow(benign_final_df %>% filter (exposure_plddt <= 70)) / nrow(benign_final_df) #0.5048563
 ```
 
 ```{r}

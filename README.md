@@ -12,7 +12,7 @@ Analysis code and metadata for:
 
 ## Overview
 
-This repository reproduces all main and supplementary figures from the above preprint. The central approach decomposes single-amino-acid variant effects from deep mutational scanning (DMS) experiments into a **stability component** (captured by ESM-1v or ThermoMPNN folding ddG predictions) and a **residual component** that is unexplained by stability alone. The residual signal is enriched at ligand-contacting sites and decays exponentially with distance from the active site — a signature consistent with allostery. We show that this allosteric residual is predictive of ClinVar pathogenicity across a diverse panel of human proteins.
+This repository reproduces all main and supplementary figures from the above preprint. The central framework decomposes single-amino-acid variant effects from deep mutational scanning (DMS) experiments into a **stability component** and a **residual functional component** that is unexplained by stability alone. The residual signal is enriched at ligand-contacting orthosteric sites and known allosteric sites. 
 
 ---
 

@@ -1,8 +1,12 @@
 ---
-title: "revision_fig2_gck.Rmd"
+title: "Fig 2: GCK — Activity-Abundance Residual Analysis"
 output: html_document
 date: "2026-01-02"
 ---
+
+# Setup
+
+Load required libraries and set the working directory. `ProjectTemplate` auto-loads project-specific data and helpers, while `bio3d`, `ggExtra`, and `ggrepel` support structural and visualization tasks throughout the notebook.
 
 ```{r setup, echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -12,6 +16,10 @@ library(ggExtra)
 library(bio3d)
 library(ggrepel)
 ```
+
+# GCK DMS Data
+
+Define amino acid alphabet mappings and parse the GCK deep mutational scanning dataset (`select_t1_simple_aa.csv`) into a position-by-amino-acid score matrix (`GCK_scores`) and an associated error matrix (`GCK_errors`). Nonsense and synonymous variants are excluded from the matrix.
 
 ```{r}
 #https://github.com/KULL-Centre/_2023_Gersing_GCK/blob/main/notebooks/GCK_analysis_SI.ipynb
@@ -84,6 +92,10 @@ for (i in 1:length(mutation_load)) {
 ```
 
 
+## Imputed Score Matrix
+
+Load the model-imputed variant scores (`P35557_GCK_imputation.csv`) and populate a second position-by-amino-acid matrix (`GCK_imputed`) covering positions that lack experimental measurements. Stop codons are excluded from the matrix fill.
+
 ```{r}
 #https://github.com/KULL-Centre/_2023_Gersing_GCK/tree/main/input_notebook_SI
 df_impute <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/gck_impute/P35557_GCK_imputation.csv", sep=',', comment.char='#')
@@ -128,6 +140,10 @@ for (i in 1:length(mutation_pos)) {
 ```
 
 
+## Imputed-Only Variants
+
+Mask positions with experimental data in the imputed matrix to isolate variants that were modelled but not directly measured. The resulting `final_imputed_list` dataframe pairs each imputed variant label (e.g., `K161Y`) with its imputed functional score.
+
 ```{r}
 # 1. Create a copy of the imputed matrix
 GCK_imputed_only <- GCK_imputed
@@ -164,6 +180,10 @@ final_imputed_list <- imputed_variants_df %>%
 
 final_imputed_list
 ```
+
+# Data Merging
+
+Read and merge the ProteinGym abundance and activity score files with ESM-1v predictions and ClinVar clinical variant annotations for GCK. Duplicate rows arising from multi-protein-change ClinVar entries are detected and collapsed so that `gck_df` contains one row per unique variant.
 
 ```{r}
 gck_abundance <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/HXK4_HUMAN_Gersing_2023_abundance.csv", header = TRUE)
@@ -231,6 +251,10 @@ gck_df %>% filter (mutant == "K161Y")
 ```
 
 
+# LOESS Residual Model
+
+Exclude known active-site positions (disordered loop, glucose-binding, and ATP-binding residues) from the training set, then fit a robust LOESS curve (span = 0.7) of activity as a function of abundance on the remaining variants. Residuals for all variants — including active-site ones — are computed as the difference between measured activity and the LOESS-predicted value, capturing functional effects beyond what stability alone predicts.
+
 ```{r}
 #https://cspec.genome.network/cspec/ui/svi/doc/GN086
 active_positions <- c(151:179, # disordered loop
@@ -271,6 +295,10 @@ range(gck_df$DMS_score_activity) #-1.085214  6.670528
 median(gck_df$DMS_score_activity) #0.56
 ```
 
+# PDB B-factor Mapping
+
+Compute the per-residue median activity-abundance residual, then write those values into the B-factor column of the GCK crystal structure (`1v4s.pdb`). The resulting PDB file can be visualised in ChimeraX with a diverging colour scheme to identify spatially organised regions of high or low residual activity.
+
 ```{r}
 gck_df <- gck_df %>%
   mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
@@ -284,43 +312,20 @@ median_residuals <- gck_df %>%
 min(median_residuals$median_residuals) #-1.136173
 max(median_residuals$median_residuals) #2.551111
 
-pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/GCK/1v4s.pdb")
-data <- median_residuals
-
-# Create a new B-factor vector initialized with the current B-factors from the PDB
-new_b_factors <- pdb$atom$b
-
-# Loop through each position in the correlation data and update the B-factors
-for (i in 1:nrow(data)) {
-  position <- data$mutation_position[i]
-  correlation_value <- data$median_residuals[i]
-  
-  # Find indices in the PDB that match the current position
-  indices <- which(pdb$atom$resno == position)
-  
-  # Print the indices and current B-factors before updating
-  #cat("Updating residue number:", position, "\n")
-  #cat("Indices in PDB:", indices, "\n")
-  #cat("Current B-factors:", new_b_factors[indices], "\n")
-  
-  # Update B-factors for all atoms in the current residue
-  new_b_factors[indices] <- correlation_value
-  
-  # Print the new B-factors after updating
-  #cat("Updated B-factors:", new_b_factors[indices], "\n")
-  #cat("\n")  # Add an extra line for readability
-}
-# Replace non-matching B-factors with outlier value so we can filter it out in ChimeraX
-non_matching_indices <- setdiff(seq_along(new_b_factors), which(pdb$atom$resno %in% data$mutation_position))
-new_b_factors[non_matching_indices] <- 999
-
-# Assign the new B-factors back to the pdb structure
-# Write the modified PDB structure to a new file
-pdb$atom$b <- new_b_factors
-write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/GCK/1v4s_median_residual_loess.pdb")
+map_residuals_to_pdb(
+  data = median_residuals,
+  pdb_path = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/GCK/1v4s.pdb",
+  output_path = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/GCK/1v4s_median_residual_loess.pdb",
+  position_col = "mutation_position",
+  value_col = "median_residuals"
+)
 
 ```
 
+
+# ClinVar Annotation
+
+Classify each GCK variant into Pathogenic, Benign, or Other based on its ClinVar `Germline.classification` and `Germline.review.status`. Only entries with at least single-submitter criteria or expert-panel review are assigned definitive labels; all others are grouped as Other.
 
 ```{r}
 unique(gck_df$Germline.classification)
@@ -351,6 +356,10 @@ gck_df <- gck_df %>%
 
 table(gck_df$var_source)
 ```
+
+# Scatter Plots: Activity vs. Abundance
+
+Produce a three-panel figure showing measured activity versus measured abundance for all GCK variants (panel 1), ClinVar pathogenic variants (panel 2), and ClinVar benign variants (panel 3). Points are coloured by their LOESS residual on a red-grey-blue diverging scale, the LOESS fit line is overlaid in black, and marginal density plots are added to each panel.
 
 ```{r, fig.width=9, fig.height=3}
 # Plot
@@ -385,16 +394,7 @@ p1 <- ggplot(gck_df, aes(x = DMS_score_abundance, y = DMS_score_activity, color 
   legend.background = element_rect(fill = "white", color = NA)
 )
 
-p1 <- ggMarginal(
-  p1,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p1 <- add_marginal_density(p1)
 
 patho_df <- gck_df %>% filter(var_source == "Pathogenic")
 nrow(patho_df) #221
@@ -428,16 +428,7 @@ p2 <- ggplot(patho_df, aes(x = DMS_score_abundance, y = DMS_score_activity, colo
   theme_classic()  + xlim(-1,1.7) +
   theme(legend.position = "none") 
 
-p2 <- ggMarginal(
-  p2,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p2 <- add_marginal_density(p2)
 
 p3 <- ggplot(gck_df %>% filter(var_source == "Benign"), aes(x = DMS_score_abundance, y = DMS_score_activity, color = residuals)) +
   geom_point(size = 2) +
@@ -457,16 +448,7 @@ p3 <- ggplot(gck_df %>% filter(var_source == "Benign"), aes(x = DMS_score_abunda
     limits = c(-1, 7)) + xlim(-1,1.7) +theme(legend.position = "none") 
 
 
-p3 <- ggMarginal(
-  p3,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p3 <- add_marginal_density(p3)
 
 p5 <- plot_grid(p1,p3,p2, nrow=1, ncol=3)
 
@@ -480,6 +462,10 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig2
 ```
 
 
+## Legend Panel
+
+Re-render the benign-variants scatter with the colour-scale legend visible on the right side and save it as a separate tall PDF for use as a shared legend panel in the assembled figure.
+
 ```{r}
 p1 <- ggplot(gck_df %>% filter(var_source == "Benign"), aes(x = DMS_score_abundance, y = DMS_score_activity, color = residuals)) +
   geom_point(size = 2) +
@@ -489,19 +475,23 @@ p1 <- ggplot(gck_df %>% filter(var_source == "Benign"), aes(x = DMS_score_abunda
             inherit.aes = FALSE, color = "black", linewidth = 1) +
     scale_color_gradient2(
     low = "red", mid = "grey", high = "blue",
-    midpoint = 0, limits = c(-6.2, 6.2)) + 
+    midpoint = 0, limits = c(-6.2, 6.2)) +
   labs(
     title = "ClinVar Benign Variants",
     x = "Measured abundance",
     y = "Measured activity",
     color = "Loess residuals"
   ) + theme_classic() + scale_y_continuous(breaks = seq(-1, 7, by = 2),
-    limits = c(-1, 7)) + xlim(-1,1.7) +theme(legend.position = "right") 
+    limits = c(-1, 7)) + xlim(-1,1.7) +theme(legend.position = "right")
 
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig2_scatter2_legend.pdf", 
        plot = p1, width = 3, height = 9, dpi = 300)
 p1
 ```
+
+# Violin: Benign vs. Pathogenic vs. Matched Null
+
+Build an abundance-matched null distribution for pathogenic GCK variants by bootstrapping (n = 1,000) from non-pathogenic variants within the same abundance bin. The resulting violin plot compares LOESS residual distributions across Benign, Pathogenic, and Abundance-matched Null groups, with Wilcoxon and empirical bootstrap p-values annotated.
 
 ```{r, fig.width=3, fig.height=5}
 # ---------------------------
@@ -677,6 +667,10 @@ print(p_violin)
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig2_violin3.pdf", 
        plot = p_violin, width = 3, height = 5, dpi = 300)
 ```
+
+# Violin: Site-Stratified (Orthosteric vs. Non-Orthosteric)
+
+Define orthosteric positions (glucose-binding, ATP-binding, and disordered loop) and annotate each variant with its site type. The helper function `analyze_and_plot_gck_median_2sided` performs two-sided bootstrap and Wilcoxon tests on pathogenic variants matched by abundance, then renders a violin for the supplied subset. It is called separately for Orthosteric and Non-Orthosteric sites and the two plots are combined side-by-side.
 
 ```{r}
 # 1. Define Active Positions (Orthosteric)
@@ -873,6 +867,10 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig2
        plot = p_final_median, width = 6, height = 3, dpi = 300)
 ```
 
+# Ligand Distance Calculation
+
+Load the GCK crystal structure (`1v4s.pdb`) and compute the minimum distance from every protein residue's side-chain heavy atoms (plus glycine Cα) to the glucose ligand (GLC). Pairwise atomic distances are calculated with `dist.xyz` and then aggregated to the residue level as the minimum across all side-chain atoms, producing `fil_min_dist_df`.
+
 ```{r}
 active_positions <- c(151:179, # disordered loop
                       151-153, 168-169, 204-206, 225-231, 254-258, 287, 290, # glucose-binding
@@ -947,6 +945,10 @@ merged_df <- merge(gck_df, fil_min_dist_df, by.x="mutation_position", by.y = "re
 merged_df
 ```
 
+# Exponential Decay Fit
+
+Restrict analysis to variants with negative residuals (i.e., activity below the LOESS baseline) and fit an exponential decay model — |residual| ~ a * exp(-b * distance) — using nonlinear least squares (`nls`). A complementary log-linear model is also fitted on per-residue medians to confirm and quantify the distance-dependent decay in activity-abundance residuals.
+
 ```{r}
 merged_df <- merged_df %>% filter(!is.na(min_dist_to_ligand))
 merged_df_neg <- merged_df %>% filter(residuals <= 0)
@@ -963,12 +965,12 @@ merged_df_residue <- merged_df_neg %>%
   group_by(mutation_position) %>%
   summarise(
     loess_residual_avg = median(residuals, na.rm = TRUE),
-    min_dist_to_ligand = first(min_dist_to_ligand))
+    min_dist_to_ligand = dplyr::first(min_dist_to_ligand))
 
 lm_model <- lm(log(abs(loess_residual_avg)) ~ min_dist_to_ligand, data = merged_df_residue)
 summary(lm_model)
 # Call:
-# lm(formula = log(abs(loess_residual_avg)) ~ min_dist_to_ligand, 
+# lm(formula = log(abs(loess_residual_avg)) ~ min_dist_to_ligand,
 #     data = merged_df_residue)
 # 
 # Residuals:
@@ -1010,6 +1012,10 @@ fit_df_residue <- merged_df_neg %>%
   filter(!is.na(min_dist_to_ligand)) %>% # Remove empty bins
   arrange(min_dist_to_ligand)            # Sort X for approx() function
 ```
+
+# Decay Plot
+
+Annotate each variant by site type (Non-orthosteric, ATP-binding, or Glucose-binding), generate 1,000 bootstrap replicates of the exponential decay fit to obtain 95% confidence intervals, and render the final scatter of |activity-abundance residual| versus distance to glucose. Points are coloured by site type and shaped/alpha-scaled by ClinVar pathogenic status; expert-panel-reviewed pathogenic non-orthosteric outliers are labelled.
 
 ```{r, fig.width=5, fig.height=5}
 merged_df_neg$site_type <- "Non-orthosteric site"
@@ -1092,16 +1098,7 @@ p_decay <- ggplot(merged_df_neg, aes(x = min_dist_to_ligand, y = abs(residuals))
   theme_classic() +
   theme(legend.position = "bottom")
 
-p_decay <- ggMarginal(
-  p_decay,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p_decay <- add_marginal_density(p_decay)
 
 p_decay
 ```
@@ -1110,17 +1107,3 @@ p_decay
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig2_decay2.pdf", 
        plot = p_decay, width = 4, height = 4.5, dpi = 300)
 ```
-
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  

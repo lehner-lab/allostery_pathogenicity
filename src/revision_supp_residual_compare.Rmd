@@ -1,5 +1,5 @@
 ---
-title: "revision_supp_residual_compare.Rmd"
+title: "Supp: Predictor Residual Comparison Across Proteins"
 output: html_document
 date: "2026-01-25"
 ---
@@ -12,6 +12,14 @@ library(ggExtra)
 library(bio3d)
 library(ggrepel)
 ```
+
+This document compares residuals from computational predictors (ThermoMPNN ddGf and ESM-1v) against experimental deep mutational scanning (DMS) readouts across four proteins: PTEN, PSD-95-PDZ3, GRB2-SH3, and GCK. For each protein, a LOESS model is fit on non-functional-site variants to capture the background predictor-predictor relationship, and the residuals from that fit are correlated with experimental residuals stratified by site type (active, binding, allosteric, and non-orthosteric).
+
+# PTEN
+
+## Data Loading
+
+DMS abundance (Matreyek 2021) and activity (Mighell 2018) scores are loaded from ProteinGym and merged with ESM-1v scores; mutation positions are parsed from the variant string.
 
 ```{r}
 pten_abundance <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/PTEN_HUMAN_Matreyek_2021.csv", header = TRUE)
@@ -38,6 +46,10 @@ pten_df <- pten_df %>%
 nrow(pten_df) #4839
 head(pten_df)
 ```
+
+## Predictor Correlation and Merge
+
+A helper function computes the Spearman correlation between ThermoMPNN predicted ddGf and ESM-1v scores and returns the merged variant-level data; it is applied here to PTEN to produce the combined data frame used in all downstream analyses.
 
 ```{r}
 analyze_ddg_vs_esm1v <- function(ddg_file, esm_file, protein_name = "Protein") {
@@ -96,6 +108,10 @@ nrow(test_merged_df) #4839
 head(test_merged_df)
 ```
 
+## LOESS Residual Model
+
+Known functional regions (WPD loop, TI loop, P loop, arginine loop, CBR loops, membrane-binding helix, PBM motif) are excluded before fitting two separate LOESS curves — one for experimental activity vs. abundance and one for ESM-1v vs. predicted ddGf — and residuals are computed for all variants including functional sites.
+
 ```{r}
 all_positions <- c(
   88:98,    # WPD loop
@@ -107,7 +123,7 @@ all_positions <- c(
   258:268,  # CBR3
   327:335,   # Cα2 loop
   151:174, # membrane-binding alpha-helix
-  1:15 # PBM motif 
+  1:15 # PBM motif
 )
 
 fil_test_merged_df <- test_merged_df %>%
@@ -136,6 +152,10 @@ head(test_merged_df)
 ```
 
 
+## Residue-Level Correlation by Site Type
+
+Variants are aggregated to per-residue median residuals, residues are annotated as active site, binding site (CBR/membrane/PBM), or non-orthosteric, and Spearman correlations between the experimental and computational residuals are reported for each group.
+
 ```{r}
 test_merged_df_residue <- test_merged_df %>%
   group_by(new_position) %>%
@@ -148,7 +168,7 @@ cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_re
 # S = 12175844, p-value = 1.048e-11
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#        rho 
+#        rho
 # -0.3419481
 
 active_positions <- c(
@@ -201,6 +221,10 @@ cor.test(test_merged_df_residue_other$comp_residual_avg, test_merged_df_residue_
 #        rho 
 # -0.2543908
 ```
+## Scatter Plots
+
+Per-residue median residuals are plotted as scatter plots (experimental vs. computational) for all 379 PTEN residues and then separately for each site-type subset, with marginal density distributions added; the combined panel is exported as a PDF.
+
 ```{r, fig.width=16, fig.height=4}
 nrow(test_merged_df_residue) #379
 cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_residual_avg, method="spearman") #-0.3419481
@@ -208,8 +232,8 @@ cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_re
 # S = 12175844, p-value = 1.048e-11
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#        rho 
-# -0.3419481 
+#        rho
+# -0.3419481
 range(test_merged_df_residue$comp_residual_avg) #-8.81836 10.13934
 range(test_merged_df_residue$exp_residual_avg) #-1.861488  4.034455
 p1 <- ggplot(test_merged_df_residue, aes(x = exp_residual_avg , y = comp_residual_avg, color = site_type)) +
@@ -302,53 +326,21 @@ p4 <- ggplot(test_merged_df_residue_other, aes(x = exp_residual_avg , y = comp_r
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   xlim(-2,5) + ylim(-9,11)
 
-p1 <- ggMarginal(
-  p1,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p1 <- add_marginal_density(p1)
 
-p2 <- ggMarginal(
-  p2,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
-p3 <- ggMarginal(
-  p3,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
-p4 <- ggMarginal(
-  p4,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p2 <- add_marginal_density(p2)
+p3 <- add_marginal_density(p3)
+p4 <- add_marginal_density(p4)
 
 p5 <- plot_grid(p1,p2,p3,p4, ncol=4,nrow=1)
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_fig_corr_pten.pdf", 
        plot = p5, width = 12, height = 3, dpi = 300)
 p5
 ```
+## Supplementary Scatter: Predicted ddGf vs. Measured Abundance
+
+A variant-level 2D density scatter plot shows the raw Spearman correlation (rho = -0.52) between ThermoMPNN predicted ddGf and experimental abundance scores for PTEN.
+
 ```{r, fig.width=5, fig.height=5}
 cor.test(test_merged_df$ddG_pred, test_merged_df$DMS_score_abundance, method = "spearman")#-0.5187133
 
@@ -370,8 +362,12 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp
        plot = p6, width = 3, height = 4, dpi = 300)
 p6
 ```
+## Supplementary Scatter: ESM-1v vs. Measured Activity
+
+A variant-level 2D density scatter plot shows the raw Spearman correlation (rho = 0.48) between ESM-1v pathogenicity scores and experimental activity scores for PTEN.
+
 ```{r, fig.width=5, fig.height=5}
-cor.test(test_merged_df$ESM1v, test_merged_df$DMS_score_activity, method = "spearman")#0.4811662 
+cor.test(test_merged_df$ESM1v, test_merged_df$DMS_score_activity, method = "spearman")#0.4811662
 
 p7 <- ggplot(test_merged_df, aes(x = DMS_score_activity, y = ESM1v) ) +
   geom_bin2d(bins = 100) +
@@ -391,6 +387,12 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp
        plot = p7, width = 3, height = 4, dpi = 300)
 p7
 ```
+# PSD-95-PDZ3
+
+## Data Loading
+
+MoCHI-inferred binding ddG values (ddGb) for the PDZ3 domain are loaded and filtered to the binding trait, providing the experimental functional readout for this domain.
+
 ```{r}
 pdz3_final_df_ddg <- read_csv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/pdz3_ddg_cleaned_mochi_refit.csv')
 pdz3_final_df_ddgb <- pdz3_final_df_ddg %>% filter(trait_name == "Binding") %>% 
@@ -399,6 +401,10 @@ pdz3_final_df_ddgb <- pdz3_final_df_ddg %>% filter(trait_name == "Binding") %>%
 nrow(pdz3_final_df_ddgb) #1567
 head(pdz3_final_df_ddgb)
 ```
+
+## Predictor Data and Sequence Alignment
+
+ThermoMPNN ddGf predictions and ESM-1v scores for the full PSD-95 protein (P78352) are loaded, the PDZ3 domain subsequence is located within the full-length sequence via alignment, and position offsets are applied before merging with experimental ddGb data.
 
 ```{r}
 test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/PSD95/ThermoMPNN_inference_AF-P78352-F1-model_v4.csv")
@@ -428,6 +434,10 @@ nrow(test_merged_df) #1567
 head(test_merged_df)
 ```
 
+## Site Annotation and LOESS Residual Model
+
+Orthosteric (binding site) positions are read from the cleaned annotation file and supplemented with additional contact residues; non-orthosteric variants are used to fit a LOESS curve of ESM-1v vs. predicted ddGf, and residuals are computed for all PDZ3 variants.
+
 ```{r}
 paper_anno <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/pdz3_ddg_cleaned.csv")
 head(paper_anno)
@@ -451,6 +461,10 @@ sum(is.na(test_merged_df$residuals_comp)) #6
 head(test_merged_df)
 ```
 
+
+## Residue-Level Correlation by Site Type
+
+Per-residue median residuals are computed, residues are classified as binding site, allosteric site, or non-orthosteric, and Spearman correlations between the experimental median ddGb and the computational ESM-1v-ddGf residual are reported for each site category.
 
 ```{r}
 test_merged_df_residue <- test_merged_df %>%
@@ -506,6 +520,10 @@ cor.test(test_merged_df_residue_other$comp_residual_avg, test_merged_df_residue_
 #        rho 
 # -0.2547976 
 ```
+## Scatter Plots
+
+Per-residue median residuals for all 84 PDZ3 residues and each site-type subset are plotted with marginal density distributions; the four-panel figure is exported as a PDF.
+
 ```{r, fig.width=16, fig.height=4}
 nrow(test_merged_df_residue) #84
 cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_residual_avg, method="spearman") #-0.4115015
@@ -592,53 +610,21 @@ p4 <- ggplot(test_merged_df_residue_other, aes(x = exp_residual_avg , y = comp_r
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   xlim(-2,2) + ylim(-8,5)
 
-p1 <- ggMarginal(
-  p1,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p1 <- add_marginal_density(p1)
 
-p2 <- ggMarginal(
-  p2,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
-p3 <- ggMarginal(
-  p3,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
-p4 <- ggMarginal(
-  p4,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p2 <- add_marginal_density(p2)
+p3 <- add_marginal_density(p3)
+p4 <- add_marginal_density(p4)
 
 p5 <- plot_grid(p1,p2,p3,p4, ncol=4,nrow=1)
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_fig_corr_pdz3.pdf", 
        plot = p5, width = 12, height = 3, dpi = 300)
 p5
 ```
+## Diagnostic Checks
+
+Column names, residual distributions, and LOESS-fitted value ranges are inspected to verify the integrity of the merged PDZ3 data frame before plotting.
+
 ```{r}
 # 1) Which ESM1v columns exist?
 grep("^ESM1v", names(test_merged_df), value = TRUE)
@@ -656,8 +642,12 @@ summary(test_merged_df_residue$comp_residual_avg)
 ```
 
 
+## Supplementary Scatter: ESM-1v vs. Measured Binding ddG
+
+A variant-level 2D density scatter plot shows the raw Spearman correlation (rho = -0.56) between ESM-1v pathogenicity and experimentally measured ddGb for PDZ3.
+
 ```{r, fig.width=5, fig.height=5}
-cor.test(test_merged_df$ESM1v.x, test_merged_df$b_ddg_pred, method = "spearman")#-0.5573928 
+cor.test(test_merged_df$ESM1v.x, test_merged_df$b_ddg_pred, method = "spearman")#-0.5573928
 
 p7 <- ggplot(test_merged_df, aes(x = b_ddg_pred, y = ESM1v.x) ) +
   geom_bin2d(bins = 100) +
@@ -678,8 +668,12 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp
 p7
 ```
 
+## Supplementary Scatter: Measured vs. Predicted ddGf
+
+MoCHI-inferred folding ddGf values are merged with ThermoMPNN predictions, and a 2D density scatter plot shows their agreement (Spearman rho = 0.52) for PDZ3.
+
 ```{r, fig.width=5, fig.height=5}
-pdz3_final_df_ddgf <- pdz3_final_df_ddg %>% filter(trait_name == "Folding") %>% 
+pdz3_final_df_ddgf <- pdz3_final_df_ddg %>% filter(trait_name == "Folding") %>%
   dplyr::rename(f_ddg_pred = ddg,
                 f_ddg_pred_sd = std_ddg)
 
@@ -710,6 +704,12 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp
        plot = p6, width = 3, height = 4, dpi = 300)
 p6
 ```
+# GRB2-SH3
+
+## Data Loading
+
+MoCHI-inferred binding ddG weights for the GRB2 SH3 domain are loaded and position indices are offset by 158 to match the full-length GRB2 sequence numbering.
+
 ```{r}
 sh3_final_df_ddgb <- read_tsv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domains_andre/GRB2-SH3/Abundance/mochi_project/task_1/weights/weights_Binding.txt')
 sh3_final_df_ddgb <- sh3_final_df_ddgb %>% dplyr::select(id_ref, Pos_ref, `mean_kcal/mol`, `std_kcal/mol`)
@@ -729,6 +729,10 @@ sh3_final_df_ddgb <- sh3_final_df_ddgb %>% filter(old_id != "WT")
 head(sh3_final_df_ddgb)
 ```
 
+
+## Predictor Data and Sequence Alignment
+
+ThermoMPNN ddGf predictions and ESM-1v scores for GRB2 (P62993) are loaded, the SH3 domain is localised within the full-length sequence by alignment (starting at index 159), and the data are merged with experimental ddGb values.
 
 ```{r}
 test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/GRB2/ThermoMPNN_inference_AF-P62993-F1-model_v4.csv")
@@ -750,6 +754,10 @@ test_merged_df <- merge(sh3_final_df_ddgb, test_df, by.x="id_ref", by.y="variant
 nrow(test_merged_df) #756
 head(test_merged_df)
 ```
+
+## Site Annotation and LOESS Residual Model
+
+Orthosteric positions for the SH3 domain are loaded from the annotation file and extended with additional contact residues; a LOESS model of ESM-1v vs. predicted ddGf is fit on non-orthosteric variants and residuals are computed across all variants.
 
 ```{r}
 paper_anno <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/sh3_ddg_cleaned.csv")
@@ -774,6 +782,10 @@ test_merged_df$residuals_comp <- test_merged_df$ESM1v - test_merged_df$fitted_co
 sum(is.na(test_merged_df$residuals_comp)) #0
 head(test_merged_df)
 ```
+
+## Residue-Level Correlation by Site Type
+
+Per-residue median residuals are aggregated, residues are classified into binding site, allosteric site (positions 173, 183, 203), and non-orthosteric categories, and Spearman correlations between experimental ddGb and computational residuals are computed per group.
 
 ```{r}
 test_merged_df_residue <- test_merged_df %>%
@@ -827,6 +839,10 @@ cor.test(test_merged_df_residue_other$comp_residual_avg, test_merged_df_residue_
 #        rho 
 # -0.0804878 
 ```
+## Scatter Plots
+
+Per-residue median residuals for all 56 GRB2-SH3 residues and each site-type subset are plotted with marginal density distributions; the four-panel figure is exported as a PDF.
+
 ```{r, fig.width=16, fig.height=4}
 nrow(test_merged_df_residue) #56
 cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_residual_avg, method="spearman") #-0.4928913
@@ -914,47 +930,11 @@ p4 <- ggplot(test_merged_df_residue_other, aes(x = exp_residual_avg , y = comp_r
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   xlim(-2,2) + ylim(-7,5)
 
-p1 <- ggMarginal(
-  p1,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p1 <- add_marginal_density(p1)
 
-p2 <- ggMarginal(
-  p2,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
-p3 <- ggMarginal(
-  p3,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
-p4 <- ggMarginal(
-  p4,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p2 <- add_marginal_density(p2)
+p3 <- add_marginal_density(p3)
+p4 <- add_marginal_density(p4)
 
 p5 <- plot_grid(p1,p2,p3,p4, ncol=4,nrow=1)
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_fig_corr_sh3.pdf", 
@@ -962,8 +942,12 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp
 p5
 ```
 
+## Supplementary Scatter: ESM-1v vs. Measured Binding ddG
+
+A variant-level 2D density scatter plot shows the raw Spearman correlation (rho = -0.32) between ESM-1v pathogenicity and experimentally measured ddGb for the GRB2-SH3 domain.
+
 ```{r, fig.width=5, fig.height=5}
-cor.test(test_merged_df$ESM1v, test_merged_df$b_ddg_pred, method = "spearman")#-0.3187791 
+cor.test(test_merged_df$ESM1v, test_merged_df$b_ddg_pred, method = "spearman")#-0.3187791
 
 p7 <- ggplot(test_merged_df, aes(x = b_ddg_pred, y = ESM1v) ) +
   geom_bin2d(bins = 100) +
@@ -983,6 +967,10 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp
        plot = p7, width = 3, height = 4, dpi = 300)
 p7
 ```
+
+## Supplementary Scatter: Measured vs. Predicted ddGf
+
+MoCHI-inferred folding ddGf weights for GRB2-SH3 are merged with ThermoMPNN predictions, and a 2D density scatter plot illustrates their strong agreement (Spearman rho = 0.77).
 
 ```{r, fig.width=5, fig.height=5}
 sh3_final_df_ddgf <- read_tsv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domains_andre/GRB2-SH3/Abundance/mochi_project/task_1/weights/weights_Folding.txt')
@@ -1021,6 +1009,12 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp
 p6
 ```
 
+# GCK (Glucokinase)
+
+## Data Loading
+
+ProteinGym DMS abundance (Gersing 2023) and activity (Gersing 2022) scores are loaded for GCK (HXK4_HUMAN) and merged with ESM-1v scores; the combined dataset along with ThermoMPNN predictions is assembled for downstream residual analysis.
+
 ```{r}
 gck_abundance <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/HXK4_HUMAN_Gersing_2023_abundance.csv", header = TRUE)
 gck_activity <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/HXK4_HUMAN_Gersing_2022_activity.csv", header = TRUE)
@@ -1053,6 +1047,10 @@ nrow(test_merged_df) #8255
 head(test_merged_df)
 ```
 
+## LOESS Residual Model
+
+Known GCK functional regions (disordered loop, glucose-binding residues, ATP-binding residues) are excluded before fitting two LOESS curves — one for experimental activity vs. abundance and one for ESM-1v vs. predicted ddGf — and residuals are computed for all variants.
+
 ```{r}
 #https://cspec.genome.network/cspec/ui/svi/doc/GN086
 all_positions <- c(151:179, # disordered loop
@@ -1084,6 +1082,10 @@ test_merged_df$residuals_comp <- test_merged_df$ESM1v - test_merged_df$fitted_co
 sum(is.na(test_merged_df$residuals_comp)) #2
 head(test_merged_df)
 ```
+
+## Residue-Level Correlation by Site Type
+
+Per-residue median residuals are aggregated, residues are labelled as ATP-binding active site, glucose-binding site, or non-orthosteric, and Spearman correlations between experimental activity-abundance residuals and computational ESM-1v-ddGf residuals are computed per group across 463 GCK residues.
 
 ```{r}
 test_merged_df_residue <- test_merged_df %>%
@@ -1141,9 +1143,13 @@ cor.test(test_merged_df_residue_other$comp_residual_avg, test_merged_df_residue_
 #        rho 
 # -0.4095121 
 ```
+## Scatter Plots
+
+Per-residue median residuals for all 463 GCK residues and each site-type subset are plotted with marginal density distributions; the four-panel figure is exported as a PDF.
+
 ```{r, fig.width=16, fig.height=4}
 nrow(test_merged_df_residue) #463
-cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_residual_avg, method="spearman") #-0.4815458 
+cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_residual_avg, method="spearman") #-0.4815458
 range(test_merged_df_residue$comp_residual_avg) #-6.183602  6.373805
 range(test_merged_df_residue$exp_residual_avg) #-2.551111  1.136173
 p1 <- ggplot(test_merged_df_residue, aes(x = exp_residual_avg , y = comp_residual_avg, color = site_type)) +
@@ -1229,60 +1235,14 @@ p4 <- ggplot(test_merged_df_residue_other, aes(x = exp_residual_avg , y = comp_r
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
   xlim(-3,1.2) + ylim(-6.2,6.4)
 
-p1 <- ggMarginal(
-  p1,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p1 <- add_marginal_density(p1)
 
-p2 <- ggMarginal(
-  p2,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
-p3 <- ggMarginal(
-  p3,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
-p4 <- ggMarginal(
-  p4,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p2 <- add_marginal_density(p2)
+p3 <- add_marginal_density(p3)
+p4 <- add_marginal_density(p4)
 
 p5 <- plot_grid(p1,p2,p3,p4, ncol=4,nrow=1)
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_fig_corr_gck.pdf", 
        plot = p5, width = 12, height = 3, dpi = 300)
 p5
 ```
-
-
-
-
-
-
-
-
-
-

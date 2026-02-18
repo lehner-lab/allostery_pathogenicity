@@ -1,8 +1,12 @@
 ---
-title: "revision_pdz3_esm2.Rmd"
+title: "Supp: PDZ3 — ESM-2 vs. ESM-1v Residual Comparison"
 output: html_document
 date: "2026-01-07"
 ---
+
+# Setup
+
+Load required libraries and set the project root directory. The `proj_dir` variable is used throughout for all file paths.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
@@ -17,6 +21,12 @@ library(dplyr)
 proj_dir <- "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1"
 setwd(proj_dir)
 ```
+
+# Data Loading
+
+## MoCHI ddG Scores
+
+Load the MoCHI-refit ddG predictions for the PSD-95 PDZ3 domain and split into separate binding (`ddGb`) and folding (`ddGf`) tables. A reference-position offset of 310 is applied so that domain coordinate 1 maps to reference residue 311.
 
 ```{r}
 # Constants
@@ -52,6 +62,10 @@ nrow(pdz3_ddgb)  # 1567
 nrow(pdz3_ddgf)
 ```
 
+## ThermoMPNN ddG and ESM-1v Scores
+
+Load ThermoMPNN structure-based ddG predictions for the AlphaFold PSD-95 model alongside proteome-wide ESM-1v scores. The two tables are joined on a shared variant identifier constructed in reference-numbering coordinates.
+
 ```{r}
 test_ddg <- data.table::fread(file.path(proj_dir, "data/decay_pdb/PSD95/ThermoMPNN_inference_AF-P78352-F1-model_v4.csv"))
 test_esm <- data.table::fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P78352.csv")
@@ -64,7 +78,7 @@ make_variant_id <- function(wt, pos, mt) paste0(wt, pos, mt)
 test_df <- test_ddg %>%
 as_tibble() %>%
 mutate(
-Pos_ref = position + 1, # 
+Pos_ref = position + 1, #
 variant_match = make_variant_id(wildtype, Pos_ref, mutation)
 ) %>%
 left_join(test_esm %>% as_tibble(), by = c("variant_match" = "variant"))
@@ -74,6 +88,10 @@ left_join(test_esm %>% as_tibble(), by = c("variant_match" = "variant"))
 test_df %>% filter(Pos_ref == 311) %>% head()
 ```
 
+## Merging MoCHI and Structural Predictions
+
+Join the MoCHI binding ddG table with the ThermoMPNN/ESM-1v table on variant identifier and reference position, then append the MoCHI folding ddG column. Row count is verified to remain at 1,567 variants.
+
 ```{r}
 test_merged_df <- pdz3_ddgb %>%
   left_join(test_df, by = c("variant_match", "Pos_ref")) %>%
@@ -82,6 +100,11 @@ test_merged_df <- pdz3_ddgb %>%
 stopifnot(nrow(test_merged_df) == 1567)
 test_merged_df %>% dplyr::select(variant_match, Pos_ref, b_ddg_pred, f_ddg_pred, ddG_pred, ESM1v) %>% head()
 ```
+
+## ESM-2 Scores
+
+Load the ESM-2 (3B) domain-level log-likelihood scores for PDZ3, pivot to long format, and join to the merged table by variant identifier.
+
 ```{r}
 esm2_raw <- data.table::fread(file.path(proj_dir, "data/revision/esm2/psd95_pdz3_esm2_3b_domain.csv"))
 
@@ -97,28 +120,38 @@ left_join(esm2_long, by = c("variant_match", "Pos_ref"))
 stopifnot(nrow(test_merged_df) == 1567)
 ```
 
+Verify the reference-position range of the merged dataset.
+
 ```{r}
 range(test_merged_df$Pos_ref)
 ```
 
+## Site Annotations
+
+Define orthosteric and allosteric residue lists for PDZ3 in reference coordinates, and identify structurally buried (core) positions based on folding ddG threshold.
 
 ```{r}
 paper_anno <- read.csv(file.path(proj_dir, "data/cleaned_ddg/pdz3_ddg_cleaned.csv"))
 
 # paper_anno pos_am (domain coords) -> convert to reference coords
 
-ortho_list_ref <- unique(paper_anno %>% filter(orthosteric == TRUE) %>% pull(pos_am)) 
+ortho_list_ref <- unique(paper_anno %>% filter(orthosteric == TRUE) %>% pull(pos_am))
 
 ortho_list_ref <- union(ortho_list_ref, c(322, 323, 324, 325, 326, 327, 328, 331, 339, 372, 376, 379, 380))
 ortho_list_ref
 
 allo_list_ref <- c(312, 314, 318, 329, 330, 336, 338, 341, 347, 357, 359, 360, 362, 363, 367, 375, 386, 388)
 
-#core_pos <- unique(paper_anno %>% filter (Pos_class == "core") %>% pull(pos_am)) 
+#core_pos <- unique(paper_anno %>% filter (Pos_class == "core") %>% pull(pos_am))
 core_pos <- unique(pdz3_ddgf %>% filter (f_ddg_pred >= 1) %>% pull (pos_am)) + ref_offset
 core_pos
 ```
 
+# Residual Models
+
+## ESM-1v Residual Model
+
+Define a helper that fits a LOESS curve of ESM scores against ThermoMPNN ddGf predictions (excluding orthosteric sites during fitting) and returns the residuals. Apply the function to compute ESM-1v residuals for all 1,567 variants.
 
 ```{r}
 fit_residuals_loess <- function(df, y_col, x_col = "ddG_pred", exclude_pos = NULL, span = 0.7) {
@@ -150,6 +183,10 @@ sum(is.na(test_merged_df$resid_esm1v))
 sum(is.na(test_merged_df$resid_esm2))
 ```
 
+# Per-Residue Summary
+
+Aggregate variant-level residuals and raw scores to per-residue medians across all 84 PDZ3 positions. Each residue is labelled as a binding site, allosteric site, or non-orthosteric site based on the annotation lists above.
+
 ```{r}
 test_residue <- test_merged_df %>%
   group_by(Pos_ref) %>%
@@ -167,6 +204,12 @@ test_residue <- test_merged_df %>%
 
 stopifnot(nrow(test_residue) == 84)
 ```
+
+# Scatter Plots
+
+## ESM-1v Residual Scatter Plots
+
+Build a reusable scatter-plot helper (`make_panel`) that annotates each panel with a Spearman rho subtitle and colours points by site type. Generate four panels for all residues, binding sites, allosteric sites, and non-orthosteric sites using ESM-1v residuals on the y-axis.
 
 ```{r, fig.width=8, fig.height=4}
 site_cols <- c(
@@ -225,11 +268,15 @@ xlab="Experimental median ddGb",
 ylab="Predicted median ESM1v–TMPNN ddGf residual",
 label_positions = FALSE)
 
-p1m <- ggExtra::ggMarginal(p1, type="density", margins="both", size=10, colour="grey", fill="lightgrey")
-p2m <- ggExtra::ggMarginal(p2, type="density", margins="both", size=10, colour="grey", fill="lightgrey")
-p3m <- ggExtra::ggMarginal(p3, type="density", margins="both", size=10, colour="grey", fill="lightgrey")
-p4m <- ggExtra::ggMarginal(p4, type="density", margins="both", size=10, colour="grey", fill="lightgrey")
+p1m <- add_marginal_density(p1)
+p2m <- add_marginal_density(p2)
+p3m <- add_marginal_density(p3)
+p4m <- add_marginal_density(p4)
 ```
+
+## ESM-2 Residual Scatter Plots
+
+Repeat the four-panel scatter layout with ESM-2 residuals on the y-axis to allow direct visual comparison with the ESM-1v panels above. Axis limits are unconstrained here to reveal the full ESM-2 residual range.
 
 ```{r, fig.width=16, fig.height=4}
 site_cols <- c(
@@ -252,7 +299,7 @@ p <- ggplot(df, aes(x = .data[[x]], y = .data[[y]], color = site_type)) +
        y = ylab,
        color = "") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey")
   #coord_cartesian(xlim = c(-2, 2), ylim = c(-8, 5))
 
 if (label_positions) {
@@ -288,12 +335,15 @@ xlab="Experimental median ddGb",
 ylab="Predicted median ESM2–TMPNN ddGf residual",
 label_positions = FALSE)
 
-p1m <- ggExtra::ggMarginal(p1, type="density", margins="both", size=10, colour="grey", fill="lightgrey")
-p2m <- ggExtra::ggMarginal(p2, type="density", margins="both", size=10, colour="grey", fill="lightgrey")
-p3m <- ggExtra::ggMarginal(p3, type="density", margins="both", size=10, colour="grey", fill="lightgrey")
-p4m <- ggExtra::ggMarginal(p4, type="density", margins="both", size=10, colour="grey", fill="lightgrey")
+p1m <- add_marginal_density(p1)
+p2m <- add_marginal_density(p2)
+p3m <- add_marginal_density(p3)
+p4m <- add_marginal_density(p4)
 ```
 
+# Correlation Between Models
+
+Run Spearman correlation tests comparing per-residue median ESM-1v and ESM-2 scores (raw and residualised) against experimental binding ddGb. Scatter plots p6–p9 visualise the four pairwise relationships, and p10 places the ESM-1v vs. ESM-2 raw-score panels side by side for the figure panel.
 
 ```{r, fig.width=8, fig.height=4}
 cor.test(test_residue$esm1v_median, test_residue$ddgb_median, method="spearman") #-0.7121798
@@ -301,28 +351,28 @@ cor.test(test_residue$esm1v_median, test_residue$ddgb_median, method="spearman")
 # S = 169112, p-value < 2.2e-16
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#        rho 
-# -0.7121798 
-cor.test(test_residue$esm2_median, test_residue$ddgb_median, method="spearman") #-0.7060646 
+#        rho
+# -0.7121798
+cor.test(test_residue$esm2_median, test_residue$ddgb_median, method="spearman") #-0.7060646
 # data:  test_residue$esm2_median and test_residue$ddgb_median
 # S = 168508, p-value < 2.2e-16
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#        rho 
-# -0.7060646 
-cor.test(test_residue$resid_median_esm1v, test_residue$ddgb_median, method="spearman") #-0.4115015 
+#        rho
+# -0.7060646
+cor.test(test_residue$resid_median_esm1v, test_residue$ddgb_median, method="spearman") #-0.4115015
 # data:  test_residue$resid_median_esm1v and test_residue$ddgb_median
 # S = 139414, p-value = 0.0001157
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#        rho 
+#        rho
 # -0.4115015
 cor.test(test_residue$resid_median_esm2, test_residue$ddgb_median, method="spearman") #-0.4405589
 # data:  test_residue$resid_median_esm2 and test_residue$ddgb_median
 # S = 142284, p-value = 3.313e-05
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#        rho 
+#        rho
 # -0.4405589
 
 p6 <- ggplot(test_residue, aes(x = ddgb_median , y = esm1v_median, color = site_type)) +
@@ -340,7 +390,7 @@ p6 <- ggplot(test_residue, aes(x = ddgb_median , y = esm1v_median, color = site_
     "Binding site" = "#E69F00"
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey")
 
 p7 <- ggplot(test_residue, aes(x = ddgb_median , y = esm2_median, color = site_type)) +
   geom_point(size = 2, alpha = 0.5) +
@@ -357,7 +407,7 @@ p7 <- ggplot(test_residue, aes(x = ddgb_median , y = esm2_median, color = site_t
     "Binding site" = "#E69F00"
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey")
 
 p8 <- ggplot(test_residue, aes(x = ddgb_median , y = resid_median_esm1v, color = site_type)) +
   geom_point(size = 2, alpha = 0.5) +
@@ -374,7 +424,7 @@ p8 <- ggplot(test_residue, aes(x = ddgb_median , y = resid_median_esm1v, color =
     "Binding site" = "#E69F00"
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey")
 
 p9 <- ggplot(test_residue, aes(x = ddgb_median , y = resid_median_esm2, color = site_type)) +
   geom_point(size = 2, alpha = 0.5) +
@@ -391,31 +441,38 @@ p9 <- ggplot(test_residue, aes(x = ddgb_median , y = resid_median_esm2, color = 
     "Binding site" = "#E69F00"
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey")
 
 p10 <- plot_grid(p6,p7,ncol=2)
 p10
 ```
+
+Save the side-by-side ESM-1v vs. ESM-2 raw-score figure to PDF.
+
 ```{r}
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_pdz3_esm2.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_pdz3_esm2.pdf",
        plot = p10, width = 6, height = 3, dpi = 300)
 ```
 
+## ESM-1v vs. ESM-2 Cross-Model Agreement
+
+Test whether ESM-1v and ESM-2 scores track folding stability (ddGf) similarly, and quantify their mutual agreement with a Spearman correlation. Plots p11 and p12 show ESM-1v vs. ddGf and ESM-1v vs. ESM-2 scatter panels respectively.
+
 ```{r}
-cor.test(test_residue$esm1v_median, test_residue$ddgf_median, method="spearman") 
+cor.test(test_residue$esm1v_median, test_residue$ddgf_median, method="spearman")
 # data:  test_residue$esm1v_median and test_residue$ddgf_median
 # S = 143610, p-value = 1.792e-05
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#       rho 
-# -0.453984 
-cor.test(test_residue$esm1v_median, test_residue$esm2_median, method="spearman") 
+#       rho
+# -0.453984
+cor.test(test_residue$esm1v_median, test_residue$esm2_median, method="spearman")
 # data:  test_residue$esm1v_median and test_residue$esm2_median
 # S = 13614, p-value < 2.2e-16
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#       rho 
-# 0.8621646 
+#       rho
+# 0.8621646
 p11 <- ggplot(test_residue, aes(x = ddgf_median , y = esm1v_median, color = site_type)) +
   geom_point(size = 2, alpha = 0.5) +
   labs(
@@ -431,7 +488,7 @@ p11 <- ggplot(test_residue, aes(x = ddgf_median , y = esm1v_median, color = site
     "Binding site" = "#E69F00"
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey")
 
 p12 <- ggplot(test_residue, aes(x = esm1v_median , y = esm2_median, color = site_type)) +
   geom_point(size = 2, alpha = 0.5) +
@@ -448,16 +505,24 @@ p12 <- ggplot(test_residue, aes(x = esm1v_median , y = esm2_median, color = site
     "Binding site" = "#E69F00"
   )) + theme(legend.position = "none") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey")
 
 p13 <- plot_grid(p11,p12, ncol=2)
 p13
 ```
+
+Save the ddGf correlation and ESM-1v vs. ESM-2 cross-model figure to PDF.
+
 ```{r}
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_pdz3_esm2_ddgf.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_pdz3_esm2_ddgf.pdf",
        plot = p13, width = 6, height = 3, dpi = 300)
 ```
 
+# 3D Visualisation
+
+## ESM-1v 3D Scatter
+
+Plot a three-dimensional scatter of per-residue median ddGf (x), ddGb (y), and ESM-1v (z) for all 84 PDZ3 residues. Points are coloured on a red-to-blue gradient according to their ESM-1v value to reveal how the language model score relates to both experimental fitness axes simultaneously.
 
 ```{r, fig.width=5, fig.height=5}
 
@@ -471,7 +536,7 @@ df_plot <- test_residue %>%
   filter(if_all(c(ddgf_median, ddgb_median, esm1v_median), ~ !is.na(.)))
 
 # Color mapping: red (low) → grey → blue (high)
-pal <- colorRampPalette(c("red", "grey90", "blue"))(256)
+ pal <- colorRampPalette(c("red", "grey90", "blue"))(256)
 rng <- range(df_plot$esm1v_median, na.rm = TRUE)
 scaled <- (df_plot$esm1v_median - rng[1]) / (rng[2] - rng[1] + 1e-12)
 cols <- pal[pmax(1, pmin(256, floor(scaled * 255) + 1))]
@@ -503,8 +568,12 @@ legend(
 )
 ```
 
+## ESM-2 3D Scatter
+
+Repeat the three-dimensional scatter with ESM-2 scores on the z-axis and save the result directly to a PDF file for figure export.
+
 ```{r, fig.width=5, fig.height=5}
-# 1. Prepare Data 
+# 1. Prepare Data
 df_plot <- test_residue %>%
   transmute(
     Pos_ref,
@@ -520,7 +589,7 @@ pdf(file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/
 # ---- Start Plotting Code ----
 
 # Color mapping
-pal <- colorRampPalette(c("red", "grey90", "blue"))(256)
+ pal <- colorRampPalette(c("red", "grey90", "blue"))(256)
 rng <- range(df_plot$esm2_median, na.rm = TRUE)
 scaled <- (df_plot$esm2_median - rng[1]) / (rng[2] - rng[1] + 1e-12)
 cols <- pal[pmax(1, pmin(256, floor(scaled * 255) + 1))]
@@ -556,19 +625,3 @@ legend(
 # 3. Close the device to save the file
 dev.off()
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

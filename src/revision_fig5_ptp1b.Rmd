@@ -1,8 +1,12 @@
 ---
-title: "revision_fig5_ptp1b.Rmd"
+title: "Fig 5: PTP1B — ddGf vs ESM-1v Allosteric Signal"
 output: html_document
 date: "2026-01-21"
 ---
+
+# Setup
+
+Load required libraries and initialise the ProjectTemplate project environment.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -13,7 +17,10 @@ library(bio3d)
 library(ggrepel)
 ```
 
-# PTP1B
+# ddGf vs ESM-1v Correlation
+
+This section defines the analysis function and computes the Spearman correlation between ThermoMPNN ddGf and ESM-1v scores for PTP1B (UniProt P18031).
+
 ```{r, fig.width=5, fig.height=5}
 analyze_ddg_vs_esm1v <- function(ddg_file, esm_file, protein_name = "Protein") {
   # Load data
@@ -68,10 +75,15 @@ ptp1b_pred <- analyze_ddg_vs_esm1v(
 
 #result$spearman_rho #-0.5410593
 p0 <- ptp1b_pred$plot
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_ptp1b_p0.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig2_ptp1b_p0.pdf", 
        plot = p0, width = 5, height = 5, dpi = 300)
 p0
 ```
+
+# LOESS Residual Model
+
+This section fits a LOESS curve excluding active-site positions, then computes residuals for all mutations to isolate non-stability signal.
+
 ```{r, fig.width=5, fig.height=5}
 plot_loess_residuals <- function(test_df, active_site_positions,
                                  span = 0.7, protein_name = "ptp1b") {
@@ -125,17 +137,7 @@ plot_loess_residuals <- function(test_df, active_site_positions,
     ) +
     theme(legend.position = "left")
   
-  # Add marginal density plots
-  p_marginal <- ggMarginal(
-    p,
-    type = "density",
-    margins = "both",
-    groupColour = FALSE,
-    groupFill = FALSE,
-    size = 10,
-    colour = "grey",
-    fill = "lightgrey"
-  )
+  p_marginal <- add_marginal_density(p)
   
   return(list(
     plot = p_marginal,
@@ -150,48 +152,26 @@ p1
 ```
 
 ```{r}
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_ptp1b_p1.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_ptp1b_p1.pdf",
        plot = p1, width = 4.5, height = 4, dpi = 300)
 ```
 
+# PDB B-factor Mapping
+
+This section maps median LOESS residuals per position onto PDB B-factors for structural visualization in ChimeraX.
+
 ```{r}
 map_loess_residuals_to_pdb <- function(test_df, pdb_path, output_pdb_path) {
-
-  # 1. Compute median residuals per position
   median_residuals <- test_df %>%
     group_by(new_position) %>%
     summarise(median_residuals = median(residuals_pred, na.rm = TRUE), .groups = "drop")
-  
-  # 2. Read in PDB
-  pdb <- read.pdb(pdb_path)
-  
-  # 3. Initialize new B-factor vector
-  new_b_factors <- pdb$atom$b
-  
-  # 4. Map residuals to matching residue numbers in the PDB
-  for (i in seq_len(nrow(median_residuals))) {
-    pos <- median_residuals$new_position[i]
-    val <- median_residuals$median_residuals[i]
-    matching_indices <- which(pdb$atom$resno == pos)
-    new_b_factors[matching_indices] <- val
-  }
-  
-  # 5. Replace non-matching indices with outlier value (e.g., 999)
-  matched_positions <- unique(median_residuals$new_position)
-  non_matching_indices <- which(!(pdb$atom$resno %in% matched_positions))
-  new_b_factors[non_matching_indices] <- 999
-  
-  # 6. Assign and save new PDB
-  pdb$atom$b <- new_b_factors
-  write.pdb(pdb, file = output_pdb_path)
-  
-  # Optional: return summary
-  return(list(
-    min_residual = min(median_residuals$median_residuals, na.rm = TRUE),
-    max_residual = max(median_residuals$median_residuals, na.rm = TRUE),
-    length(non_matching_indices),
-    output_file = output_pdb_path
-  ))
+  map_residuals_to_pdb(
+    data = median_residuals,
+    pdb_path = pdb_path,
+    output_path = output_pdb_path,
+    position_col = "new_position",
+    value_col = "median_residuals"
+  )
 }
 
 pdb_residual <- map_loess_residuals_to_pdb(
@@ -215,6 +195,10 @@ print(pdb_residual)
 #set silhouetteColor black
 #set silhouetteWidth 3
 ```
+
+# Ligand Distance Calculation
+
+This section computes the minimum side-chain heavy-atom distance from each protein residue to the PTR (phosphotyrosine) ligand in the PTP1B crystal structure (PDB: 1PTY).
 
 ```{r}
 active_site_positions <- c(21 , 23,  24,  25,  26,  28 , 29,  45,  46,  47 , 48 , 49,  50,  85,  86, 110, 111, 120, 180, 181, 182, 183 ,214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 254, 257, 258,259, 260, 261, 262)
@@ -276,6 +260,10 @@ fil_min_dist_df <- min_dist_df %>% dplyr::select(resid, resno, min_dist_to_ligan
 fil_min_dist_df
 ```
 
+# Merge Residuals with Distance
+
+This section merges the negative LOESS residuals with per-residue ligand distances and computes median residuals per position.
+
 ```{r}
 merged_df <- merge(ptp1b_pred_residual$data, fil_min_dist_df, by.x = "new_position", by.y = "resno") %>%
   filter(residuals_pred <= 0)
@@ -289,6 +277,12 @@ merged_df_residue <- merged_df %>%
 merged_df_residue
 ```
 
+# Spatial Decay Analysis
+
+## Exponential Decay Fit
+
+This section fits a nonlinear exponential decay model relating absolute residual magnitude to distance from the PTR ligand.
+
 ```{r}
 exp_model <- nlsLM(
   abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_ligand),
@@ -297,6 +291,11 @@ exp_model <- nlsLM(
 )
 exp_model
 ```
+
+## Bootstrap CI
+
+This section bootstraps the exponential fit 1000 times to derive 95% confidence intervals for the decay curve and half-distance.
+
 ```{r}
 # --- Prediction grid ---
 x_vals <- seq(min(merged_df_residue$min_dist_to_ligand),
@@ -339,14 +338,18 @@ residue_half_d <- c(half_d, half_d_ci)
 
 cat("Parameter a (intercept):", residue_a, "\n") 
 cat("Parameter b (decay rate):", residue_b, "\n")   
-cat("Half-distance (log(2)/b):", residue_half_d, "\n") 
+cat("Half-distance (log(2)/b):", residue_half_d, "\n")
 #  cat("Parameter a (intercept):", residue_a, "\n") 
 # Parameter a (intercept): 4.510289 3.841592 5.178986 
 # > cat("Parameter b (decay rate):", residue_b, "\n")   
 # Parameter b (decay rate): 0.0345627 0.02449589 0.04462951 
 # > cat("Half-distance (log(2)/b):", residue_half_d, "\n") 
-# Half-distance (log(2)/b): 20.05478 13.98747 33.31676 
+# Half-distance (log(2)/b): 20.05478 13.98747 33.31676
 ```
+
+## Decay Plot
+
+This section plots the exponential decay of allosteric signal magnitude versus distance to the PTR ligand, highlighting orthosteric (orange) and candidate allosteric (cyan) sites.
 
 ```{r, fig.width=5, fig.height=5}
 # --- Annotate site types ---
@@ -399,23 +402,19 @@ p_decay <- ggplot(merged_df_residue, aes(x = min_dist_to_ligand, y = abs(loess_r
   theme(legend.position = "none", base = 12) +
   scale_color_manual(values = c("non-orthosteric" = "#8DAA9D", "orthosteric" = "#E69F00")) 
 
-p_decay <- ggMarginal(
-  p_decay,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p_decay <- add_marginal_density(p_decay)
 
 p_decay
 ```
+
 ```{r}
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_decay3.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_decay3.pdf",
        plot = p_decay, width = 4, height = 4, dpi = 300)
 ```
+
+# Log-Linear Regression
+
+This section fits a log-linear model as a complementary check on the distance-residual relationship.
 
 ```{r}
 lm_model <- lm(log(abs(loess_residual_avg)) ~ min_dist_to_ligand, data = merged_df_residue)
@@ -439,6 +438,10 @@ summary(lm_model)
 # Multiple R-squared:  0.05483,	Adjusted R-squared:  0.05152 
 # F-statistic: 16.59 on 1 and 286 DF,  p-value: 6.014e-05
 ```
+
+# Violin Plot: Site Classification
+
+This section compares residual magnitudes across orthosteric, allosteric, and other site classes using violin plots with Wilcoxon significance tests.
 
 ```{r, fig.width=5, fig.height=5}
 orthosteric_sites <- active_site_positions
@@ -510,8 +513,12 @@ p3 <- ggplot(merged_df_residue, aes(x = site_class, y = abs(loess_residual_avg),
 p3
 ```
 
+# Save Figures
+
+Write the violin plot panel to disk as a publication-ready PDF.
+
 ```{r}
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_violin3.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_violin3.pdf",
        plot = p3, width = 3, height = 4, dpi = 300)
 ```
 
@@ -519,19 +526,3 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5
 ```{r}
 
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

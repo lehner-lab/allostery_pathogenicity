@@ -1,12 +1,20 @@
 ---
-title: "revision_sh3_phylop.Rmd"
+title: "SH3 — PhyloP Conservation Analysis"
 output: html_document
 date: "2026-01-14"
 ---
 
+# Setup
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+# Data Loading
+
+## MoCHI Binding ddG
+
+Load MoCHI-inferred binding free energy changes (ddGb) for GRB2-SH3 variants.
 
 ```{r}
 sh3_final_df_ddgb <- read_tsv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domains_andre/GRB2-SH3/Abundance/mochi_project/task_1/weights/weights_Binding.txt')
@@ -27,15 +35,19 @@ sh3_final_df_ddgb <- sh3_final_df_ddgb %>% filter(old_id != "WT")
 head(sh3_final_df_ddgb)
 ```
 
+## Merge Predictors with ddGb
+
+Load ThermoMPNN ddGf and ESM-1v predictions, align sequences, and merge with experimental ddGb values.
+
 ```{r}
 test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/GRB2/ThermoMPNN_inference_AF-P62993-F1-model_v4.csv")
 test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P62993.csv")
-  
+
 colnames(test_esm)[2] <- "ESM1v"
-  
+
 test_ddg[, new_position := position + 1]
 test_ddg[, variant := paste0(wildtype, new_position, mutation)]
-  
+
 test_df <- merge(test_ddg, test_esm, by = "variant")
 
 pred_seq <-  ali_process_sequence(test_df, "new_position", "wildtype")
@@ -54,6 +66,11 @@ test_merged_df <- merge(test_df, sh3_final_df_ddgb, by = "id_ref")
 nrow(test_merged_df) #756
 head(test_merged_df)
 ```
+
+## MoCHI Folding ddG
+
+Load MoCHI-inferred folding free energy changes and merge with the main dataframe.
+
 ```{r}
 sh3_final_df_ddgf <- read_tsv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domains_andre/GRB2-SH3/Abundance/mochi_project/task_1/weights/weights_Folding.txt')
 sh3_final_df_ddgf <- sh3_final_df_ddgf %>% dplyr::select(id_ref, Pos_ref, `mean_kcal/mol`, `std_kcal/mol`)
@@ -77,9 +94,13 @@ nrow(sh3_final_df_ddgf) #1056
 test_merged_df <-test_merged_df %>%
   left_join(sh3_final_df_ddgf, by = "id_ref")
 
-nrow(test_merged_df) 
+nrow(test_merged_df)
 test_merged_df
 ```
+
+## PhyloP Conservation Scores
+
+Load variant-level PhyloP scores and merge with the main dataframe.
 
 ```{r}
 phylop <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/phyloP/GRB2_verPhyloP_hg38.csv")
@@ -96,6 +117,10 @@ test_merged_df$phylop_mean <- test_merged_df$phylop_mean * (-1)
 test_merged_df
 ```
 
+# Site Annotation
+
+Define orthosteric and allosteric positions for GRB2-SH3.
+
 ```{r}
 paper_anno <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/sh3_ddg_cleaned.csv")
 ortho_list <- unique(paper_anno %>% filter(orthosteric == TRUE) %>% pull(Pos_real))
@@ -105,6 +130,11 @@ ortho_list_ref
 
 allo_list_ref <- c(173, 183, 203)
 ```
+
+# LOESS Residual Model
+
+Fit LOESS models for ESM-1v and PhyloP on ddGf (excluding orthosteric sites) and compute residuals.
+
 ```{r}
 fit_residuals_loess <- function(df, y_col, x_col = "ddG_pred", exclude_pos = NULL, span = 0.7) {
 df_fit <- df
@@ -135,6 +165,10 @@ sum(is.na(test_merged_df$resid_esm1v))
 sum(is.na(test_merged_df$resid_phylop))
 ```
 
+# Per-Residue Summary
+
+Aggregate to per-residue medians and annotate site types for plotting.
+
 ```{r}
 test_residue <- test_merged_df %>%
   group_by(new_position) %>%
@@ -152,21 +186,26 @@ test_residue <- test_merged_df %>%
 
 test_residue
 ```
+
+# PhyloP vs. ddGb Scatter Plots
+
+Compare raw PhyloP and PhyloP-ddGf residual correlations with binding free energy.
+
 ```{r, fig.width=8, fig.height=4}
-cor.test(test_residue$resid_median_phylop, test_residue$ddgb_median, method = "spearman") #-0.07792208 
-cor.test(test_residue$phylop_median, test_residue$ddgb_median, method = "spearman") 
+cor.test(test_residue$resid_median_phylop, test_residue$ddgb_median, method = "spearman") #-0.07792208
+cor.test(test_residue$phylop_median, test_residue$ddgb_median, method = "spearman")
 # data:  test_residue$phylop_median and test_residue$ddgb_median
 # S = 32904, p-value = 0.3604
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#        rho 
+#        rho
 # -0.1245402
-cor.test(test_residue$phylop_median, test_residue$ddgf_median, method = "spearman") 
+cor.test(test_residue$phylop_median, test_residue$ddgf_median, method = "spearman")
 # data:  test_residue$phylop_median and test_residue$ddgf_median
 # S = 41238, p-value = 0.001731
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#        rho 
+#        rho
 # -0.4093599
 
 site_cols <- c(
@@ -186,7 +225,7 @@ p1 <- ggplot(test_residue, aes(x = phylop_median, y = ddgb_median, color = site_
        y = "Median ddGb",
        color = "") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey")
 
 p2 <- ggplot(test_residue, aes(x = resid_median_phylop, y = ddgb_median, color = site_type)) +
   geom_point(size = 2, alpha = 0.6) +
@@ -199,13 +238,18 @@ p2 <- ggplot(test_residue, aes(x = resid_median_phylop, y = ddgb_median, color =
        y = "Median ddGb",
        color = "") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey")
 
 p1+p2
 ```
+
+# ESM-1v vs. ddGb Scatter Plots
+
+Compare raw ESM-1v and ESM-1v-ddGf residual correlations with binding free energy.
+
 ```{r, fig.width=8, fig.height=4}
 cor.test(test_residue$resid_median_esm1v, test_residue$ddgb_median, method = "spearman") #-0.4928913
-cor.test(test_residue$esm1v_median, test_residue$ddgb_median, method = "spearman") #-0.5227614 
+cor.test(test_residue$esm1v_median, test_residue$ddgb_median, method = "spearman") #-0.5227614
 
 p3 <- ggplot(test_residue, aes(x = esm1v_median, y = ddgb_median, color = site_type)) +
   geom_point(size = 2, alpha = 0.6) +
@@ -218,7 +262,7 @@ p3 <- ggplot(test_residue, aes(x = esm1v_median, y = ddgb_median, color = site_t
        y = "Median ddGb",
        color = "") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey")
 
 p4 <- ggplot(test_residue, aes(x = resid_median_esm1v, y = ddgb_median, color = site_type)) +
   geom_point(size = 2, alpha = 0.6) +
@@ -231,13 +275,21 @@ p4 <- ggplot(test_residue, aes(x = resid_median_esm1v, y = ddgb_median, color = 
        y = "Median ddGb",
        color = "") +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") +
-  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey") 
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5, color = "grey")
 
 p3+p4
 ```
+
+# Combined Four-Panel Comparison
+
 ```{r, fig.width=16, fig.height=4}
 plot_grid(p1,p2,p3,p4,ncol=4,nrow =1)
 ```
+
+# 3D Scatter Plot: ddGf vs. ddGb vs. ESM-1v
+
+Visualize the three-dimensional relationship between folding, binding, and evolutionary constraint.
+
 ```{r, fig.width=5, fig.height=5}
 library(dplyr)
 library(scatterplot3d)
@@ -283,4 +335,3 @@ legend(
   bty = "n"
 )
 ```
-

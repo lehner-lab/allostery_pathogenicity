@@ -87,38 +87,33 @@ process_and_merge_protein_data <- function(protein_data, merged_df) {
     merge(protein_data$popeve, by = "id", all.x = FALSE) %>%
     merge(protein_data$esm1v, by = "id", all.x = FALSE)
   
-  # Conditionally merge with EVE data based on whether `id_eve` or `id` is present
+  # Merge with EVE data
   if ("EVE_scores_ASM" %in% colnames(protein_data$eve)) {
+    # Dedicated EVE file (e.g. KRAS) has raw ASM scores — rename to EVE
     merged_df_ddg <- merged_df_ddg %>%
       merge(protein_data$eve, by = "id", all.x = FALSE) %>%
-      dplyr::rename(EVE = EVE_scores_ASM)  # From eve_file
-  } else if ("id_eve" %in% colnames(protein_data$eve)) { # accomodate for weird index in eve score for DLG4
-    merged_df_ddg <- merged_df_ddg %>%
-      merge(protein_data$eve, by = "id_eve", all.x = FALSE)  # From popEVE
+      dplyr::rename(EVE = EVE_scores_ASM)
   } else {
+    # EVE column extracted from popEVE file (SRC, PDZ3, SH3)
     merged_df_ddg <- merged_df_ddg %>%
-      merge(protein_data$eve, by = "id", all.x = FALSE)  
+      merge(protein_data$eve, by = "id", all.x = FALSE)
   }
   
   return(merged_df_ddg)
 }
 
 
-#' FUNCTION TO PROCESS RSA FILE FROM FREESASA OUTPUT
-#' @param input FreeSASA output txt file -- rsa
-#' 
-#' @return cleaned df with matching residue numbers as the exp df, with unresolved aa noted
+#' Parse FreeSASA RSA output into a tidy data frame.
+#'
+#' Reads the fixed-width RSA output from FreeSASA (lines starting with "RES"),
+#' converts 3-letter residue codes to 1-letter, and fills gaps in the residue
+#' numbering with NA rows so the result aligns with experimental data.
+#'
+#' @param file Path to FreeSASA .rsa output file.
+#' @return Data frame with columns: Residue, Chain, Num, All_atoms_ABS, All_atoms_REL.
 read_sasa_file <- function(file) {
-  # Load necessary library
-  library(dplyr)
-  
-  # Define a mapping of three-letter residue codes to one-letter amino acid codes
-  aa_codes <- c(
-    "ALA" = "A", "CYS" = "C", "ASP" = "D", "GLU" = "E", "PHE" = "F", 
-    "GLY" = "G", "HIS" = "H", "ILE" = "I", "LYS" = "K", "LEU" = "L", 
-    "MET" = "M", "ASN" = "N", "PRO" = "P", "GLN" = "Q", "ARG" = "R", 
-    "SER" = "S", "THR" = "T", "VAL" = "V", "TRP" = "W", "TYR" = "Y"
-  )
+  # Uses AA_CODES from lib/globals.R
+  aa_codes <- AA_CODES
   
   # Read the file
   lines <- readLines(file)
@@ -166,75 +161,39 @@ read_sasa_file <- function(file) {
   # This will insert NA rows for any missing residues
   sasa_df_full <- full_res_nums %>%
     as.data.frame() %>%
-    rename(Num = 1) %>%
+    dplyr::rename(Num = 1) %>%
     left_join(sasa_df, by = "Num") %>%
-    mutate(Chain = coalesce(Chain, first(sasa_df$Chain))) # Keep chain consistent
+    mutate(Chain = coalesce(Chain, dplyr::first(sasa_df$Chain))) # Keep chain consistent
   
   return(sasa_df_full)
 }
 
-#' FUNCTION TO COMPARE AA SEQUENCES FOR GETTING ID (FITNESS DATA SPECIFIC)
-#' @param input wt protein sequence and mut protein sequence
-#'  
-#' @return variant id in the format of wt_aa+pos+mt_aa
-compare_sequences <- function(wt, mut) {
-  differences <- c()  # Initialize an empty vector for differences
-  
-  # Loop over the positions in the sequences
+#' Compare WT and mutant protein sequences to identify substitutions.
+#'
+#' Returns variant IDs in the format "WtAA{position}MutAA" (e.g. "A12V").
+#'
+#' @param wt     Wild-type protein sequence (single string).
+#' @param mut    Mutant protein sequence (single string).
+#' @param offset Integer added to 1-based sequence index to obtain the
+#'               reference position numbering. Use offset=0 (default) for
+#'               most proteins; use offset=1 for KRAS where the DMS data
+#'               is 0-indexed relative to the sequence.
+#' @return Comma-separated string of variant IDs, or "" if identical.
+compare_sequences <- function(wt, mut, offset = 0) {
+  differences <- c()
   for (i in 1:min(nchar(wt), nchar(mut))) {
-    wt_aa <- substr(wt, i, i)  # Extract the amino acid from the WT sequence
-    mut_aa <- substr(mut, i, i)  # Extract the amino acid from the mutant sequence
-    
-    # Check for stop codon in either sequence
-    if (wt_aa == "*" || mut_aa == "*") {
-      if (wt_aa != mut_aa) {
-        differences <- c(differences, paste0(wt_aa, i, mut_aa))
-      }
-    } else {
-      # Compare regular amino acids
-      if (wt_aa != mut_aa) {
-        # Append the formatted string WT_AA_Position_MUT_AA
-        differences <- c(differences, paste0(wt_aa, i, mut_aa))
-      }
+    wt_aa <- substr(wt, i, i)
+    mut_aa <- substr(mut, i, i)
+    if (wt_aa != mut_aa) {
+      differences <- c(differences, paste0(wt_aa, i + offset, mut_aa))
     }
   }
-  
-  # Return either empty string or concatenated differences
-  if (length(differences) == 0) {
-    return("")  # Return empty string if there are no differences
-  } else {
-    return(paste(differences, collapse = ", "))  # Join differences into a string
-  }
+  if (length(differences) == 0) "" else paste(differences, collapse = ", ")
 }
 
+# Backwards-compatible wrapper for KRAS (offset = 1)
 compare_sequences_kras <- function(wt, mut) {
-  differences <- c()  # Initialize an empty vector for differences
-
-  # Loop over the positions in the sequences
-  for (i in 1:min(nchar(wt), nchar(mut))) {
-    wt_aa <- substr(wt, i, i)  # Extract the amino acid from the WT sequence
-    mut_aa <- substr(mut, i, i)  # Extract the amino acid from the mutant sequence
-
-    # Check for stop codon in either sequence
-    if (wt_aa == "*" || mut_aa == "*") {
-      if (wt_aa != mut_aa) {
-        differences <- c(differences, paste0(wt_aa, i+1, mut_aa)) # add 1 to account for indice diff
-      }
-    } else {
-      # Compare regular amino acids
-      if (wt_aa != mut_aa) {
-        # Append the formatted string WT_AA_Position_MUT_AA
-        differences <- c(differences, paste0(wt_aa, i+1, mut_aa))
-      }
-    }
-  }
-
-  # Return either empty string or concatenated differences
-  if (length(differences) == 0) {
-    return("")  # Return empty string if there are no differences
-  } else {
-    return(paste(differences, collapse = ", "))  # Join differences into a string
-  }
+  compare_sequences(wt, mut, offset = 1)
 }
 
 ######################### ALIGNMENT CHECK ##################################

@@ -1,8 +1,12 @@
 ---
-title: "revision_fig3_supp_rad51c.Rmd"
+title: "RAD51C SGE Benchmark: LOESS Residual Analysis and Spatial Decay"
 output: html_document
 date: "2026-01-06"
 ---
+
+# Setup
+
+Load project libraries and set the working directory. `ggExtra`, `bio3d`, and `ggrepel` are loaded for marginal density plots, PDB manipulation, and label repulsion, respectively.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -11,8 +15,13 @@ library('ProjectTemplate')
 library(ggExtra)
 library(bio3d)
 library(ggrepel)
-load.project()
 ```
+
+# Data Loading
+
+## RAD51C SGE Experimental Data
+
+Load the RAD51C SGE dataset, filter to missense variants, and inspect the number of variants and unique positions.
 
 ```{r}
 rad_exp_full <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/sge_exp/sge_rad51c.csv")
@@ -21,6 +30,10 @@ nrow(rad_exp_full)
 length(unique(rad_exp_full$Protein_position))
 rad_exp_full
 ```
+
+## Variant Annotation Parsing
+
+Parse HGVSp notation to convert three-letter amino acid codes to one-letter format, restrict to SNV-derived variants, and average the SGE z-score (`z_score_D4_D14`) across duplicate entries per variant.
 
 ```{r}
 # 1. Create a lookup vector for 3-letter to 1-letter amino acid codes
@@ -61,6 +74,10 @@ rad_exp <- rad_exp %>%
 rad_exp
 ```
 
+## ClinVar Annotations
+
+Load RAD51C ClinVar germline classifications, expand multi-protein-change rows, and remove stop-codon variants.
+
 ```{r}
 rad_clinvar <- read.table("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/latest_variant_info/clinvar/RAD51C_clinvar_result.txt",header = TRUE, sep = "\t")
 rad_clinvar <- rad_clinvar %>% dplyr::select(Protein.change, VariationID, dbSNP.ID, Germline.classification, Germline.review.status)
@@ -70,6 +87,10 @@ rad_clinvar <- rad_clinvar %>%
 
 table(rad_clinvar$Germline.classification)
 ```
+
+## ESM-1v Predictions
+
+Load ESM-1v variant effect predictions for RAD51C (UniProt O43502), attach updated ClinVar annotations, and drop superseded ClinVar columns from the merged data frame.
 
 ```{r}
 #rad_gnomad <- read.table("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/latest_variant_info/gnomad/RAD51C_gnomAD_v4.1.0_ENSG00000108384_2026_01_06_13_26_18.csv",header = TRUE, sep = ",")
@@ -111,6 +132,10 @@ rad_esm <- rad_esm %>%
 rad_esm
 ```
 
+## Data Merging
+
+Join SGE z-scores with ESM-1v predictions, then left-join ClinVar classifications, and parse a numeric mutation position from the variant string.
+
 ```{r}
 # 1. Merge ESM -----------------------------------------------------------
 # Identify columns in rad_esm that are NOT in rad_exp (to avoid duplicates)
@@ -135,6 +160,10 @@ rad_df <- rad_df %>%
 
 rad_df
 ```
+## ClinVar Annotation
+
+Classify each variant as Pathogenic, Benign, or Other using ClinVar germline classification and review status, restricting to entries with at least single-submitter review confidence.
+
 ```{r}
 unique(rad_df$Germline.review.status)
 
@@ -160,65 +189,11 @@ rad_df <- rad_df %>%
   )
 
 table(rad_df$var_source)
+rad_df
 ```
-```{r}
-nrow(rad_df)
+# LOESS Residual Model
 
-median_residuals <- rad_df %>%
-  group_by(new_position) %>%
-  summarise(median_residuals = median(residuals, na.rm = TRUE))
-
-min(median_residuals$median_residuals) #-18.76956
-max(median_residuals$median_residuals) #6.808934
-
-pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/RAD51C/AF-O43502-F1-model_v6.pdb")
-data <- median_residuals
-head(data)
-
-# Create a new B-factor vector initialized with the current B-factors from the PDB
-new_b_factors <- pdb$atom$b
-
-# Loop through each position in the correlation data and update the B-factors
-for (i in 1:nrow(data)) {
-  position <- data$new_position[i]
-  correlation_value <- data$median_residuals[i]
-  
-  # Find indices in the PDB that match the current position
-  indices <- which(pdb$atom$resno == position)
-  
-  # Print the indices and current B-factors before updating
-  #cat("Updating residue number:", position, "\n")
-  #cat("Indices in PDB:", indices, "\n")
-  #cat("Current B-factors:", new_b_factors[indices], "\n")
-  
-  # Update B-factors for all atoms in the current residue
-  new_b_factors[indices] <- correlation_value
-  
-  # Print the new B-factors after updating
-  #cat("Updated B-factors:", new_b_factors[indices], "\n")
-  #cat("\n")  # Add an extra line for readability
-}
-# Replace non-matching B-factors with outlier value so we can filter it out in ChimeraX
-non_matching_indices <- setdiff(seq_along(new_b_factors), which(pdb$atom$resno %in% data$new_position))
-new_b_factors[non_matching_indices] <- 999
-
-# Assign the new B-factors back to the pdb structure
-# Write the modified PDB structure to a new file
-pdb$atom$b <- new_b_factors
-write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/RAD51C/AF-O43502-F1-model_v6_median_residual_loess.pdb")
-
-#chimerax
-#select @@bfactor>=999 
-#color sel dim grey
-#select @@bfactor<999 
-#color byattribute a:bfactor #1 & sel target csab palette -18.8,red:0,white:6.9,blue
-#select ::name="TLA"
-#color sel dark orange
-#set silhouette true
-#set silhouetteColor black
-#set silhouetteWidth 1
-```
-
+Exclude RAD51C functional motif residues (Walker A: 125-132, Walker B: 238-242, NLS: 366-370), then fit a robust LOESS model (`z_score_D4_D14 ~ ddG_pred`, span = 0.7) on the remaining variants. Fitted values and residuals are computed for all variants including the excluded positions.
 
 ```{r}
 # https://www.nature.com/articles/s41467-025-61283-2
@@ -254,6 +229,49 @@ range(rad_df$residuals)
 range(rad_df$ddG_pred)
 range(rad_df$z_score_D4_D14)
 ```
+
+# PDB B-factor Mapping
+
+Compute the per-position median LOESS residual and write it into the B-factor column of the RAD51C AlphaFold PDB (O43502) using `map_residuals_to_pdb`. ChimeraX commands in the comments reproduce the residual-coloured structural visualisation.
+
+```{r}
+nrow(rad_df)
+
+median_residuals <- rad_df %>%
+  group_by(new_position) %>%
+  summarise(median_residuals = median(residuals, na.rm = TRUE))
+
+min(median_residuals$median_residuals) #-18.76956
+max(median_residuals$median_residuals) #6.808934
+
+map_residuals_to_pdb(
+  data = median_residuals,
+  pdb_path = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/RAD51C/AF-O43502-F1-model_v6.pdb",
+  output_path = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/RAD51C/AF-O43502-F1-model_v6_median_residual_loess.pdb",
+  position_col = "new_position",
+  value_col = "median_residuals"
+)
+
+#chimerax
+#select @@bfactor>=999 
+#color sel dim grey
+#select @@bfactor<999 
+#color byattribute a:bfactor #1 & sel target csab palette -18.8,red:0,white:6.9,blue
+#select ::name="TLA"
+#color sel dark orange
+#set silhouette true
+#set silhouetteColor black
+#set silhouetteWidth 1
+```
+
+
+
+# Scatter Plots
+
+## All, Benign, and Pathogenic Panels
+
+Produce three side-by-side scatter plots of SGE z-score versus predicted ddGf, coloured by LOESS residual and overlaying the fitted LOESS curve; panels show all 2,082 variants, ClinVar benign variants, and ClinVar pathogenic variants respectively. Marginal density plots are added and the composite figure is saved to PDF.
+
 ```{r, fig.width= 9, fig.height=3}
 nrow(rad_df)
 p1 <- ggplot(rad_df, aes(x = ddG_pred, y = z_score_D4_D14, color = residuals)) +
@@ -284,16 +302,7 @@ p1 <- ggplot(rad_df, aes(x = ddG_pred, y = z_score_D4_D14, color = residuals)) +
   legend.background = element_rect(fill = "white", color = NA)
 ) + ylim(-30,4)  + xlim(-1.5,3.7) 
 
-p1 <- ggMarginal(
-  p1,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p1 <- add_marginal_density(p1)
 
 p2 <- ggplot(rad_df %>% filter (var_source == "Benign"), aes(x = ddG_pred, y = z_score_D4_D14, color = residuals)) +
   geom_point(size = 2) +
@@ -317,16 +326,7 @@ p2 <- ggplot(rad_df %>% filter (var_source == "Benign"), aes(x = ddG_pred, y = z
   legend.background = element_rect(fill = "white", color = NA)
 ) + ylim(-30,4)  + xlim(-1.5,3.7) 
 
-p2 <- ggMarginal(
-  p2,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p2 <- add_marginal_density(p2)
 
 p3 <- ggplot(rad_df %>% filter (var_source == "Pathogenic"), aes(x = ddG_pred, y = z_score_D4_D14, color = residuals)) +
   geom_point(size = 2, shape = 17) +
@@ -357,16 +357,7 @@ p3 <- ggplot(rad_df %>% filter (var_source == "Pathogenic"), aes(x = ddG_pred, y
   legend.background = element_rect(fill = "white", color = NA)
 ) + ylim(-30,4)  + xlim(-1.5,3.7) 
 
-p3 <- ggMarginal(
-  p3,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p3 <- add_marginal_density(p3)
 
 p4 <- plot_grid(p1,p2,p3, ncol = 3)
 p4
@@ -375,6 +366,10 @@ p4
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_scatter2.pdf", 
        plot = p4, width = 9, height = 3, dpi = 300)
 ```
+
+## Scatter Plot Legend Panel
+
+Regenerate the pathogenic scatter plot with the colour-bar legend visible and save it as a separate PDF for figure assembly.
 
 ```{r}
 legend <- ggplot(rad_df %>% filter (var_source == "Pathogenic"), aes(x = ddG_pred, y = z_score_D4_D14, color = residuals)) +
@@ -412,6 +407,10 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3
        plot = legend, width = 3, height = 9, dpi = 300)
 ```
 
+
+# Violin Plot
+
+Compare LOESS residual distributions between ClinVar Benign and Pathogenic RAD51C variants using a violin plot with median crossbars and a one-sided Wilcoxon test (testing whether benign residuals are greater than pathogenic residuals).
 
 ```{r, fig.width=3, fig.height=5}
 # ---------------------------
@@ -501,6 +500,10 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3
        plot = p_violin, width = 4, height = 2.5, dpi = 300)
 ```
 
+# Ligand Distance Calculation
+
+Load the RAD51C AlphaFold PDB and compute the minimum heavy-atom distance from every residue's side chain (plus glycine C-alphas) to the Walker A, Walker B, and NLS functional motif residues. Results are aggregated to a per-residue minimum distance data frame used in the decay analysis.
+
 ```{r}
 # 1. Load PDB
 pdb <- read.pdb("~/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/RAD51C/AF-O43502-F1-model_v6.pdb", rm.alt = TRUE)
@@ -569,6 +572,10 @@ min_dist_df <- atom_df %>%
 min_dist_df
 ```
 
+# Exponential Decay Fit
+
+Merge residual data with per-residue distances, subset to negatively-deviant variants (residuals <= 0), and fit a two-parameter exponential decay model (`|residual| ~ a * exp(-b * distance)`) to quantify how SGE-ddGf discordance decays with distance from the functional motifs.
+
 ```{r}
 merged_df <- merge(rad_df, min_dist_df, by.x="new_position", by.y = "resno", all.x = TRUE)
 nrow(merged_df)
@@ -583,11 +590,15 @@ exp_model <- nls(abs(residuals) ~ a * exp(-b * min_dist_to_list),
                  start = list(a = 1, b = 0.1))
 exp_model
 ```
+## Half-Distance and Binned Summary
+
+Extract decay coefficients, compute the half-distance (approximately 17.6 Å for RAD51C), and bin variants by 2 Å intervals to derive the 95th-percentile residual magnitude per bin.
+
 ```{r}
 a <- coef(exp_model)[["a"]]
 b <- coef(exp_model)[["b"]]
 
-half_d <- log(2) / b  
+half_d <- log(2) / b
 half_d #17.57103
 
 fit_df_residue <- merged_df_neg %>%
@@ -605,6 +616,10 @@ fit_df_residue <- merged_df_neg %>%
   filter(!is.na(min_dist_to_list)) %>% # Remove empty bins
   arrange(min_dist_to_list)            # Sort X for approx() function
 ```
+
+## Decay Plot
+
+Generate the exponential decay scatter plot of |LOESS residual| versus distance to the orthosteric sites, coloured by site type (Walker Motifs, NLS, non-orthosteric), with 1,000-replicate bootstrap confidence ribbons and pathogenic variants at non-orthosteric positions labelled as triangles.
 
 ```{r, fig.width=5, fig.height=5}
 walker <- c(125:132, # walker A
@@ -692,16 +707,7 @@ p_decay <- ggplot(merged_df_neg, aes(x = min_dist_to_list, y = abs(residuals))) 
   theme_classic() +
   theme(legend.position = "bottom")
 
-p_decay <- ggMarginal(
-  p_decay,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p_decay <- add_marginal_density(p_decay)
 
 p_decay
 ```
@@ -710,6 +716,10 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3
        plot = p_decay, width = 4, height = 4.5, dpi = 300)
 ```
 
+
+# Correlation Plots
+
+Produce two side-by-side Spearman correlation scatter plots comparing raw SGE z-scores against ESM-1v predicted pathogenicity and against TMPNN ddGf predictions, with ClinVar variant classes distinguished by colour and shape and Spearman rho reported in the subtitle.
 
 ```{r, fig.width=8, fig.height=4.5}
 p_corr1 <- ggplot(rad_df, aes(x = ESM1v_all_variants, y = z_score_D4_D14)) +
@@ -734,16 +744,7 @@ p_corr1 <- ggplot(rad_df, aes(x = ESM1v_all_variants, y = z_score_D4_D14)) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
   geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") 
 
-p_corr1 <- ggMarginal(
-  p_corr1,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p_corr1 <- add_marginal_density(p_corr1)
 
 p_corr2 <- ggplot(rad_df, aes(x = ddG_pred, y = z_score_D4_D14)) +
   geom_point(aes(shape = var_source, color = var_source, alpha = var_source), size = 2) +
@@ -767,16 +768,7 @@ p_corr2 <- ggplot(rad_df, aes(x = ddG_pred, y = z_score_D4_D14)) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
   geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") 
 
-p_corr2 <- ggMarginal(
-  p_corr2,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p_corr2 <- add_marginal_density(p_corr2)
 
 p_corr <- plot_grid (p_corr1, p_corr2)
 p_corr
@@ -787,6 +779,12 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3
 ```
 
 
+
+# GAM Analysis
+
+## Comparative Residual Preparation
+
+Fit a second LOESS model regressing ESM-1v scores on ddGf predictions to derive ESM-1v-specific residuals, then rank-normalise both SGE and ESM-1v residual magnitudes to produce `Comp_residual_norm` (ESM-1v-ddGf discordance) and `Delta_Pathogenicity` (SGE-ESM-1v delta) for spatial decay comparison.
 
 ```{r}
 # Fit a loess model using the filtered data
@@ -824,6 +822,10 @@ rad_plot <- rad_plot %>%
 rad_plot<- merge(rad_plot, min_dist_df, by.x="mutation_position", by.y = "resno")
 rad_plot
 ```
+
+## GAM Spatial Decay Comparison Plot
+
+Plot the absolute normalised residual magnitudes for both the ESM-1v-ddGf signal and the SGE-ESM-1v noise as a function of distance from the orthosteric site, with GAM-smoothed trend lines (`s(x, k=8)`) to visualise differential spatial decay.
 
 ```{r, fig.width=4, fig.height=4}
 plot_ready_raw <- rad_plot %>%
@@ -865,44 +867,24 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3
        plot = p_unbinned, width = 4, height = 4, dpi = 300)
 ```
 
-```{r}
+## GAM Model Summaries
 
+Fit separate GAMs (`mgcv::gam`) for the biological signal (ESM-1v-ddGf residual) and the noise baseline (SGE-ESM-1v delta) to formally test whether each shows a significant smooth relationship with distance from the functional motifs.
+
+```{r}
+library(mgcv)
+
+# Fit the GAM for the biological signal (Comp_residual_norm)
+gam_signal <- gam(Abs_Value ~ s(min_dist_to_list, k = 8),
+                  data = filter(plot_ready_raw, Residual_Type == "Comp_residual_norm"))
+summary(gam_signal)
 ```
 
+### GAM for Noise Baseline
+
 ```{r}
-
+# Fit the GAM for the noise (Delta_Pathogenicity)
+gam_noise <- gam(Abs_Value ~ s(min_dist_to_list, k = 8),
+                 data = filter(plot_ready_raw, Residual_Type == "Delta_Pathogenicity"))
+summary(gam_noise)
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

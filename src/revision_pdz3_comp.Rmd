@@ -1,8 +1,10 @@
 ---
-title: "revision_pdz3_comp.Rmd"
+title: "PDZ3 — Per-Residue ddGb Correlation Analysis"
 output: html_document
 date: "2025-12-11"
 ---
+
+# Setup
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -13,13 +15,19 @@ library(bio3d)
 library(ggrepel)
 ```
 
+# Data Loading
+
+## MoCHI Binding and Folding ddG
+
+Load MoCHI-inferred binding and folding free energy changes for PSD95-PDZ3 variants.
+
 ```{r}
 pdz3_final_df_ddg <- read_csv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/pdz3_ddg_cleaned_mochi_refit.csv')
-pdz3_final_df_ddgb <- pdz3_final_df_ddg %>% filter(trait_name == "Binding") %>% 
+pdz3_final_df_ddgb <- pdz3_final_df_ddg %>% filter(trait_name == "Binding") %>%
   dplyr::rename(b_ddg_pred = ddg,
                 b_ddg_pred_sd = std_ddg)
 
-pdz3_final_df_ddgf <- pdz3_final_df_ddg %>% filter(trait_name == "Folding") %>% 
+pdz3_final_df_ddgf <- pdz3_final_df_ddg %>% filter(trait_name == "Folding") %>%
   dplyr::rename(f_ddg_pred = ddg,
                 f_ddg_pred_sd = std_ddg)
 
@@ -27,27 +35,31 @@ nrow(pdz3_final_df_ddgb) #1567
 nrow(pdz3_final_df_ddgf)
 ```
 
+## Merge Predictors with Experimental ddG
+
+Load ThermoMPNN ddGf and ESM-1v predictions, align sequences, and merge with binding and folding ddG.
+
 ```{r}
 test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/PSD95/ThermoMPNN_inference_AF-P78352-F1-model_v4.csv")
 test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P78352.csv")
-  
+
 colnames(test_esm)[2] <- "ESM1v"
-  
+
 test_ddg[, new_position := position + 1]
 test_ddg[, variant := paste0(wildtype, new_position, mutation)]
-  
+
 test_df <- merge(test_ddg, test_esm, by = "variant")
 
 test_df %>% filter(new_position == 311)
 pdz3_final_df_ddgb %>% filter (pos_am == 1)
 pdz3_final_df_ddgb$pos_match <- pdz3_final_df_ddgb$pos_am + 310
-pdz3_final_df_ddgb$variant_match <- paste0(pdz3_final_df_ddgb$wt_aa, 
-                                           pdz3_final_df_ddgb$pos_match, 
+pdz3_final_df_ddgb$variant_match <- paste0(pdz3_final_df_ddgb$wt_aa,
+                                           pdz3_final_df_ddgb$pos_match,
                                            pdz3_final_df_ddgb$mt_aa)
 
 pdz3_final_df_ddgf$pos_match <- pdz3_final_df_ddgf$pos_am + 310
-pdz3_final_df_ddgf$variant_match <- paste0(pdz3_final_df_ddgf$wt_aa, 
-                                           pdz3_final_df_ddgf$pos_match, 
+pdz3_final_df_ddgf$variant_match <- paste0(pdz3_final_df_ddgf$wt_aa,
+                                           pdz3_final_df_ddgf$pos_match,
                                            pdz3_final_df_ddgf$mt_aa)
 
 pdz3_final_df_ddgf <- pdz3_final_df_ddgf %>% dplyr::select(variant_match, f_ddg_pred, f_ddg_pred_sd, Pos_ref)
@@ -58,6 +70,11 @@ test_merged_df <- merge(pdz3_final_df_ddgf, test_merged_df, by="variant_match")
 nrow(test_merged_df) #1567
 head(test_merged_df)
 ```
+
+# LOESS Residual Model
+
+Filter out orthosteric sites, fit a LOESS model of ESM-1v on ddGf, and compute residuals for all variants.
+
 ```{r}
 paper_anno <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/pdz3_ddg_cleaned.csv")
 head(paper_anno)
@@ -80,21 +97,26 @@ test_merged_df$residuals_comp <- test_merged_df$ESM1v - test_merged_df$fitted_co
 sum(is.na(test_merged_df$residuals_comp)) #6
 head(test_merged_df)
 ```
+
+# Variant-Level Correlation Scatter Plots
+
+Compare measured folding ddG against ESM-1v, ThermoMPNN ddGf, and their residuals at the variant level.
+
 ```{r, fig.width=8, fig.height=4.5}
 cor.test(test_merged_df$f_ddg_pred, test_merged_df$ESM1v, method = "spearman")#-0.4810015
 # data:  test_merged_df$f_ddg_pred and test_merged_df$ESM1v
 # S = 949753862, p-value < 2.2e-16
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#        rho 
+#        rho
 # -0.4810015
 # Plot 1: Scatter plot colored by b_ddg_pred
 p1 <- ggplot(test_merged_df, aes(x = f_ddg_pred, y = ESM1v, color = b_ddg_pred)) +
   geom_point(alpha = 0.6) +  # Alpha adds transparency to see overlapping points
   scale_color_gradient2(
-    low = "blue", 
-    mid = "grey", 
-    high = "red", 
+    low = "blue",
+    mid = "grey",
+    high = "red",
     midpoint = 0
   ) +
   theme_classic() +
@@ -116,15 +138,15 @@ cor.test(test_merged_df$ddG_pred, test_merged_df$f_ddg_pred, method = "spearman"
 # S = 307032680, p-value < 2.2e-16
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#       rho 
-# 0.5212277 
+#       rho
+# 0.5212277
 # Plot 2: Scatter plot colored by b_ddg_pred
 p2 <- ggplot(test_merged_df, aes(x = f_ddg_pred, y = -ddG_pred, color = b_ddg_pred)) +
   geom_point(alpha = 0.6) +
   scale_color_gradient2(
-    low = "blue", 
-    mid = "grey", 
-    high = "red", 
+    low = "blue",
+    mid = "grey",
+    high = "red",
     midpoint = 0
   ) +
   theme_classic() +
@@ -146,9 +168,9 @@ cor.test(test_merged_df$residuals_comp, test_merged_df$f_ddg_pred, method = "spe
 p3 <- ggplot(test_merged_df, aes(x = f_ddg_pred, y = residuals_comp, color = b_ddg_pred)) +
   geom_point(alpha = 0.6) +
   scale_color_gradient2(
-    low = "blue", 
-    mid = "grey", 
-    high = "red", 
+    low = "blue",
+    mid = "grey",
+    high = "red",
     midpoint = 0
   ) +
   theme_classic() +
@@ -170,14 +192,14 @@ cor.test(test_merged_df$residuals_comp, test_merged_df$b_ddg_pred, method = "spe
 # S = 865405752, p-value < 2.2e-16
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#        rho 
+#        rho
 # -0.3650938
 p4 <- ggplot(test_merged_df, aes(x = b_ddg_pred, y = residuals_comp, color = b_ddg_pred)) +
   geom_point(alpha = 0.6) +
   scale_color_gradient2(
-    low = "blue", 
-    mid = "grey", 
-    high = "red", 
+    low = "blue",
+    mid = "grey",
+    high = "red",
     midpoint = 0
   ) +
   theme_classic() +
@@ -196,6 +218,11 @@ p4 <- ggplot(test_merged_df, aes(x = b_ddg_pred, y = residuals_comp, color = b_d
 # Combine plots
 plot_grid(p2, p1,ncol = 2)
 ```
+
+# Per-Residue Correlation with ddGb
+
+Aggregate per-residue medians and plot ESM-1v and ThermoMPNN ddGf correlations with measured folding and binding ddG.
+
 ```{r, fig.width=16, fig.height=4.5}
 test_merged_df_residue <- test_merged_df %>%
   group_by(Pos_ref) %>%
@@ -206,19 +233,19 @@ test_merged_df_residue <- test_merged_df %>%
     tmpnn_median = median(ddG_pred, na.rm = TRUE),
     esm_median = median(ESM1v, na.rm = TRUE))
 
-cor.test(test_merged_df_residue$ddgf_median, test_merged_df_residue$tmpnn_median, method = "spearman")#0.6195808 
+cor.test(test_merged_df_residue$ddgf_median, test_merged_df_residue$tmpnn_median, method = "spearman")#0.6195808
 # data:  test_merged_df_residue$ddgf_median and test_merged_df_residue$tmpnn_median
 # S = 37574, p-value < 2.2e-16
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#       rho 
-# 0.6195808 
+#       rho
+# 0.6195808
 p5 <- ggplot(test_merged_df_residue, aes(x = ddgf_median, y = -tmpnn_median, color = ddgb_median)) +
   geom_point(alpha = 0.6) +
   scale_color_gradient2(
-    low = "blue", 
-    mid = "grey", 
-    high = "red", 
+    low = "blue",
+    mid = "grey",
+    high = "red",
     midpoint = 0
   ) +
   theme_classic() +
@@ -239,7 +266,7 @@ cor.test(test_merged_df_residue$ddgf_median, test_merged_df_residue$esm_median, 
 # S = 143610, p-value = 1.792e-05
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#       rho 
+#       rho
 # -0.453984
 
 cor.test(test_merged_df_residue$ddgb_median, test_merged_df_residue$esm_median, method = "spearman")
@@ -247,14 +274,14 @@ cor.test(test_merged_df_residue$ddgb_median, test_merged_df_residue$esm_median, 
 # S = 169112, p-value < 2.2e-16
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#        rho 
-# -0.7121798 
+#        rho
+# -0.7121798
 p6 <- ggplot(test_merged_df_residue, aes(x = ddgf_median, y = esm_median, color = ddgb_median)) +
   geom_point(alpha = 0.6) +  # Alpha adds transparency to see overlapping points
   scale_color_gradient2(
-    low = "blue", 
-    mid = "grey", 
-    high = "red", 
+    low = "blue",
+    mid = "grey",
+    high = "red",
     midpoint = 0
   ) +
   theme_classic() +
@@ -272,14 +299,19 @@ p6 <- ggplot(test_merged_df_residue, aes(x = ddgf_median, y = esm_median, color 
 
 plot_grid(p2, p1, p5, p6, ncol = 4)
 ```
+
+## Save Per-Residue Deviance Plots
+
 ```{r}
 p7 <- plot_grid(p5,p6, ncol = 2)
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_fig_pdz3_deviance.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_fig_pdz3_deviance.pdf",
        plot = p7, width = 6, height = 3.5, dpi = 300)
 p7
 ```
 
+# Per-Residue Residual Correlation with ddGb and ddGf
 
+Test whether per-residue ESM-1v-ddGf residuals correlate with binding and folding free energy changes.
 
 ```{r}
 cor.test(test_merged_df_residue$ddgb_median, test_merged_df_residue$residual_median, method = "spearman")#-0.4115015
@@ -287,19 +319,3 @@ cor.test(test_merged_df_residue$ddgb_median, test_merged_df_residue$residual_med
 cor.test(test_merged_df_residue$ddgf_median, test_merged_df_residue$residual_median, method = "spearman")#-0.1254834
 
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

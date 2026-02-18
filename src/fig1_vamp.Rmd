@@ -1,8 +1,12 @@
 ---
-title: "fig1_vamp"
+title: "ESM1v vs. VAMP-seq Fitness Across Full-length Human Proteins"
 output: html_document
 date: "2025-06-17"
 ---
+
+# Setup
+
+Load required libraries and set the working directory for the project.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -15,7 +19,14 @@ library(dplyr)
 library(stringr)
 ```
 
+# Per-protein Data Loading
+
+Each section below loads the VAMP-seq DMS abundance scores and the corresponding ESM1v predictions for one protein, merges them by variant identifier, and parses the numeric mutation position.
+
 # VKOR
+
+Load VKOR1 VAMP-seq abundance and activity scores alongside ESM1v predictions, then merge on variant identifier and extract the numeric mutation position.
+
 ```{r}
 vkor_ddgf <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/VKOR1_HUMAN_Chiasson_2020_abundance.csv", header = TRUE)
 vkor_ddga <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/VKOR1_HUMAN_Chiasson_2020_activity.csv", header = TRUE)
@@ -31,6 +42,10 @@ vkor_df <- vkor_df %>%
   mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
 head(vkor_df)
 ```
+
+# OCT (SLC22A1)
+
+Load OCT (organic cation transporter, UniProt O15245) VAMP-seq and ESM1v data; re-index the ESM1v variant positions to zero-based numbering before merging.
 
 ```{r}
 oct_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/S22A1_HUMAN_Yee_2023_abundance.csv", header = TRUE)
@@ -53,6 +68,11 @@ oct_df <- oct_df %>%
   mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
 head(oct_df)
 ```
+
+# GCK (Glucokinase)
+
+Load GCK (HXK4_HUMAN, UniProt P35557) VAMP-seq abundance scores and ESM1v predictions, merge on variant, and parse mutation positions.
+
 ```{r}
 gck_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/HXK4_HUMAN_Gersing_2023_abundance.csv", header = TRUE)
 gck_esm <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_esm1v/P35557.csv")
@@ -67,6 +87,10 @@ gck_df <- gck_df %>%
 head(gck_df)
 ```
 
+# PTEN
+
+Load PTEN (UniProt P60484) VAMP-seq and ESM1v data, merge on variant identifier, and parse mutation positions.
+
 ```{r}
 pten_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/PTEN_HUMAN_Matreyek_2021.csv", header = TRUE)
 pten_esm <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_esm1v/P60484.csv")
@@ -76,6 +100,10 @@ pten_df <- pten_df %>%
   mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
 head(pten_df)
 ```
+
+# CYP2C9
+
+Load CYP2C9 (CP2C9_HUMAN, UniProt P11712) VAMP-seq abundance scores and ESM1v predictions, merge on variant, and parse mutation positions.
 
 ```{r}
 cyp2c9_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/CP2C9_HUMAN_Amorosi_2021_abundance.csv", header = TRUE)
@@ -90,6 +118,11 @@ cyp2c9_df <- cyp2c9_df %>%
   mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
 head(cyp2c9_df)
 ```
+
+# TPMT
+
+Load TPMT (UniProt P51580) VAMP-seq and ESM1v data, merge on variant identifier, and parse mutation positions.
+
 ```{r}
 tpmt_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/TPMT_HUMAN_Matreyek_2018.csv", header = TRUE)
 tpmt_esm <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_esm1v/P51580.csv")
@@ -103,12 +136,17 @@ tpmt_df <- tpmt_df %>%
   mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
 head(tpmt_df)
 ```
+
+# NUDT15
+
+Load NUDT15 (NUD15_HUMAN, UniProt Q9NV35) VAMP-seq and ESM1v data, merge on variant identifier, and parse mutation positions.
+
 ```{r}
 library(tidyr)
 nudt15_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/NUD15_HUMAN_Suiter_2020.csv", header = TRUE)
 nudt15_esm <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_esm1v/Q9NV35.csv")
-nrow(nudt15_ddg) 
-nrow(nudt15_esm) 
+nrow(nudt15_ddg)
+nrow(nudt15_esm)
 
 nudt15_df <- merge(nudt15_ddg, nudt15_esm, by.x = "mutant", by.y = "variant")
 nrow(nudt15_df) #2844
@@ -118,6 +156,11 @@ nudt15_df <- nudt15_df %>%
 
 head(nudt15_df)
 ```
+
+# PRKN (Parkin)
+
+Load PRKN (PRKN_HUMAN, UniProt O60260) VAMP-seq and ESM1v data, merge on variant identifier, and parse mutation positions.
+
 ```{r}
 prkn_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/PRKN_HUMAN_Clausen_2023.csv", header = TRUE)
 prkn_esm <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_esm1v/O60260.csv")
@@ -131,6 +174,11 @@ prkn_df <- prkn_df %>%
   mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
 head(prkn_df)
 ```
+
+# ASPA (Aspartoacylase)
+
+Load ASPA (UniProt P45381) scores from MaveDB in HGVS protein notation, convert three-letter amino acid codes to one-letter format to match ESM1v variant identifiers, then merge the two data sources.
+
 ```{r}
 aspa_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/ASPA_mavedb/urn_mavedb_00000657-a-1_scores_abundance.csv", header = TRUE)
 aspa_esm <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_esm1v/P45381.csv")
@@ -143,9 +191,9 @@ nrow(aspa_esm) #5947
 
 # Amino acid three-letter to one-letter code mapping
 aa_map <- c(
-  Ala = "A", Arg = "R", Asn = "N", Asp = "D", Cys = "C", 
-  Gln = "Q", Glu = "E", Gly = "G", His = "H", Ile = "I", 
-  Leu = "L", Lys = "K", Met = "M", Phe = "F", Pro = "P", 
+  Ala = "A", Arg = "R", Asn = "N", Asp = "D", Cys = "C",
+  Gln = "Q", Glu = "E", Gly = "G", His = "H", Ile = "I",
+  Leu = "L", Lys = "K", Met = "M", Phe = "F", Pro = "P",
   Ser = "S", Thr = "T", Trp = "W", Tyr = "Y", Val = "V", Ter = "*"
 )
 
@@ -153,16 +201,16 @@ aa_map <- c(
 convert_to_short_format <- function(hgvs_pro) {
   # Skip if there's no change (p.=)
   if (hgvs_pro == "p.=") return(NA)
-  
+
   # Extract parts of the mutation using regex
   matches <- regmatches(hgvs_pro, regexec("p\\.(\\w{3})(\\d+)(\\w{3})", hgvs_pro))
   if (length(matches[[1]]) < 4) return(NA)  # Return NA if format doesn't match
-  
+
   # Map three-letter codes to one-letter codes and format as "T2A"
   wt_aa <- aa_map[matches[[1]][2]]
   position <- matches[[1]][3]
   mut_aa <- aa_map[matches[[1]][4]]
-  
+
   paste0(wt_aa, position, mut_aa)
 }
 
@@ -178,26 +226,32 @@ nrow(aspa_df) #5843
 head(aspa_df)
 ```
 
+# R² Analysis Across All Proteins
+
+## Compute Per-protein R² Between DMS Score and ESM1v
+
+Define a helper function that fits a linear model of ESM1v on DMS score for each protein, collect the R² values into a data frame, annotate each protein with its functional class (enzyme vs. transporter), and rank proteins by R².
+
 ```{r}
 # Wrapper function to fit linear model and calculate R² for each data frame
 calculate_r2_for_dfs <- function(dfs, x_var, y_var) {
   # Initialize an empty list to store R² values
   r2_values <- list()
-  
+
   # Iterate over each data frame in the list
   for (name in names(dfs)) {
     df <- dfs[[name]]
-    
+
     # Fit a linear model for y ~ x
     model <- lm(as.formula(paste(y_var, "~", x_var)), data = df)
-    
+
     # Calculate R² value
     r2 <- summary(model)$r.squared
-    
+
     # Store the R² value in the list with the data frame name
     r2_values[[name]] <- r2
   }
-  
+
   # Return the list of R² values
   return(r2_values)
 }
@@ -205,7 +259,7 @@ calculate_r2_for_dfs <- function(dfs, x_var, y_var) {
 # Example usage
 # Combine data frames into a named list
 combo_df <- list(vkor_df = vkor_df, oct_df = oct_df, gck_df = gck_df,
-                 pten_df = pten_df, cyp2c9_df = cyp2c9_df, tpmt_df = tpmt_df, 
+                 pten_df = pten_df, cyp2c9_df = cyp2c9_df, tpmt_df = tpmt_df,
                  nudt15_df = nudt15_df, prkn_df = prkn_df, aspa_df = aspa_df)
 
 # Calculate R² for each data frame using the wrapper function
@@ -231,12 +285,14 @@ r2_df <- r2_df %>% arrange(desc(r_squared))
 r2_df
 ```
 
+## Plot R² Bar Chart for All VAMP-seq Proteins
 
+Generate a horizontal bar chart of per-protein R² values coloured by functional class and save it as a PDF figure panel.
 
 ```{r, fig.width=8, fig.height=4}
 p1 <- ggplot(r2_df, aes(y = reorder(protein, r_squared), x = r_squared, fill = type)) +
   geom_bar(stat = "identity") +
-  labs(title = "VAMP-seq Datasets: 9 Full-length Human Proteins", 
+  labs(title = "VAMP-seq Datasets: 9 Full-length Human Proteins",
        subtitle = "Linear regression",
        y = "Protein", x = "R squared") +
   theme_classic(base_size = 14) +
@@ -251,10 +307,18 @@ p1 <- ggplot(r2_df, aes(y = reorder(protein, r_squared), x = r_squared, fill = t
             hjust = 0.5, size = 5, color = "black") +
   coord_flip()
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig1_vamp_r2.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig1_vamp_r2.pdf",
        plot = p1, width = 8, height = 4, dpi = 300)
 p1
 ```
+
+# ClinVar Variant Analysis
+
+Each section below loads the pre-merged ClinVar annotation file for one protein, filters to high-confidence benign/pathogenic variants, selects the relevant columns, and assigns a binary stability label based on the VAMP-seq DMS score bin.
+
+## VKOR — ClinVar Merge and Stability Assignment
+
+Load the VKOR ClinVar annotation table, inspect review-status and significance distributions, then join with the VKOR DMS data and classify variants as destabilizing or WT-like.
 
 ```{r}
 vkor_clinvar <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/Q9BQB6_merged.csv")
@@ -279,6 +343,10 @@ vkor_df_merged <- vkor_df_merged %>%
 vkor_df_merged
 ```
 
+## OCT — ClinVar Merge and Stability Assignment
+
+Load and inspect the OCT ClinVar annotation table, then filter to reviewed benign/pathogenic variants.
+
 ```{r}
 oct_clinvar <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/O15245_merged.csv")
 nrow(oct_clinvar) #10526
@@ -302,10 +370,15 @@ oct_df_merged <- oct_df_merged %>%
 oct_df_merged
 ```
 
+## GCK — ClinVar Merge and Stability Assignment
+
+Load and inspect the GCK ClinVar annotation table, then join with GCK DMS data and assign stability labels.
+
 ```{r}
 gck_clinvar <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/P35557_merged.csv")
 table(gck_clinvar$clinvar_clinical_significance)
 ```
+
 ```{r}
 gck_df_merged <- merge(gck_df, gck_clinvar, by.x="mutant", by.y="variant")
 gck_df_merged <- gck_df_merged %>% filter(clinvar_clinical_significance %in% c("benign", "likely_benign",
@@ -323,11 +396,16 @@ gck_df_merged <- gck_df_merged %>%
 table(gck_df_merged$clinvar_clinical_significance)
 ```
 
+## PTEN — ClinVar Merge and Stability Assignment
+
+Load and inspect the PTEN ClinVar annotation table, then join with PTEN DMS data and assign stability labels.
+
 ```{r}
 pten_clinvar <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/P60484_merged.csv")
 nrow(pten_clinvar) #7657
 table(pten_clinvar$clinvar_clinical_significance)
 ```
+
 ```{r}
 pten_df_merged <- merge(pten_df, pten_clinvar, by.x="mutant", by.y="variant")
 nrow(pten_df_merged)
@@ -347,11 +425,17 @@ pten_df_merged <- pten_df_merged %>%
 
 table(pten_df_merged$clinvar_clinical_significance)
 ```
+
+## CYP2C9 — ClinVar Merge and Stability Assignment
+
+Load and inspect the CYP2C9 ClinVar annotation table, then join with CYP2C9 DMS data and assign stability labels.
+
 ```{r}
 CYP2C9_clinvar <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/P11712_merged.csv")
 nrow(CYP2C9_clinvar) #9310
 table(CYP2C9_clinvar$clinvar_clinical_significance)
 ```
+
 ```{r}
 CYP2C9_df_merged <- merge(cyp2c9_df, CYP2C9_clinvar, by.x="mutant", by.y="variant")
 CYP2C9_df_merged <- CYP2C9_df_merged %>% filter(clinvar_clinical_significance %in% c("benign", "likely_benign",
@@ -368,6 +452,10 @@ CYP2C9_df_merged <- CYP2C9_df_merged %>%
   ))
 table(CYP2C9_df_merged$clinvar_clinical_significance)
 ```
+
+## TPMT — ClinVar Merge and Stability Assignment
+
+Load and inspect the TPMT ClinVar annotation table, then join with TPMT DMS data and assign stability labels.
 
 ```{r}
 TPMT_clinvar <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/P51580_merged.csv")
@@ -392,6 +480,10 @@ TPMT_df_merged <- TPMT_df_merged %>%
 table(TPMT_df_merged$clinvar_clinical_significance)
 ```
 
+## NUDT15 — ClinVar Merge and Stability Assignment
+
+Load and inspect the NUDT15 ClinVar annotation table, then join with NUDT15 DMS data and assign stability labels in the same chunk.
+
 ```{r}
 NUDT15_clinvar <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/Q9NV35_merged.csv")
 nrow(NUDT15_clinvar) #3116
@@ -412,11 +504,17 @@ NUDT15_df_merged <- NUDT15_df_merged %>%
   ))
 table(NUDT15_df_merged$clinvar_clinical_significance)
 ```
+
+## PRKN — ClinVar Merge and Stability Assignment
+
+Load and inspect the PRKN ClinVar annotation table, then join with PRKN DMS data and assign stability labels.
+
 ```{r}
 PRKN_clinvar <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/O60260_merged.csv")
 nrow(PRKN_clinvar) #8835
 table(PRKN_clinvar$clinvar_clinical_significance)
 ```
+
 ```{r}
 prkn_df_merged <- merge(prkn_df, PRKN_clinvar, by.x="mutant", by.y="variant")
 prkn_df_merged <- prkn_df_merged %>% filter(clinvar_clinical_significance %in% c("benign", "likely_benign",
@@ -434,12 +532,17 @@ prkn_df_merged <- prkn_df_merged %>%
 table(prkn_df_merged$clinvar_clinical_significance)
 ```
 
+## ASPA — ClinVar Merge and Stability Assignment
+
+Load and inspect the ASPA ClinVar annotation table, merge with ASPA DMS data, and derive binary stability from a continuous DMS score threshold rather than a pre-computed bin column.
+
 ```{r}
 ASPA_clinvar <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/P45381_merged.csv")
 nrow(ASPA_clinvar) #5947
 
 table(ASPA_clinvar$clinvar_clinical_significance)
 ```
+
 ```{r}
 aspa_df_merged <- merge(aspa_df, ASPA_clinvar, by="variant")
 
@@ -464,23 +567,37 @@ aspa_df_merged <- aspa_df_merged %>%
 table(aspa_df_merged$clinvar_clinical_significance)
 ```
 
+# Combined ClinVar Summary
+
+## Verify Column Consistency Before Concatenation
+
+Inspect the column names of one merged data frame to confirm all per-protein data frames share a common schema before row-binding.
+
 ```{r}
 colnames(TPMT_df_merged)
 ```
 
+## Concatenate All Per-protein ClinVar Data Frames
+
+Row-bind all eight protein-level ClinVar-merged data frames (excluding OCT, which had no qualifying variants) into a single pooled data frame.
 
 ```{r}
 final_df <- rbind(vkor_df_merged,
                   gck_df_merged,
                   pten_df_merged,
                   CYP2C9_df_merged,
-                  TPMT_df_merged, 
+                  TPMT_df_merged,
                   NUDT15_df_merged,
                   prkn_df_merged,
                   aspa_df_merged)
 nrow(final_df) #408
 table(final_df$clinvar_clinical_significance)
 ```
+
+## Summarise Stability by ClinVar Classification
+
+Collapse likely benign/pathogenic into their definitive categories, then compute per-group variant counts and percentages to feed the stacked bar chart.
+
 ```{r}
 final_summary_df <- final_df %>%
   mutate(clinvar_clinical_significance = case_when(
@@ -500,10 +617,15 @@ final_summary_df$stability <- factor(final_summary_df$stability, levels = c("WT-
 final_summary_df$clinvar_clinical_significance <- factor(final_summary_df$clinvar_clinical_significance, levels = c("benign", "pathogenic"))
 final_summary_df
 ```
+
+## Plot ClinVar Stability Distribution (VAMP-seq)
+
+Produce a stacked bar chart showing the proportion of destabilizing and WT-like variants among benign and pathogenic ClinVar entries across 7 full-length proteins, and save it as a PDF figure panel.
+
 ```{r}
 p2 <- ggplot(final_summary_df, aes(x = clinvar_clinical_significance, y = percent, fill = stability)) +
   geom_bar(stat = "identity", position = "stack", width = 0.7) +
-  geom_text(aes(label = paste0(round(percent, 1), "% (", count, ")")), 
+  geom_text(aes(label = paste0(round(percent, 1), "% (", count, ")")),
             position = position_stack(vjust = 0.5), size = 4) +  # Center labels in stacks
   scale_fill_brewer(palette = "Set2") +
   labs(title = "VAMP-seq Datasets: 7 Full-length Proteins", subtitle = "292 ClinVar variants",
@@ -517,23 +639,26 @@ p2 <- ggplot(final_summary_df, aes(x = clinvar_clinical_significance, y = percen
     legend.position = "none"
   ) + ylim(0,100)
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig1_vamp_clinivar.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig1_vamp_clinivar.pdf",
        plot = p2, width = 4, height = 4, dpi = 300)
 p2
 ```
 
+## ROC/PR-AUC Calculation (Commented Out)
+
+This block documents the binary classification vectors and ROC/PR-AUC calculations used to evaluate destabilization as a predictor of ClinVar pathogenicity; kept for reproducibility reference.
 
 ```{r}
 # # # vamp
 # clinvar_clinical_significance.  stability.  count.  percent
-# benign	WT-like	21	           87.50000	
-# benign	destabilizing	3	       12.50000	
-# pathogenic	WT-like	117	       43.65672	
-# pathogenic	destabilizing	151	 56.34328	
-# 
+# benign	WT-like	21	           87.50000
+# benign	destabilizing	3	       12.50000
+# pathogenic	WT-like	117	       43.65672
+# pathogenic	destabilizing	151	 56.34328
+#
 # # patho 21+3 = 24
 # # benign 117+151 = 268
-# 
+#
 # # Create expanded binary vectors
 # y_true <- c(
 #   rep(1, 151),  # pathogenic destabilizing
@@ -541,7 +666,7 @@ p2
 #   rep(0, 3),   # benign destabilizing
 #   rep(0, 21)   # benign non-destabilizing
 # )
-# 
+#
 # # Predicted labels or scores: 1 for destabilizing, 0 for not
 # y_pred <- c(
 #   rep(1, 151),  # pathogenic destabilizing
@@ -549,25 +674,20 @@ p2
 #   rep(1, 3),   # benign destabilizing
 #   rep(0, 21)   # benign non-destabilizing
 # )
-# 
+#
 # # ROC AUC
 # roc_obj <- roc(y_true, y_pred)
 # roc_auc <- auc(roc_obj)
-# 
+#
 # # PR AUC
 # pr_obj <- pr.curve(scores.class0 = y_pred[y_true == 1],
 #                    scores.class1 = y_pred[y_true == 0],
 #                    curve = TRUE)
 # pr_auc <- pr_obj$auc.integral
-# 
+#
 # # Print results
 # cat("ROC-AUC:", round(roc_auc, 4), "\n")
 # #ROC-AUC: 0.7192
 # cat("PR-AUC:", round(pr_auc, 4), "\n")
 # #PR-AUC: 0.964
 ```
-
-
-
-
-

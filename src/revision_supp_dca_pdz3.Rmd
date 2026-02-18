@@ -1,8 +1,10 @@
 ---
-title: "revision_supp_dca_pdz3.Rmd"
+title: "Supp: PDZ3 — DCA Conservation Analysis"
 output: html_document
 date: "2026-01-08"
 ---
+
+# Setup
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -14,6 +16,12 @@ library(ggrepel)
 library(tidyverse)
 library(data.table)
 ```
+
+# Data Loading
+
+## MSA Frequency Table
+
+Load EVcouplings frequency table to get per-position gap frequency, depth, and conservation scores.
 
 ```{r}
 freq <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/dca/psd95-pdz3_evcoupling_legacy/align/9655f074b3db5a93024aa4978f15ad89_b0.3_frequencies.csv", check.names = FALSE)
@@ -32,24 +40,33 @@ freq <- freq |>
   )
 freq
 ```
+
+## MoCHI Binding ddG
+
+Load MoCHI-inferred binding free energy changes (ddGb) for PSD95-PDZ3 variants.
+
 ```{r}
 pdz3_final_df_ddg <- read_csv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/pdz3_ddg_cleaned_mochi_refit.csv')
-pdz3_final_df_ddgb <- pdz3_final_df_ddg %>% filter(trait_name == "Binding") %>% 
+pdz3_final_df_ddgb <- pdz3_final_df_ddg %>% filter(trait_name == "Binding") %>%
   dplyr::rename(b_ddg_pred = ddg,
                 b_ddg_pred_sd = std_ddg)
 nrow(pdz3_final_df_ddgb) #1567
 head(pdz3_final_df_ddgb)
 ```
 
+## Merge Predictors with ddGb
+
+Load ThermoMPNN ddGf and ESM-1v predictions, align sequences, and merge with experimental ddGb values.
+
 ```{r}
 test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/PSD95/ThermoMPNN_inference_AF-P78352-F1-model_v4.csv")
 test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P78352.csv")
-  
+
 colnames(test_esm)[2] <- "ESM1v"
-  
+
 test_ddg[, new_position := position + 1]
 test_ddg[, variant := paste0(wildtype, new_position, mutation)]
-  
+
 test_df <- merge(test_ddg, test_esm, by = "variant")
 
 pred_seq <-  ali_process_sequence(test_df, "new_position", "wildtype")
@@ -60,14 +77,18 @@ ali_find_sequence_overlap(pred_seq, exp_seq ,"sequence")
 test_df %>% filter(new_position == 311)
 pdz3_final_df_ddgb %>% filter (pos_am == 1)
 pdz3_final_df_ddgb$pos_match <- pdz3_final_df_ddgb$pos_am + 310
-pdz3_final_df_ddgb$variant_match <- paste0(pdz3_final_df_ddgb$wt_aa, 
-                                           pdz3_final_df_ddgb$pos_match, 
+pdz3_final_df_ddgb$variant_match <- paste0(pdz3_final_df_ddgb$wt_aa,
+                                           pdz3_final_df_ddgb$pos_match,
                                            pdz3_final_df_ddgb$mt_aa)
 
 test_merged_df <- merge(pdz3_final_df_ddgb, test_df, by.x="variant_match", by.y="variant")
 nrow(test_merged_df) #1567
 head(test_merged_df)
 ```
+
+# LOESS Residual Model
+
+Filter out orthosteric sites, fit a LOESS model of ESM-1v on ddGf, and compute residuals.
 
 ```{r}
 paper_anno <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/pdz3_ddg_cleaned.csv")
@@ -92,6 +113,10 @@ sum(is.na(test_merged_df$residuals_comp)) #6
 head(test_merged_df)
 ```
 
+## Per-Residue Aggregation
+
+Compute per-residue median residuals and annotate allosteric positions.
+
 ```{r}
 test_merged_df_residue <- test_merged_df %>%
   group_by(pos_match) %>%
@@ -99,18 +124,21 @@ test_merged_df_residue <- test_merged_df %>%
     residual_median = median(residuals_comp, na.rm = TRUE),
     median_ddgb = median(b_ddg_pred, na.rm = TRUE))
 
-allo_pos <- c(312, 314, 318, 329, 330, 336, 338, 341, 347, 357, 359, 360, 362, 363, 367, 375, 386, 388) 
+allo_pos <- c(312, 314, 318, 329, 330, 336, 338, 341, 347, 357, 359, 360, 362, 363, 367, 375, 386, 388)
 
 test_merged_df_residue <- test_merged_df_residue %>%
   mutate(
     label_text = ifelse(pos_match %in% allo_pos, as.character(pos_match), ""),
-    
+
     # Optional: Create a column to make these points look different (e.g., bigger/bolder)
     is_highlighted = pos_match %in% allo_pos
-  ) 
+  )
 test_merged_df_residue
 ```
 
+# DCA Coupling to Orthosteric Sites
+
+Load EVcouplings scores and compute the maximum coupling strength from each non-orthosteric position to the orthosteric site set.
 
 ```{r}
 df <-  read.csv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/dca/psd95-pdz3_evcoupling_legacy/couplings/CouplingScores.csv', sep = ',')
@@ -138,10 +166,14 @@ dca_to_ortho <- edges %>%
 
 dca_to_ortho
 ```
+
 ```{r}
 dca_to_ortho %>% filter(position %in% ortho_list)
 ```
 
+## Filter by MSA Depth and Merge with ddGb
+
+Restrict to positions with sufficient alignment depth (>=50%) and merge DCA scores with per-residue median ddGb.
 
 ```{r}
 freq$position <- freq$position + 310
@@ -162,6 +194,10 @@ merged <- test_merged_df_residue %>%
 merged
 ```
 
+# Correlation Plot: DCA Coupling vs. Median ddGb
+
+Scatter plot of maximum DCA coupling strength to orthosteric sites against median ddGb with Spearman correlation.
+
 ```{r, fig.width=4, fig.height=4.5}
 # 1. Prepare Data
 positions_to_highlight <- c(312, 314, 318, 329, 330, 336, 338, 341, 347, 357, 359, 360, 362, 363, 367, 375, 386, 388)
@@ -171,7 +207,7 @@ merged <- merged %>%
     label_text = ifelse(position %in% positions_to_highlight, as.character(position), ""),
     # Optional: Create a column to make these points look different
     is_highlighted = position %in% positions_to_highlight
-  ) 
+  )
 
 # 2. Calculate Spearman's Rho
 rho_val <- cor(merged$dca_to_ortho_max, merged$median_ddgb, method = "spearman", use = "complete.obs")
@@ -181,9 +217,9 @@ subtitle_text <- paste0("Spearman's rho = ", round(rho_val, 2))
 p1 <- ggplot(merged, aes(x = dca_to_ortho_max, y = median_ddgb, color = median_ddgb)) +
   geom_point(alpha = 0.7) +
   scale_color_gradient2(
-    low = "blue", 
-    mid = "grey", 
-    high = "red", 
+    low = "blue",
+    mid = "grey",
+    high = "red",
     midpoint = 0
   ) +
   theme_classic() +
@@ -207,19 +243,10 @@ p1 <- ggplot(merged, aes(x = dca_to_ortho_max, y = median_ddgb, color = median_d
   )
 p1
 ```
+
+# Save Figure
+
 ```{r}
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_dca_pdz3.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_dca_pdz3.pdf",
        plot = p1, width = 3, height = 4, dpi = 300)
 ```
-
-
-
-
-
-
-
-
-
-
-
-

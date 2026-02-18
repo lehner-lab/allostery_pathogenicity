@@ -1,8 +1,12 @@
 ---
-title: "revision_fig4.Rmd"
+title: "Fig 4: PDZ3 & SH3 — ESM-1v Residual Decay Analysis"
 output: html_document
 date: "2026-01-20"
 ---
+
+# Setup
+
+Load project libraries including `ggExtra`, `bio3d`, `ggrepel`, and `Biostrings` used throughout this analysis.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -13,6 +17,10 @@ library(bio3d)
 library(ggrepel)
 library(Biostrings)
 ```
+
+## Sequence Alignment Utility (archived)
+
+A commented-out helper function that performs pairwise local alignment of a DMS library sequence against the full-length PSD-95 protein sequence to map library residue indices to canonical positions; the resulting orthosteric contact positions are listed inline for reference.
 
 ```{r}
 # align_and_add_true_pos <- function(df, full_seq, library_col = "library") {
@@ -113,6 +121,12 @@ library(Biostrings)
 ```
 
 
+# PDZ3 Analysis (PSD-95)
+
+## Data Loading for PDZ3
+
+Load MoCHI-derived folding (ddGf) and binding (ddGb) free-energy predictions for 1,567 single-amino-acid variants of PSD-95-PDZ3, merge them on a shared variant identifier, and annotate each variant with a manually curated list of orthosteric (ligand-contacting) positions.
+
 ```{r}
 pdz3_final_df_ddg <- read_csv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/pdz3_ddg_cleaned_mochi_refit.csv')
 
@@ -137,6 +151,10 @@ pdz3_final_df_ddg_2plot$orthosteric[pdz3_final_df_ddg_2plot$Pos_ref %in% ortho_l
 pdz3_final_df_ddg_2plot 
 ```
 
+## LOESS Residual Model for PDZ3
+
+Fit a robust LOESS curve (span = 0.7) to ESM-1v scores as a function of measured ddGf, using only non-orthosteric variants as the training set; residuals are then computed for all variants including orthosteric ones.
+
 ```{r}
 pdz3_final_df_ddg_2plot_out <- pdz3_final_df_ddg_2plot %>% filter(orthosteric == FALSE)
 
@@ -152,45 +170,22 @@ pdz3_final_df_ddg_2plot$residuals <- pdz3_final_df_ddg_2plot$ESM1v - pdz3_final_
 pdz3_final_df_ddg_2plot
 ```
 
+## PDB B-factor Mapping for PDZ3
+
+Compute per-residue median LOESS residuals and write them into the B-factor column of the 1be9 PDB file so that residual magnitude can be visualised on the structure using ChimeraX.
+
 ```{r}
 median_residuals <- pdz3_final_df_ddg_2plot %>%
   dplyr::group_by(Pos_ref) %>%
   summarise(median_residuals = median(residuals, na.rm = TRUE))
 
-pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/domains/1be9.pdb")
-data <- median_residuals
-
-# Create a new B-factor vector initialized with the current B-factors from the PDB
-new_b_factors <- pdb$atom$b
-
-# Loop through each position in the correlation data and update the B-factors
-for (i in 1:nrow(data)) {
-  position <- data$Pos_ref[i]
-  correlation_value <- data$median_residuals[i]
-
-  # Find indices in the PDB that match the current position
-  indices <- which(pdb$atom$resno == position)
-
-  # Print the indices and current B-factors before updating
-  #cat("Updating residue number:", position, "\n")
-  #cat("Indices in PDB:", indices, "\n")
-  #cat("Current B-factors:", new_b_factors[indices], "\n")
-
-  # Update B-factors for all atoms in the current residue
-  new_b_factors[indices] <- correlation_value
-
-  # Print the new B-factors after updating
-  #cat("Updated B-factors:", new_b_factors[indices], "\n")
-  #cat("\n")  # Add an extra line for readability
-}
-# Replace non-matching B-factors with outlier value so we can filter it out in ChimeraX
-non_matching_indices <- setdiff(seq_along(new_b_factors), which(pdb$atom$resno %in% data$Pos_ref))
-new_b_factors[non_matching_indices] <- 999
-
-# Assign the new B-factors back to the pdb structure
-# Write the modified PDB structure to a new file
-pdb$atom$b <- new_b_factors
-write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/domains/1be9_median_residual_loess.pdb")
+map_residuals_to_pdb(
+  data = median_residuals,
+  pdb_path = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/domains/1be9.pdb",
+  output_path = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/domains/1be9_median_residual_loess.pdb",
+  position_col = "Pos_ref",
+  value_col = "median_residuals"
+)
 
 #chimerax
 #select @@bfactor>=999 
@@ -205,6 +200,10 @@ write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/dat
 ```
 
 
+
+## Scatter Plot for PDZ3
+
+Plot ESM-1v pathogenicity score against measured ddGf for all 1,567 PDZ3 variants, coloured by LOESS residual, with the fitted LOESS curve overlaid; marginal density plots are added to show the univariate distributions.
 
 ```{r, fig.width=4.5, fig.height=4}
 fit_line_df <- data.frame(
@@ -233,16 +232,7 @@ p1 <- ggplot(pdz3_final_df_ddg_2plot, aes(x = f_ddg_pred, y = ESM1v, color = res
   scale_color_gradient2(low = "red", mid = "grey", high = "blue", midpoint = 0, name = "Residuals",
                         limits = c(-11.3, 15)) +
   theme(legend.position = "bottom")
-p1 <- ggMarginal(
-  p1,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p1 <- add_marginal_density(p1)
 p1
 ```
 ```{r}
@@ -252,6 +242,10 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig4
 
 
 
+## Site Classification for PDZ3
+
+Label each non-orthosteric variant as "allosteric" if its predicted ddGb exceeds the mean ddGb of orthosteric variants, creating three site classes (orthosteric, allosteric, other) used in downstream comparisons.
+
 ```{r}
 pdz3_final_df_ddg_2plot_active <- pdz3_final_df_ddg_2plot %>% filter (orthosteric == TRUE)
 pdz3_final_df_ddg_2plot$allosteric <- FALSE
@@ -259,6 +253,10 @@ pdz3_final_df_ddg_2plot$allosteric[pdz3_final_df_ddg_2plot$b_ddg_pred >= mean(pd
 pdz3_final_df_ddg_2plot$allosteric[pdz3_final_df_ddg_2plot$orthosteric == TRUE] <- FALSE
 table(pdz3_final_df_ddg_2plot$allosteric)
 ```
+
+## Violin Plots for PDZ3
+
+Compare the distribution of ESM-1v–ddGf residuals across orthosteric, allosteric, and other site classes using violin plots with median markers and pairwise Wilcoxon significance brackets.
 
 ```{r}
 pdz3_final_df_ddg_2plot <- pdz3_final_df_ddg_2plot %>%
@@ -337,6 +335,10 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig4
        plot = p_violin, width = 3, height = 3, dpi = 300)
 ```
 
+## Exponential Decay of Residuals vs. Ligand Distance for PDZ3
+
+Fit a two-parameter exponential decay model (`|residual| ~ a * exp(-b * distance)`) to variants with negative residuals to quantify how the ESM-1v surplus signal falls off with increasing distance from the CRIPT peptide ligand; bootstrap resampling (n = 1,000) provides 95% confidence intervals on the decay curve.
+
 ```{r}
 pdz3_final_df_ddg_2plot_neg <- pdz3_final_df_ddg_2plot %>% filter (residuals <= 0)
 
@@ -345,6 +347,10 @@ exp_model_pdz3 <- nls(abs(residuals) ~ a * exp(-b * scHAmin_ligand),
                  start = list(a = 1, b = 0.1))
 exp_model_pdz3
 ```
+### Log-linear Validation of Decay (PDZ3)
+
+Confirm the exponential relationship by fitting a log-linear model to per-residue median residuals versus ligand distance; the slope and adjusted R-squared are reported as a complementary diagnostic.
+
 ```{r}
 merged_df_residue <- pdz3_final_df_ddg_2plot_neg  %>%
   group_by(Pos_ref) %>%
@@ -373,6 +379,10 @@ summary(lm_model)
 # F-statistic: 29.19 on 1 and 79 DF,  p-value: 6.743e-07
 ```
 
+
+## Decay Plot for PDZ3 Residuals
+
+Visualise the absolute LOESS residuals against side-chain heavy-atom distance to ligand for negative-residual variants, overlaying the bootstrapped exponential decay curve with its 95% CI ribbon; points are coloured by site class.
 
 ```{r, fig.width=4, fig.height=4}
 a <- coef(exp_model_pdz3)[["a"]]
@@ -437,16 +447,7 @@ p_decay <- ggplot(pdz3_final_df_ddg_2plot_neg, aes(x = scHAmin_ligand, y = abs(r
   ) + 
   theme(legend.position = "none")
 
-p_decay <- ggMarginal(
-  p_decay,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p_decay <- add_marginal_density(p_decay)
 
 p_decay
 ```
@@ -454,6 +455,10 @@ p_decay
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig4_decay1.pdf", 
        plot = p_decay, width = 3, height = 3, dpi = 300)
 ```
+
+## ddGb Decay Plot for PDZ3
+
+Fit an analogous exponential decay to measured binding ddGb (positive values only) as a function of ligand distance, providing a parallel view of how binding perturbation magnitude decreases away from the active site.
 
 ```{r}
 pdz3_final_df_ddg_2plot_pos <- pdz3_final_df_ddg_2plot %>% filter (b_ddg_pred >= 0)
@@ -531,16 +536,7 @@ p_decay <- ggplot(pdz3_final_df_ddg_2plot_pos, aes(x = scHAmin_ligand, y = b_ddg
   ) + 
   theme(legend.position = "none")
 
-p_decay <- ggMarginal(
-  p_decay,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p_decay <- add_marginal_density(p_decay)
 
 p_decay
 ```
@@ -548,6 +544,10 @@ p_decay
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig4_decay3.pdf", 
        plot = p_decay, width = 3, height = 3, dpi = 300)
 ```
+
+## Correlation Plot for PDZ3
+
+Scatter per-residue median ddGb against median LOESS residual across 84 PDZ3 positions to assess whether sites with stronger binding effects show the largest ESM-1v anomalies (Spearman's rho = -0.32).
 
 ```{r, fig.width=4, fig.height=4.5}
 pdz3_final_df_ddg_2plot$Pos_ref <- as.numeric(pdz3_final_df_ddg_2plot$Pos_ref)
@@ -591,6 +591,12 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig4
 ```
 
 
+
+# SH3 Analysis (GRB2)
+
+## Data Loading for SH3
+
+Load MoCHI folding and binding ddG weights for 756 GRB2-SH3 variants, merge with ESM-1v and popEVE conservation scores, and remap library-relative positions to canonical GRB2 numbering by adding an offset of 158.
 
 ```{r}
 sh3_final_df_ddgf <- read_tsv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domains_andre/GRB2-SH3/Abundance/mochi_project/task_1/weights/weights_Folding.txt')
@@ -644,6 +650,10 @@ sh3_final_df_ddg_2plot <- merge(sh3_final_df_ddgf, sh3_final_df_ddgb, by = "id_r
 sh3_final_df_ddg_2plot
 ```
 
+## LOESS Residual Model for SH3
+
+Annotate SH3 variants with orthosteric positions (defined by ChimeraX contact analysis of 2vwf.pdb), then fit a non-orthosteric LOESS model and compute residuals for all variants using the same procedure as PDZ3.
+
 ```{r}
 ortho_list <- c(190, 171, 174, 165, 167, 208, 206, 193, 170, 192, 195, 204 ,209)
 sh3_final_df_ddg_2plot$orthosteric <- FALSE
@@ -663,6 +673,10 @@ sh3_final_df_ddg_2plot$residuals <- sh3_final_df_ddg_2plot$ESM1v - sh3_final_df_
 sh3_final_df_ddg_2plot
 ```
 
+## PDB B-factor Mapping for SH3
+
+Write per-residue median LOESS residuals into the B-factor column of 2vwf.pdb to enable structural coloring of GRB2-SH3 residues by their anomaly score in ChimeraX.
+
 ```{r}
 median_residuals <- sh3_final_df_ddg_2plot %>%
   dplyr::group_by(old_Pos) %>%
@@ -671,40 +685,13 @@ median_residuals <- sh3_final_df_ddg_2plot %>%
 min(median_residuals$median_residuals) #-8.811137
 max(median_residuals$median_residuals) #3.281546
 
-pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/domains/2vwf.pdb")
-data <- median_residuals
-
-# Create a new B-factor vector initialized with the current B-factors from the PDB
-new_b_factors <- pdb$atom$b
-
-# Loop through each position in the correlation data and update the B-factors
-for (i in 1:nrow(data)) {
-  position <- data$old_Pos[i]
-  correlation_value <- data$median_residuals[i]
-  
-  # Find indices in the PDB that match the current position
-  indices <- which(pdb$atom$resno == position)
-  
-  # Print the indices and current B-factors before updating
-  #cat("Updating residue number:", position, "\n")
-  #cat("Indices in PDB:", indices, "\n")
-  #cat("Current B-factors:", new_b_factors[indices], "\n")
-  
-  # Update B-factors for all atoms in the current residue
-  new_b_factors[indices] <- correlation_value
-  
-  # Print the new B-factors after updating
-  #cat("Updated B-factors:", new_b_factors[indices], "\n")
-  #cat("\n")  # Add an extra line for readability
-}
-# Replace non-matching B-factors with outlier value so we can filter it out in ChimeraX
-non_matching_indices <- setdiff(seq_along(new_b_factors), which(pdb$atom$resno %in% data$old_Pos))
-new_b_factors[non_matching_indices] <- 999
-
-# Assign the new B-factors back to the pdb structure
-# Write the modified PDB structure to a new file
-pdb$atom$b <- new_b_factors
-write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/domains/2vwf_median_residual_loess.pdb")
+map_residuals_to_pdb(
+  data = median_residuals,
+  pdb_path = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/domains/2vwf.pdb",
+  output_path = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/domains/2vwf_median_residual_loess.pdb",
+  position_col = "old_Pos",
+  value_col = "median_residuals"
+)
 
 #chimerax
 #select @@bfactor>=999 
@@ -716,6 +703,10 @@ write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/dat
 #set silhouetteColor black
 #set silhouetteWidth 3
 ```
+## Site Classification for SH3
+
+Apply the same threshold-based allosteric classification scheme used for PDZ3 — non-orthosteric variants exceeding the mean orthosteric ddGb are labelled allosteric — to partition GRB2-SH3 variants into three site classes.
+
 ```{r}
 sh3_final_df_ddg_2plot_active <- sh3_final_df_ddg_2plot %>% filter (orthosteric == TRUE)
 sh3_final_df_ddg_2plot$allosteric <- FALSE
@@ -723,6 +714,10 @@ sh3_final_df_ddg_2plot$allosteric[sh3_final_df_ddg_2plot$b_ddg_pred >= mean(sh3_
 sh3_final_df_ddg_2plot$allosteric[sh3_final_df_ddg_2plot$orthosteric == TRUE] <- FALSE
 table(sh3_final_df_ddg_2plot$allosteric)
 ```
+
+## Scatter Plot for SH3
+
+Plot ESM-1v versus ddGf for all 756 GRB2-SH3 variants with residual colour coding and the non-orthosteric LOESS fit overlaid to show the global ddGf–ESM-1v relationship (Spearman's rho = -0.58).
 
 ```{r, fig.width=4.5, fig.height=4}
 fit_line_df <- data.frame(
@@ -751,22 +746,17 @@ p2 <- ggplot(sh3_final_df_ddg_2plot, aes(x = f_ddg_pred, y = ESM1v, color = resi
   scale_color_gradient2(low = "red", mid = "grey", high = "blue", midpoint = 0, name = "Residuals",
                         limits = c(-13.3, 5.4)) +
   theme(legend.position = "bottom")
-p2 <- ggMarginal(
-  p2,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p2 <- add_marginal_density(p2)
 p2
 ```
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig4_scatter2.pdf", 
        plot = p2, width = 3, height = 3.5, dpi = 300)
 ```
+
+## Violin Plots for SH3
+
+Compare LOESS residual distributions across the three site classes for GRB2-SH3 using violin plots annotated with per-group sample sizes, median values, and Wilcoxon pairwise p-values.
 
 ```{r}
 sh3_final_df_ddg_2plot <- sh3_final_df_ddg_2plot %>%
@@ -845,6 +835,10 @@ p_violin2
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig4_violin2.pdf", 
        plot = p_violin2, width = 3, height = 3, dpi = 300)
 ```
+
+## Ligand Distance Calculation for SH3
+
+Define a helper function that reads the 2vwf crystal structure and computes per-residue minimum inter-chain heavy-atom (and side-chain heavy-atom) distances between chain A (SH3) and chain B (SOS1 peptide), then merge those distances into the variant-level data frame.
 
 ```{r}
 doubledeepms__minimum_interchain_distances_from_PDB_perres <- function(
@@ -930,6 +924,10 @@ sh3_out <- doubledeepms__minimum_interchain_distances_from_PDB_perres(
 )
 
 sh3_final_df_ddg_2plot <- merge(sh3_final_df_ddg_2plot, sh3_out, by.x="old_Pos", by.y = "Pos")
+## Exponential Decay of Residuals vs. Ligand Distance for SH3
+
+#Fit the same exponential decay model to negative-residual GRB2-SH3 variants to quantify the spatial falloff of ESM-1v anomaly signal from the SOS1 peptide binding site.
+
 sh3_final_df_ddg_2plot_neg <- sh3_final_df_ddg_2plot %>% filter(residuals <= 0)
 nrow(sh3_final_df_ddg_2plot_neg)
 
@@ -1030,16 +1028,7 @@ p_decay2 <- ggplot(sh3_final_df_ddg_2plot_neg, aes(x = scHAmin_ligand, y = abs(r
   ) + 
   theme(legend.position = "none")
 
-p_decay2 <- ggMarginal(
-  p_decay2,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p_decay2 <- add_marginal_density(p_decay2)
 
 p_decay2
 ```
@@ -1123,16 +1112,7 @@ p_decay <- ggplot(sh3_final_df_ddg_2plot_pos, aes(x = scHAmin_ligand, y = b_ddg_
   ) + 
   theme(legend.position = "none")
 
-p_decay <- ggMarginal(
-  p_decay,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p_decay <- add_marginal_density(p_decay)
 
 p_decay
 ```
@@ -1148,9 +1128,9 @@ merged_df_residue <- sh3_final_df_ddg_2plot %>%
   reframe(
     median_ddgb = median(b_ddg_pred, na.rm = TRUE),
     median_residual = median(residuals, na.rm = TRUE),
-    scHAmin_ligand = first(scHAmin_ligand),
-    orthosteric = first(orthosteric),
-    Pos = first(Pos_ref))
+    scHAmin_ligand = dplyr::first(scHAmin_ligand),
+    orthosteric = dplyr::first(orthosteric),
+    Pos = dplyr::first(Pos_ref))
 
 nrow(merged_df_residue) #56
 cor.test(merged_df_residue$median_residual, merged_df_residue$median_ddgb, method = "spearman")
@@ -1180,12 +1160,3 @@ p_corr2
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig4_corr2.pdf", 
        plot = p_corr2, width = 3, height = 3.5, dpi = 300)
 ```
-
-
-
-
-
-
-
-
-

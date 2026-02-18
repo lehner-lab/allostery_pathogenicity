@@ -1,8 +1,12 @@
 ---
-title: "revision_fig1_domains.Rmd"
+title: "Fig 1: Domain-Level AlphaMissense vs. Fitness R²"
 output: html_document
 date: "2025-12-02"
 ---
+
+# Setup
+
+Load required libraries and initialise the ProjectTemplate environment for this analysis.
 
 ```{r}
 knitr::opts_chunk$set(echo = TRUE)
@@ -17,6 +21,12 @@ library(stringr)
 load.project()
 ```
 
+# Domainome 1.0
+
+## Data Loading
+
+Read the Domainome 1.0 extended data table containing per-variant aPCA fitness scores paired with AlphaMissense pathogenicity predictions across 522 human protein domains.
+
 ```{r}
 # Load and preprocess data
 domainome_data <- read_tsv("/Users/xl7/Documents/0.Projects/00.large_supplements/domainome/Extended_data_Table_5_aPCA_vs_variant_effect_predictors.txt")
@@ -28,6 +38,10 @@ cat("Initial unique domains:", length(unique(domainome_data$domain_ID)), "\n")  
 
 head(domainome_data)
 ```
+
+## Preprocessing and R² Computation
+
+Filter variants missing either AlphaMissense or fitness scores, logit-transform the AlphaMissense probabilities to linearise the scale, and compute per-domain adjusted R² by regressing AM logits on scaled fitness across all domains with at least three data points.
 
 ```{r}
 # Remove rows with missing values
@@ -72,7 +86,12 @@ median_r_squared <- median(r_squared_df$adj.r.squared)
 median_r_squared #0.1782415
 ```
 
-Megascale
+# Mega-scale DMS Data
+
+## Data Loading
+
+Read all Tsuboyama et al. Mega-scale DMS CSV files from the ProteinGym v1.1 substitutions directory and combine them into a single data frame, annotating each row with a `protein_name` identifier derived from the file name.
+
 ```{r}
 # We use path.expand to handle the "~" in the path correctly
 data_dir <- path.expand("~/Documents/0.Projects/00.large_supplements/ProteinGym_v1.1/DMS_ProteinGym_substitutions")
@@ -117,6 +136,10 @@ combined_df <- map_dfr(file_list, read_and_label_protein)
 
 head(combined_df)
 ```
+
+## UniProt ID Mapping
+
+Query the UniProt REST API to resolve each ProteinGym entry-name identifier (e.g., `PITX2_HUMAN`) to its canonical UniProt accession, then filter to retain only human proteins with unambiguous accessions.
 
 ```{r}
 unique_proteins <- unique(combined_df$protein_name)
@@ -173,8 +196,12 @@ id_mapping_df_fil <- id_mapping_df_fil %>%
 id_mapping_df_fil #22
 ```
 
+## Sequence Alignment to Full Protein
+
+Reconstruct each domain's wild-type sequence from the mutant strings in the DMS data, then use exact string matching to locate the domain's start position within the full-length UniProt sequence so that domain-relative mutation positions can be converted to canonical UniProt coordinates.
+
 ```{r}
-combined_df_fil <- combined_df %>% 
+combined_df_fil <- combined_df %>%
   filter (protein_name %in% unique(id_mapping_df_fil$protein_name)) %>%
   filter (!str_detect(mutant, ":"))
 
@@ -300,6 +327,10 @@ combined_df_fil <- combined_df_fil %>%
 combined_df_fil
 ```
 
+## AlphaMissense Scores
+
+Load per-protein AlphaMissense score files from the local `megascale_am` directory, annotate each row with its UniProt accession, and apply the same logit transformation used for the Domainome data.
+
 ```{r}
 # Get a list of all files with "Tsuboyama" in the name
 file_list <- list.files(
@@ -344,6 +375,10 @@ am_df$AM_logit <- log(am_df$AM_clamped / (1 - am_df$AM_clamped))
 am_df
 ```
 
+## R² Computation
+
+Merge the Mega-scale DMS variants with their AlphaMissense logit scores, then compute per-protein adjusted R² by regressing AM logits on DMS scores for each protein with at least three data points.
+
 ```{r}
 nrow(combined_df_fil) # 13683
 
@@ -381,6 +416,10 @@ mega_r_squared_df <- data.frame(
 median_mega_r_squared <- median(mega_r_squared_df$adj.r.squared)
 median_mega_r_squared #0.2242278
 ```
+
+# Figure: R² Comparison
+
+Combine the Domainome 1.0 and Mega-scale per-domain R² distributions into a single data frame, then render a paired violin/boxplot comparing the two datasets and save the figure as a PDF.
 
 ```{r, fig.width=5, fig.height=4}
 # Create a combined dataframe for plotting
@@ -434,14 +473,3 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig1
        plot = p1, width = 5, height = 4, dpi = 500)
 p1
 ```
-
-
-
-
-
-
-
-
-
-
-

@@ -1,8 +1,10 @@
 ---
-title: "revision_sh3_comp.Rmd"
+title: "SH3 — Per-Residue ddGb Correlation Analysis"
 output: html_document
 date: "2025-12-11"
 ---
+
+# Setup
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -13,10 +15,16 @@ library(bio3d)
 library(ggrepel)
 ```
 
+# Data Loading
+
+## MoCHI Folding ddG
+
+Load MoCHI-inferred folding free energy changes (ddGf) for GRB2-SH3 variants.
+
 ```{r}
 sh3_final_df_ddgf <- read_tsv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domains_andre/GRB2-SH3/Abundance/mochi_project/task_1/weights/weights_Folding.txt')
 sh3_final_df_ddgf <- sh3_final_df_ddgf %>% dplyr::select(id_ref, Pos_ref, `mean_kcal/mol`, `std_kcal/mol`)
-dim(sh3_final_df_ddgf) 
+dim(sh3_final_df_ddgf)
 
 sh3_final_df_ddgf <- sh3_final_df_ddgf %>%
   mutate(wt_aa = str_extract(id_ref, '^[A-Za-z]+'),
@@ -32,6 +40,9 @@ sh3_final_df_ddgf <- sh3_final_df_ddgf %>% filter(old_id != "WT")
 head(sh3_final_df_ddgf)
 ```
 
+## MoCHI Binding ddG
+
+Load MoCHI-inferred binding free energy changes (ddGb) for GRB2-SH3 variants.
 
 ```{r}
 sh3_final_df_ddgb <- read_tsv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domains_andre/GRB2-SH3/Abundance/mochi_project/task_1/weights/weights_Binding.txt')
@@ -52,15 +63,19 @@ sh3_final_df_ddgb <- sh3_final_df_ddgb %>% filter(old_id != "WT")
 head(sh3_final_df_ddgb)
 ```
 
+## Merge Predictors with ddGb
+
+Load ThermoMPNN ddGf and ESM-1v predictions, align sequences, and merge with experimental ddGb values.
+
 ```{r}
 test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/GRB2/ThermoMPNN_inference_AF-P62993-F1-model_v4.csv")
 test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P62993.csv")
-  
+
 colnames(test_esm)[2] <- "ESM1v"
-  
+
 test_ddg[, new_position := position + 1]
 test_ddg[, variant := paste0(wildtype, new_position, mutation)]
-  
+
 test_df <- merge(test_ddg, test_esm, by = "variant")
 
 pred_seq <-  ali_process_sequence(test_df, "new_position", "wildtype")
@@ -72,12 +87,19 @@ test_merged_df <- merge(sh3_final_df_ddgb, test_df, by.x="id_ref", by.y="variant
 nrow(test_merged_df) #756
 head(test_merged_df)
 ```
+
+## Merge Folding ddG
+
 ```{r}
 sh3_final_df_ddgf <- sh3_final_df_ddgf %>% dplyr::select(id_ref, f_ddg_pred, f_ddg_pred_sd)
 test_merged_df <- test_merged_df %>% inner_join(sh3_final_df_ddgf,by = "id_ref")
 nrow(test_merged_df) #756
 head(test_merged_df)
 ```
+
+# LOESS Residual Model
+
+Filter out orthosteric sites, fit a LOESS model of ESM-1v on ddGf, and compute residuals for all variants.
 
 ```{r}
 paper_anno <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/sh3_ddg_cleaned.csv")
@@ -102,6 +124,11 @@ test_merged_df$residuals_comp <- test_merged_df$ESM1v - test_merged_df$fitted_co
 sum(is.na(test_merged_df$residuals_comp)) #0
 head(test_merged_df)
 ```
+
+# Per-Residue Correlation with ddGb
+
+Aggregate per-residue median residuals, annotate site types, and test correlations stratified by site type.
+
 ```{r}
 test_merged_df_residue <- test_merged_df %>%
   group_by(Pos_ref) %>%
@@ -114,8 +141,8 @@ cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_re
 # S = 43682, p-value = 0.0001388
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#        rho 
-# -0.4928913 
+#        rho
+# -0.4928913
 
 allo_pos <- c(173, 183, 203)
 length(allo_pos)
@@ -131,8 +158,8 @@ cor.test(test_merged_df_residue_binding$comp_residual_avg, test_merged_df_residu
 # S = 600, p-value = 0.01958
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#        rho 
-# -0.6483516 
+#        rho
+# -0.6483516
 
 test_merged_df_residue_allo <- test_merged_df_residue %>% filter(site_type == "Allosteric site")
 nrow(test_merged_df_residue_allo) #3
@@ -141,7 +168,7 @@ cor.test(test_merged_df_residue_allo$comp_residual_avg, test_merged_df_residue_a
 # S = 2, p-value = 1
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-# rho 
+# rho
 # 0.5
 
 test_merged_df_residue_other <- test_merged_df_residue %>% filter(site_type == "Non-orthosteric site")
@@ -151,20 +178,24 @@ cor.test(test_merged_df_residue_other$comp_residual_avg, test_merged_df_residue_
 # S = 11518, p-value = 0.6204
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#        rho 
-# -0.0804878 
+#        rho
+# -0.0804878
 ```
 
+# Variant-Level Correlation Scatter Plots
+
+Compare measured folding ddG against ESM-1v and ThermoMPNN ddGf at the variant level, colored by binding ddG.
+
 ```{r, fig.width=8, fig.height=4.5}
-cor.test(test_merged_df$f_ddg_pred, test_merged_df$ESM1v, method = "spearman")#-0.5743724 
+cor.test(test_merged_df$f_ddg_pred, test_merged_df$ESM1v, method = "spearman")#-0.5743724
 
 # Plot 1: Scatter plot colored by b_ddg_pred
 p1 <- ggplot(test_merged_df, aes(x = f_ddg_pred, y = ESM1v, color = b_ddg_pred)) +
   geom_point(alpha = 0.6) +  # Alpha adds transparency to see overlapping points
   scale_color_gradient2(
-    low = "blue", 
-    mid = "grey", 
-    high = "red", 
+    low = "blue",
+    mid = "grey",
+    high = "red",
     midpoint = 0
   ) +
   theme_classic() +
@@ -187,9 +218,9 @@ cor.test(test_merged_df$ddG_pred, test_merged_df$f_ddg_pred, method = "spearman"
 p2 <- ggplot(test_merged_df, aes(x = f_ddg_pred, y = -ddG_pred, color = b_ddg_pred)) +
   geom_point(alpha = 0.6) +
   scale_color_gradient2(
-    low = "blue", 
-    mid = "grey", 
-    high = "red", 
+    low = "blue",
+    mid = "grey",
+    high = "red",
     midpoint = 0
   ) +
   theme_classic() +
@@ -208,6 +239,11 @@ p2 <- ggplot(test_merged_df, aes(x = f_ddg_pred, y = -ddG_pred, color = b_ddg_pr
 # Combine plots
 plot_grid(p2, p1, ncol = 2)
 ```
+
+# Per-Residue Deviance Plots
+
+Aggregate per-residue medians and plot ThermoMPNN ddGf and ESM-1v correlations with measured folding ddG.
+
 ```{r, fig.width=16, fig.height=4.5}
 test_merged_df_residue <- test_merged_df %>%
   group_by(Pos_ref) %>%
@@ -218,19 +254,19 @@ test_merged_df_residue <- test_merged_df %>%
     tmpnn_median = median(ddG_pred, na.rm = TRUE),
     esm_median = median(ESM1v, na.rm = TRUE))
 
-cor.test(test_merged_df_residue$ddgf_median, test_merged_df_residue$tmpnn_median, method = "spearman")#0.7566644 
+cor.test(test_merged_df_residue$ddgf_median, test_merged_df_residue$tmpnn_median, method = "spearman")#0.7566644
 # data:  test_merged_df_residue$ddgf_median and test_merged_df_residue$tmpnn_median
 # S = 7120, p-value < 2.2e-16
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#       rho 
-# 0.7566644 
+#       rho
+# 0.7566644
 p5 <- ggplot(test_merged_df_residue, aes(x = ddgf_median, y = -tmpnn_median, color = ddgb_median)) +
   geom_point(alpha = 0.6) +
   scale_color_gradient2(
-    low = "blue", 
-    mid = "grey", 
-    high = "red", 
+    low = "blue",
+    mid = "grey",
+    high = "red",
     midpoint = 0
   ) +
   theme_classic() +
@@ -250,7 +286,7 @@ cor.test(test_merged_df_residue$ddgb_median, test_merged_df_residue$esm_median, 
 # S = 44556, p-value = 4.656e-05
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#        rho 
+#        rho
 # -0.5227614
 
 cor.test(test_merged_df_residue$ddgf_median, test_merged_df_residue$esm_median, method = "spearman")#-0.5435407
@@ -258,14 +294,14 @@ cor.test(test_merged_df_residue$ddgf_median, test_merged_df_residue$esm_median, 
 # S = 45164, p-value = 2.058e-05
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
-#        rho 
+#        rho
 # -0.5435407
 p6 <- ggplot(test_merged_df_residue, aes(x = ddgf_median, y = esm_median, color = ddgb_median)) +
   geom_point(alpha = 0.6) +  # Alpha adds transparency to see overlapping points
   scale_color_gradient2(
-    low = "blue", 
-    mid = "grey", 
-    high = "red", 
+    low = "blue",
+    mid = "grey",
+    high = "red",
     midpoint = 0
   ) +
   theme_classic() +
@@ -284,28 +320,11 @@ p6 <- ggplot(test_merged_df_residue, aes(x = ddgf_median, y = esm_median, color 
 plot_grid(p2, p1, p5, p6, ncol = 4)
 ```
 
+## Save Deviance Plots
+
 ```{r}
 p7 <- plot_grid(p5,p6, ncol = 2)
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_fig_sh3_deviance.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_fig_sh3_deviance.pdf",
        plot = p7, width = 6, height = 3.5, dpi = 300)
 p7
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

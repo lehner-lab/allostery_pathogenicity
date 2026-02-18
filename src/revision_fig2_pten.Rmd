@@ -1,8 +1,12 @@
 ---
-title: "revision_fig2_pten.Rmd"
+title: "Fig 2: PTEN — Activity-Abundance Residual Analysis"
 output: html_document
 date: "2026-01-02"
 ---
+
+# Setup
+
+Load required libraries for the analysis. `ProjectTemplate` auto-loads project-specific helpers and data, while `bio3d`, `ggExtra`, `ggrepel`, `ggsignif`, and `ggpubr` support structural bioinformatics and visualization tasks.
 
 ```{r setup, echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -13,6 +17,10 @@ library(ggrepel)
 library(ggsignif)
 library(ggpubr)
 ```
+
+# PTEN DMS Data
+
+Load ProteinGym abundance (Matreyek 2021) and activity (Mighell 2018) DMS scores together with ESM-1v predictions and ClinVar clinical classifications, then merge all datasets into a single per-variant dataframe (`pten_df`). Duplicate entries arising from ClinVar multi-protein-change annotations are collapsed to one row per variant.
 
 ```{r}
 pten_abundance <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/PTEN_HUMAN_Matreyek_2021.csv", header = TRUE)
@@ -79,6 +87,10 @@ pten_df
 ```
 
 
+# LOESS Residual Model
+
+Exclude known functional positions (WPD loop, TI loop, P loop, Arginine loop, CBR loops, membrane-binding helix, and PBM motif) from the training set, then fit a robust LOESS curve (span = 0.7) of activity as a function of abundance on the remaining variants. Residuals are computed for all variants against the LOESS fit, capturing activity effects beyond what protein stability explains.
+
 ```{r}
 all_positions <- c(
   88:98,    # WPD loop
@@ -119,6 +131,11 @@ range(pten_df$residuals)
 range(pten_df$DMS_score_abundance)
 range(pten_df$DMS_score_activity)
 ```
+
+# PDB B-factor Mapping
+
+Compute the per-residue median activity-abundance residual, then write those values into the B-factor column of the PTEN crystal structure (`1d5r.pdb`). The resulting PDB can be coloured in ChimeraX by the B-factor attribute to reveal spatially organised regions of excess or depleted activity relative to abundance predictions.
+
 ```{r}
 pten_df <- pten_df %>%
   mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
@@ -132,41 +149,13 @@ median_residuals <- pten_df %>%
 min(median_residuals$median_residuals) #-4.034455
 max(median_residuals$median_residuals) #1.861488
 
-pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/PTEN/1d5r.pdb")
-data <- median_residuals
-head(data)
-
-# Create a new B-factor vector initialized with the current B-factors from the PDB
-new_b_factors <- pdb$atom$b
-
-# Loop through each position in the correlation data and update the B-factors
-for (i in 1:nrow(data)) {
-  position <- data$mutation_position[i]
-  correlation_value <- data$median_residuals[i]
-  
-  # Find indices in the PDB that match the current position
-  indices <- which(pdb$atom$resno == position)
-  
-  # Print the indices and current B-factors before updating
-  #cat("Updating residue number:", position, "\n")
-  #cat("Indices in PDB:", indices, "\n")
-  #cat("Current B-factors:", new_b_factors[indices], "\n")
-  
-  # Update B-factors for all atoms in the current residue
-  new_b_factors[indices] <- correlation_value
-  
-  # Print the new B-factors after updating
-  #cat("Updated B-factors:", new_b_factors[indices], "\n")
-  #cat("\n")  # Add an extra line for readability
-}
-# Replace non-matching B-factors with outlier value so we can filter it out in ChimeraX
-non_matching_indices <- setdiff(seq_along(new_b_factors), which(pdb$atom$resno %in% data$mutation_position))
-new_b_factors[non_matching_indices] <- 999
-
-# Assign the new B-factors back to the pdb structure
-# Write the modified PDB structure to a new file
-pdb$atom$b <- new_b_factors
-write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/PTEN/1d5r_median_residual_loess.pdb")
+map_residuals_to_pdb(
+  data = median_residuals,
+  pdb_path = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/PTEN/1d5r.pdb",
+  output_path = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/PTEN/1d5r_median_residual_loess.pdb",
+  position_col = "mutation_position",
+  value_col = "median_residuals"
+)
 
 #chimerax
 #select @@bfactor>=999 
@@ -180,6 +169,10 @@ write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/dat
 #set silhouetteWidth 1
 ```
 
+
+# ClinVar Annotation
+
+Classify each PTEN variant into Pathogenic, Benign, or Other using the ClinVar `Germline.classification` and `Germline.review.status` fields. Only entries supported by at least a single-submitter review or expert-panel assessment receive a definitive label; all remaining variants are assigned to the Other category.
 
 ```{r}
 unique(pten_df$Germline.classification)
@@ -210,6 +203,11 @@ pten_df <- pten_df %>%
 
 table(pten_df$var_source)
 ```
+
+# Scatter Plots: Activity vs. Abundance
+
+Produce a three-panel figure showing measured activity versus measured abundance for all PTEN variants (panel 1), ClinVar benign variants (panel 2), and ClinVar pathogenic variants (panel 3). Points are coloured by their LOESS residual on a red-grey-blue diverging scale, the LOESS fit is overlaid in black, and marginal density plots are appended to each panel.
+
 ```{r , fig.width=9, fig.height=3}
 p1 <- ggplot(pten_df, aes(x = DMS_score_abundance, y = DMS_score_activity, color = residuals)) +
   geom_point(size = 2, alpha = 0.35) +
@@ -240,16 +238,7 @@ p1 <- ggplot(pten_df, aes(x = DMS_score_abundance, y = DMS_score_activity, color
   theme(legend.position = "none")
 
 # Add marginal density plots
-p1 <- ggMarginal(
-  p1,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p1 <- add_marginal_density(p1)
 
 p2 <- ggplot(pten_df %>% filter (var_source == "Benign"), aes(x = DMS_score_abundance, y = DMS_score_activity, color = residuals)) +
   geom_point(size = 2) +
@@ -273,16 +262,7 @@ p2 <- ggplot(pten_df %>% filter (var_source == "Benign"), aes(x = DMS_score_abun
   theme(legend.position = "none") 
 
 # Add marginal density plots
-p2 <- ggMarginal(
-  p2,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p2 <- add_marginal_density(p2)
 
 
 p3 <- ggplot(pten_df %>% filter (var_source == "Pathogenic"), aes(x = DMS_score_abundance, y = DMS_score_activity, color = residuals)) +
@@ -315,16 +295,7 @@ p3 <- ggplot(pten_df %>% filter (var_source == "Pathogenic"), aes(x = DMS_score_
   theme(legend.position = "none")
 
 # Add marginal density plots
-p3 <- ggMarginal(
-  p3,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p3 <- add_marginal_density(p3)
 
 p4 <- plot_grid(p1,p2,p3,ncol=3, nrow=1)
 p4
@@ -334,6 +305,10 @@ p4
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig2_scatter1.pdf", 
        plot = p4, width = 9, height = 3, dpi = 300)
 ```
+
+## Legend Panel
+
+Re-render the pathogenic-variants scatter with the colour-scale legend displayed on the right, then save it as a separate tall PDF to serve as the shared colour-scale legend panel for the assembled figure.
 
 ```{r}
 legend <- ggplot(pten_df %>% filter (var_source == "Pathogenic"), aes(x = DMS_score_abundance, y = DMS_score_activity, color = residuals)) +
@@ -368,6 +343,10 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig2
        plot = legend, width = 3, height = 9, dpi = 300)
 ```
 
+
+# Violin: Benign vs. Pathogenic vs. Matched Null
+
+Build an abundance-matched null distribution for pathogenic PTEN variants by bootstrapping (n = 1,000) from non-pathogenic variants within the same abundance bin. The violin plot compares LOESS residual distributions across Benign, Pathogenic, and Abundance-matched Null groups, with a one-sided Wilcoxon test and an empirical bootstrap p-value annotated.
 
 ```{r, fig.width=5, fig.height=5}
 # ---------------------------
@@ -546,6 +525,10 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig2
        plot = p_violin, width = 3, height = 5, dpi = 300)
 ```
 
+
+# Violin: Site-Stratified
+
+Annotate PTEN variants by site type (Orthosteric or Non-Orthosteric) and define the `analyze_and_plot` helper function, which runs one-sided bootstrap abundance-matching and a Wilcoxon test for each site category. The function is called for both Orthosteric and Non-Orthosteric subsets and the resulting violin plots are displayed side-by-side.
 
 ```{r, fig.width=8, fig.height=4}
 # ---------------------------
@@ -737,6 +720,10 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig2
        plot = p_supp, width = 6, height = 3, dpi = 300)
 ```
 
+# Ligand Distance Calculation
+
+Load the PTEN crystal structure (`1d5r.pdb`) and compute the minimum distance from each protein residue's side-chain heavy atoms (plus glycine Cα) to the tartrate ligand (TLA) bound at the catalytic site. Pairwise atomic distances are evaluated with `dist.xyz` and summarised per residue as the minimum over all contributing atoms, yielding `fil_min_dist_df`.
+
 ```{r}
 orthosteric_resnos <- c(
   88:98,    # WPD loop
@@ -824,12 +811,17 @@ print(head(min_dist_df))
 
 fil_min_dist_df <- min_dist_df %>% dplyr::select(resid, resno, min_dist_to_ligand)
 ```
+
 ```{r}
 # Merge (assuming pten_df_clean exists)
 merged_df <- merge(pten_df, fil_min_dist_df, by.x="mutation_position", by.y = "resno", all.x = TRUE)
 merged_df
 ```
 
+
+# Exponential Decay Fit
+
+Restrict analysis to variants with negative residuals and fit an exponential decay model — |residual| ~ a * exp(-b * distance) — using nonlinear least squares (`nls`). A log-linear model on per-residue median residuals is additionally fitted to quantify how much the activity-abundance residual magnitude falls off with distance from the PTEN catalytic site.
 
 ```{r}
 merged_df <- merged_df %>% filter(!is.na(min_dist_to_ligand))
@@ -846,7 +838,7 @@ exp_model
 a <- coef(exp_model)[["a"]]
 b <- coef(exp_model)[["b"]]
 
-half_d <- log(2) / b  
+half_d <- log(2) / b
 half_d #14.89183
 
 fit_df_residue <- merged_df_neg %>%
@@ -870,7 +862,7 @@ merged_df_residue <- merged_df_neg %>%
   group_by(mutation_position) %>%
   summarise(
     loess_residual_avg = median(residuals, na.rm = TRUE),
-    min_dist_to_ligand = first(min_dist_to_ligand))
+    min_dist_to_ligand = dplyr::first(min_dist_to_ligand))
 
 lm_model <- lm(log(abs(loess_residual_avg)) ~ min_dist_to_ligand, data = merged_df_residue)
 summary(lm_model)
@@ -895,6 +887,10 @@ summary(lm_model)
 # F-statistic: 30.21 on 1 and 278 DF,  p-value: 8.775e-08
 ```
 
+
+# Decay Plot
+
+Annotate each variant by site type (Non-orthosteric, Binding, or Active site), generate 1,000 bootstrap replicates of the exponential decay fit to derive 95% confidence bands, and render the scatter of |activity-abundance residual| versus distance to the TLA ligand. Points are coloured by site type and shaped/alpha-scaled by ClinVar pathogenic status; expert-panel-reviewed pathogenic non-orthosteric variants are labelled.
 
 ```{r, fig.width=5, fig.height=5}
 merged_df_neg$site_type <- "Non-orthosteric site"
@@ -977,16 +973,7 @@ p_decay <- ggplot(merged_df_neg, aes(x = min_dist_to_ligand, y = abs(residuals))
   theme_classic() +
   theme(legend.position = "bottom")
 
-p_decay <- ggMarginal(
-  p_decay,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p_decay <- add_marginal_density(p_decay)
 
 p_decay
 ```
@@ -994,4 +981,3 @@ p_decay
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig2_decay1.pdf", 
        plot = p_decay, width = 4, height = 4.5, dpi = 300)
 ```
-

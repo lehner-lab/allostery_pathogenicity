@@ -1,5 +1,5 @@
 ---
-title: "revision_supp_am_esm_comp.Rmd"
+title: "Supp: AlphaMissense vs. ESM-1v Comparison"
 output: html_document
 date: "2026-01-26"
 ---
@@ -12,6 +12,14 @@ library(ggExtra)
 library(bio3d)
 library(ggrepel)
 ```
+
+## Setup
+
+Loads the project environment and required plotting and structural libraries. This document runs the same LOESS-residual pipeline in parallel for both AlphaMissense and ESM-1v scores, enabling a direct comparison of the two pathogenicity predictors against ThermoMPNN ddGf.
+
+## ESM-1v Analysis Function and CHK1 Data Loading
+
+`analyze_ddg_vs_esm1v` loads ThermoMPNN ddGf predictions and ESM-1v log-likelihood scores, merges them by variant, and returns a 2D-binned scatter plot with Spearman's rho. CHK1 is the first protein processed.
 
 ```{r, fig.width=5, fig.height=5}
 analyze_ddg_vs_esm1v <- function(ddg_file, esm_file, protein_name = "Protein") {
@@ -66,6 +74,10 @@ chk1_pred <- analyze_ddg_vs_esm1v(
 )
 ```
 
+## LOESS Residual Scatter Plot — ESM-1v (CHK1)
+
+`plot_loess_residuals_esm1v` fits a robust LOESS curve to non-active-site mutations (ESM1v vs. ddGf), computes per-mutation residuals, and returns a scatter plot coloured by residual magnitude to highlight where ESM-1v and ddGf predictions diverge.
+
 ```{r, fig.width=5, fig.height=5}
 plot_loess_residuals_esm1v <- function(test_df, active_site_positions,
                                  span = 0.7, protein_name = "chk1") {
@@ -119,17 +131,7 @@ plot_loess_residuals_esm1v <- function(test_df, active_site_positions,
     ) +
     theme(legend.position = "left")
   
-  # Add marginal density plots
-  p_marginal <- ggMarginal(
-    p,
-    type = "density",
-    margins = "both",
-    groupColour = FALSE,
-    groupFill = FALSE,
-    size = 10,
-    colour = "grey",
-    fill = "lightgrey"
-  )
+  p_marginal <- add_marginal_density(p)
   
   return(list(
     plot = p_marginal,
@@ -141,6 +143,11 @@ chk1_pred_residual_esm1v <- plot_loess_residuals_esm1v(chk1_pred$merged_data, ac
 p1 <- chk1_pred_residual_esm1v$plot
 p1
 ```
+
+## AlphaMissense Analysis Function and CHK1 Data Loading
+
+The same `analyze_ddg_vs_am` helper from the main AM supplement is reproduced here to load and correlate AlphaMissense logit scores against ddGf for each protein. CHK1 AM data are loaded and a LOESS residual model is fitted in parallel with the ESM-1v model above.
+
 ```{r}
 epsilon <- 1e-5
 
@@ -196,6 +203,10 @@ chk1_pred_am <- analyze_ddg_vs_am(
   protein_name = "CHK1"
 )
 ```
+
+## LOESS Residual Scatter Plot — AlphaMissense (CHK1)
+
+`plot_loess_residuals` mirrors the ESM-1v pipeline but operates on inverted AM logit scores, enabling direct residual comparison between the two predictors at the per-mutation level.
 
 ```{r}
 plot_loess_residuals <- function(test_df, active_site_positions,
@@ -253,17 +264,7 @@ plot_loess_residuals <- function(test_df, active_site_positions,
     ) +
     theme(legend.position = "left")
   
-  # Add marginal density plots
-  p_marginal <- ggMarginal(
-    p,
-    type = "density",
-    margins = "both",
-    groupColour = FALSE,
-    groupFill = FALSE,
-    size = 10,
-    colour = "grey",
-    fill = "lightgrey"
-  )
+  p_marginal <- add_marginal_density(p)
   
   return(list(
     plot = p_marginal,
@@ -278,6 +279,9 @@ chk1_pred_residual <- plot_loess_residuals(
 )
 ```
 
+## Correlation Between AM and ESM-1v Residuals (CHK1)
+
+The per-mutation residuals from the AM and ESM-1v LOESS models are merged and correlated with Spearman's rho to quantify how concordant the two predictors' deviations from ddGf are, testing whether they capture the same functional signal.
 
 ```{r}
 nrow(chk1_pred_residual$data)
@@ -293,8 +297,13 @@ cor.test(chk1_merged$residuals_pred_am, chk1_merged$residuals_pred_esm, method =
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
 #       rho 
-# 0.6574832 
+# 0.6574832
 ```
+
+## CASP1 Analysis
+
+Both ESM-1v and AlphaMissense LOESS residual models are applied to CASP1, and the per-mutation residuals from the two predictors are correlated to assess consistency of the functional signal across proteins.
+
 ```{r}
 casp1_pred <- analyze_ddg_vs_esm1v(
   ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/CASP1/AF-P29466-F1-model_v4.csv",
@@ -331,8 +340,13 @@ cor.test(casp1_merged$residuals_pred_am, casp1_merged$residuals_pred_esm, method
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
 #       rho 
-# 0.6510637 
+# 0.6510637
 ```
+
+## IDH Analysis
+
+The same paired ESM-1v and AlphaMissense residual analysis is applied to IDH (isocitrate dehydrogenase), which has a large active site spanning many residues.
+
 ```{r}
 idh_pred <- analyze_ddg_vs_esm1v(
   ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/IDH/AF-O75874-F1-model_v4.csv",
@@ -369,8 +383,12 @@ cor.test(idh_merged$residuals_pred_am, idh_merged$residuals_pred_esm, method = "
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
 #       rho 
-# 0.7912986 
+# 0.7912986
 ```
+
+## GCK Analysis
+
+The paired residual comparison is applied to glucokinase (GCK), a clinically important enzyme with known allosteric regulation; high AM–ESM-1v residual concordance here would support a shared functional sensitivity signal.
 
 ```{r}
 gck_pred <- analyze_ddg_vs_esm1v(
@@ -408,8 +426,13 @@ cor.test(gck_merged$residuals_pred_am, gck_merged$residuals_pred_esm, method = "
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
 #       rho 
-# 0.7794625 
+# 0.7794625
 ```
+
+## PTP1B Analysis
+
+The same pipeline is applied to PTP1B (protein tyrosine phosphatase 1B), a drug target with a known allosteric site distant from the active site cysteine.
+
 ```{r}
 ptp1b_pred <- analyze_ddg_vs_esm1v(
   ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/PTP1B/AF-P18031-F1-model_v4.csv",
@@ -446,8 +469,13 @@ cor.test(ptp1b_merged$residuals_pred_am, ptp1b_merged$residuals_pred_esm, method
 # alternative hypothesis: true rho is not equal to 0
 # sample estimates:
 #       rho 
-# 0.7094361 
+# 0.7094361
 ```
+
+## PDK1 Analysis
+
+PDK1 is re-analysed here in the comparison context, applying both ESM-1v and AlphaMissense LOESS residual models to assess whether the two predictors are concordant for this kinase as observed for the other proteins.
+
 ```{r}
 pdk1_pred <- analyze_ddg_vs_esm1v(
   ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/PDK1/AF-O15530-F1-model_v4.csv",
@@ -486,7 +514,3 @@ cor.test(pdk1_merged$residuals_pred_am, pdk1_merged$residuals_pred_esm, method =
 #      rho 
 # 0.598495 
 ```
-
-
-
-

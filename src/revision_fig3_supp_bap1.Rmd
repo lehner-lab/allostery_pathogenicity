@@ -1,8 +1,12 @@
 ---
-title: "revision_fig3_supp_bap1.Rmd"
+title: "BAP1 SGE Benchmark: LOESS Residual Analysis and Spatial Decay"
 output: html_document
 date: "2026-01-06"
 ---
+
+# Setup
+
+Load project libraries and set the working directory via ProjectTemplate. `ggExtra`, `bio3d`, and `ggrepel` are loaded for marginal density plots, PDB manipulation, and label repulsion, respectively.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -13,6 +17,12 @@ library(bio3d)
 library(ggrepel)
 load.project()
 ```
+
+# Data Loading
+
+## BAP1 SGE Experimental Data
+
+Load the BAP1 saturation genome editing (SGE) dataset, filter to missense variants, convert HGVSp three-letter amino acid codes to one-letter format, and average functional scores across duplicate variant entries.
 
 ```{r}
 bap1_exp <- read_excel("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/SGE_exp/41588_2024_1799_MOESM5_ESM.xlsx", sheet = 2, skip = 0)
@@ -53,6 +63,10 @@ nrow(bap1_exp)
 length(unique(bap1_exp$variant_pro))
 bap1_exp
 ```
+## ClinVar Annotations
+
+Load BAP1 ClinVar variant classifications, expand multi-protein-change rows, and remove stop-codon entries. Classification and review status are retained for downstream pathogenic/benign labeling.
+
 ```{r}
 bap1_clinvar <- read.table("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/latest_variant_info/clinvar/BAP1_clinvar_result.txt",header = TRUE, sep = "\t")
 bap1_clinvar <- bap1_clinvar %>% dplyr::select(Protein.change, VariationID, dbSNP.ID, Germline.classification, Germline.review.status)
@@ -63,6 +77,10 @@ bap1_clinvar
 
 table(bap1_clinvar$Germline.classification)
 ```
+## ESM-1v Predictions and Data Merging
+
+Load ESM-1v variant effect predictions for BAP1 (UniProt Q92560), update ClinVar annotations, then merge SGE functional scores, ESM-1v predictions, and ClinVar classifications into a single data frame with a parsed numeric mutation position column.
+
 ```{r}
 bap1_esm <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/SGE_esm1v//Q92560_merged.csv")
 
@@ -88,6 +106,10 @@ bap1_df <- bap1_df %>%
 
 bap1_df
 ```
+## ClinVar Annotation
+
+Classify each variant as Pathogenic, Benign, or Other based on ClinVar germline classification and review status, keeping only entries with at least single-submitter review confidence.
+
 ```{r}
 unique(bap1_df$Germline.review.status)
 
@@ -114,6 +136,10 @@ bap1_df <- bap1_df %>%
 
 table(bap1_df$var_source)
 ```
+
+# LOESS Residual Model
+
+Exclude known BAP1 catalytic site positions (C91, H169, H185, D184), then fit a robust LOESS model (`functional_score ~ ddG_pred`, span = 0.7) on the remaining variants. Fitted values and residuals are then computed for all variants, including the excluded active-site positions.
 
 ```{r}
 #https://aacrjournals.org/cancerres/article/78/5/1200/543284/Familial-and-Somatic-BAP1-Mutations-Inactivate
@@ -148,6 +174,10 @@ range(bap1_df$ddG_pred)
 range(bap1_df$functional_score)
 ```
 
+# PDB B-factor Mapping
+
+Compute the per-position median LOESS residual and write it into the B-factor column of the BAP1 AlphaFold PDB (Q92560) using `map_residuals_to_pdb`. The annotated PDB can then be visualised in ChimeraX with the residual-coloured palette commands shown in the comments.
+
 ```{r}
 nrow(bap1_df)
 
@@ -158,41 +188,13 @@ median_residuals <- bap1_df %>%
 min(median_residuals$median_residuals) #-0.1758834
 max(median_residuals$median_residuals) #0.07611943
 
-pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BAP1/AF-Q92560-F1-model_v6.pdb")
-data <- median_residuals
-head(data)
-
-# Create a new B-factor vector initialized with the current B-factors from the PDB
-new_b_factors <- pdb$atom$b
-
-# Loop through each position in the correlation data and update the B-factors
-for (i in 1:nrow(data)) {
-  position <- data$new_position[i]
-  correlation_value <- data$median_residuals[i]
-  
-  # Find indices in the PDB that match the current position
-  indices <- which(pdb$atom$resno == position)
-  
-  # Print the indices and current B-factors before updating
-  #cat("Updating residue number:", position, "\n")
-  #cat("Indices in PDB:", indices, "\n")
-  #cat("Current B-factors:", new_b_factors[indices], "\n")
-  
-  # Update B-factors for all atoms in the current residue
-  new_b_factors[indices] <- correlation_value
-  
-  # Print the new B-factors after updating
-  #cat("Updated B-factors:", new_b_factors[indices], "\n")
-  #cat("\n")  # Add an extra line for readability
-}
-# Replace non-matching B-factors with outlier value so we can filter it out in ChimeraX
-non_matching_indices <- setdiff(seq_along(new_b_factors), which(pdb$atom$resno %in% data$new_position))
-new_b_factors[non_matching_indices] <- 999
-
-# Assign the new B-factors back to the pdb structure
-# Write the modified PDB structure to a new file
-pdb$atom$b <- new_b_factors
-write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BAP1/AF-Q92560-F1-model_v6_median_residual_loess.pdb")
+map_residuals_to_pdb(
+  data = median_residuals,
+  pdb_path = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BAP1/AF-Q92560-F1-model_v6.pdb",
+  output_path = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BAP1/AF-Q92560-F1-model_v6_median_residual_loess.pdb",
+  position_col = "new_position",
+  value_col = "median_residuals"
+)
 
 #chimerax
 #select @@bfactor>=999 
@@ -206,6 +208,12 @@ write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/dat
 #set silhouetteWidth 1
 ```
 
+
+# Scatter Plots
+
+## All, Benign, and Pathogenic Panels
+
+Produce three side-by-side scatter plots of SGE functional score versus predicted ddGf, coloured by LOESS residual, overlaying the fitted LOESS curve; panels show all 4,461 variants, ClinVar benign variants, and ClinVar pathogenic variants respectively. Marginal density plots are added to each panel and the composite figure is saved to PDF.
 
 ```{r, fig.width=9, fig.height=3}
 nrow(bap1_df)
@@ -237,16 +245,7 @@ p1 <- ggplot(bap1_df, aes(x = ddG_pred, y = functional_score, color = residuals)
   legend.background = element_rect(fill = "white", color = NA)
 ) + ylim(-0.3,0.1)  + xlim(-1.3,3.9) 
 
-p1 <- ggMarginal(
-  p1,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p1 <- add_marginal_density(p1)
 
 p2 <- ggplot(bap1_df %>% filter (var_source == "Benign"), aes(x = ddG_pred, y = functional_score, color = residuals)) +
   geom_point(size = 2) +
@@ -270,16 +269,7 @@ p2 <- ggplot(bap1_df %>% filter (var_source == "Benign"), aes(x = ddG_pred, y = 
   legend.background = element_rect(fill = "white", color = NA)
 ) +  ylim(-0.3,0.1)  + xlim(-1.3,3.9) 
 
-p2 <- ggMarginal(
-  p2,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p2 <- add_marginal_density(p2)
 
 p3 <- ggplot(bap1_df %>% filter (var_source == "Pathogenic"), aes(x = ddG_pred, y = functional_score, color = residuals)) +
   geom_point(size = 2, shape = 17) +
@@ -309,16 +299,7 @@ p3 <- ggplot(bap1_df %>% filter (var_source == "Pathogenic"), aes(x = ddG_pred, 
   legend.background = element_rect(fill = "white", color = NA)
 ) +  ylim(-0.3,0.1)  + xlim(-1.3,3.9) 
 
-p3 <- ggMarginal(
-  p3,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p3 <- add_marginal_density(p3)
 
 p4 <- plot_grid(p1,p2,p3, ncol=3)
 p4
@@ -327,6 +308,10 @@ p4
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_scatter3.pdf", 
        plot = p4, width = 9, height = 3, dpi = 300)
 ```
+
+## Scatter Plot Legend Panel
+
+Regenerate the pathogenic scatter plot with the colour-bar legend visible and save it as a separate PDF for figure assembly.
 
 ```{r}
 legend <- ggplot(bap1_df %>% filter (var_source == "Pathogenic"), aes(x = ddG_pred, y = functional_score, color = residuals)) +
@@ -360,6 +345,10 @@ legend <- ggplot(bap1_df %>% filter (var_source == "Pathogenic"), aes(x = ddG_pr
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_scatter_bap1_legend.pdf", 
        plot = legend, width = 3, height = 9, dpi = 300)
 ```
+
+# Violin Plot
+
+Compare LOESS residual distributions between ClinVar Benign and Pathogenic BAP1 variants using a violin plot with median crossbars and a one-sided Wilcoxon test (testing whether benign residuals are greater than pathogenic residuals).
 
 ```{r, fig.width=3, fig.height=5}
 # ---------------------------
@@ -448,6 +437,10 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3
        plot = p_violin, width = 4, height = 2.5, dpi = 300)
 ```
 
+# Ligand Distance Calculation
+
+Load the BAP1 AlphaFold PDB and compute the minimum heavy-atom distance from every residue's side chain (plus glycine C-alphas) to the four catalytic site residues (positions 85, 91, 169, 184). Results are aggregated to a per-residue minimum distance data frame used in the decay analysis.
+
 ```{r}
 # 1. Load PDB
 pdb <- read.pdb("~/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BAP1/AF-Q92560-F1-model_v6.pdb", rm.alt = TRUE)
@@ -514,6 +507,10 @@ min_dist_df <- atom_df %>%
 min_dist_df
 ```
 
+# Exponential Decay Fit
+
+Merge residual data with per-residue distances, subset to negatively-deviant variants (residuals <= 0), and fit a two-parameter exponential decay model (`|residual| ~ a * exp(-b * distance)`) to assess how the magnitude of SGE-ddGf discordance decays with distance from the active site.
+
 ```{r}
 merged_df <- merge(bap1_df, min_dist_df, by.x="new_position", by.y = "resno", all.x = TRUE)
 nrow(merged_df)
@@ -528,11 +525,15 @@ exp_model <- nls(abs(residuals) ~ a * exp(-b * min_dist_to_list),
                  start = list(a = 1, b = 0.1))
 exp_model
 ```
+## Half-Distance and Binned Summary
+
+Extract decay coefficients, compute the half-distance (the distance at which residual magnitude halves), and bin variants by 2 Å intervals to derive the 95th-percentile residual magnitude per bin for the decay plot.
+
 ```{r}
 a <- coef(exp_model)[["a"]]
 b <- coef(exp_model)[["b"]]
 
-half_d <- log(2) / b  
+half_d <- log(2) / b
 half_d #10.22168
 
 fit_df_residue <- merged_df_neg %>%
@@ -550,6 +551,10 @@ fit_df_residue <- merged_df_neg %>%
   filter(!is.na(min_dist_to_list)) %>% # Remove empty bins
   arrange(min_dist_to_list)            # Sort X for approx() function
 ```
+
+## Decay Plot
+
+Generate the exponential decay scatter plot of |LOESS residual| versus distance to the orthosteric site, coloured by site type (active vs. non-orthosteric), with 1,000-replicate bootstrap confidence ribbons and pathogenic variants highlighted as labelled triangles.
 
 ```{r, fig.width=5, fig.height=5}
 active_sites <- c(85,91,169,184 #catalytic site
@@ -633,16 +638,7 @@ p_decay <- ggplot(merged_df_neg, aes(x = min_dist_to_list, y = abs(residuals))) 
   theme_classic() +
   theme(legend.position = "bottom")
 
-p_decay <- ggMarginal(
-  p_decay,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p_decay <- add_marginal_density(p_decay)
 
 p_decay
 ```
@@ -650,6 +646,10 @@ p_decay
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_decay3.pdf", 
        plot = p_decay, width = 4, height = 4.5, dpi = 300)
 ```
+
+# Correlation Plots
+
+Produce two side-by-side Spearman correlation scatter plots comparing raw SGE functional scores against ESM-1v predicted pathogenicity and against TMPNN ddGf predictions, with ClinVar variant classes distinguished by colour and shape and Spearman rho reported in the subtitle.
 
 ```{r, fig.width=8, fig.height=4.5}
 p_corr1 <- ggplot(bap1_df, aes(x = ESM1v_all_variants, y = functional_score)) +
@@ -674,16 +674,7 @@ p_corr1 <- ggplot(bap1_df, aes(x = ESM1v_all_variants, y = functional_score)) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
   geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") 
 
-p_corr1 <- ggMarginal(
-  p_corr1,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p_corr1 <- add_marginal_density(p_corr1)
 
 p_corr2 <- ggplot(bap1_df, aes(x = ddG_pred, y = functional_score)) +
   geom_point(aes(shape = var_source, color = var_source, alpha = var_source), size = 2) +
@@ -707,16 +698,7 @@ p_corr2 <- ggplot(bap1_df, aes(x = ddG_pred, y = functional_score)) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
   geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") 
 
-p_corr2 <- ggMarginal(
-  p_corr2,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p_corr2 <- add_marginal_density(p_corr2)
 
 p_corr <- plot_grid (p_corr1, p_corr2)
 p_corr
@@ -727,6 +709,12 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3
 ```
 
 
+
+# GAM Analysis
+
+## Comparative Residual Preparation
+
+Fit a second LOESS model regressing ESM-1v scores on ddGf predictions to derive ESM-1v-specific residuals, then rank-normalise both SGE and ESM-1v residual magnitudes to produce comparable `Comp_residual_norm` (ESM-1v-ddGf discordance) and `Delta_Pathogenicity` (SGE-ESM-1v delta) scores for the spatial decay comparison.
 
 ```{r}
 # Fit a loess model using the filtered data
@@ -764,6 +752,10 @@ bap1_plot <- bap1_plot %>%
 bap1_plot<- merge(bap1_plot, min_dist_df, by.x="mutation_position", by.y = "resno")
 bap1_plot
 ```
+## GAM Spatial Decay Comparison Plot
+
+Plot the absolute normalised residual magnitudes for both the ESM-1v-ddGf signal and the SGE-ESM-1v noise as a function of distance from the orthosteric site, with GAM-smoothed trend lines (`s(x, k=8)`) to visualise differential spatial decay.
+
 ```{r, fig.width=4, fig.height=4}
 plot_ready_raw <- bap1_plot %>%
   dplyr::select(min_dist_to_list, Delta_Pathogenicity, Comp_residual_norm, Exp_residual_norm) %>%
@@ -807,11 +799,25 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3
 
 
 
+## GAM Model Summaries
 
+Fit separate GAMs (`mgcv::gam`) for the biological signal (ESM-1v-ddGf residual) and the noise baseline (SGE-ESM-1v delta) to formally test whether each shows a significant smooth relationship with distance from the active site.
 
+```{r}
+library(mgcv)
 
+# Fit the GAM for the biological signal (Comp_residual_norm)
+gam_signal <- gam(Abs_Value ~ s(min_dist_to_list, k = 8),
+                  data = filter(plot_ready_raw, Residual_Type == "Comp_residual_norm"))
+summary(gam_signal)
 
+```
 
+### GAM for Noise Baseline
 
-
-
+```{r}
+# Fit the GAM for the noise (Delta_Pathogenicity)
+gam_noise <- gam(Abs_Value ~ s(min_dist_to_list, k = 8),
+                 data = filter(plot_ready_raw, Residual_Type == "Delta_Pathogenicity"))
+summary(gam_noise)
+```

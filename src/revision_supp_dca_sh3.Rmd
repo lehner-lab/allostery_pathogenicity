@@ -1,8 +1,10 @@
 ---
-title: "revision_supp_dca_sh3.Rmd"
+title: "Supp: SH3 — DCA Conservation Analysis"
 output: html_document
 date: "2026-01-08"
 ---
+
+# Setup
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -14,6 +16,12 @@ library(ggrepel)
 library(tidyverse)
 library(data.table)
 ```
+
+# Data Loading
+
+## MSA Frequency Table
+
+Load EVcouplings frequency table to get per-position gap frequency, depth, and conservation scores.
 
 ```{r}
 freq <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/dca/grb2_evcoupling_legacy/align/140b370370a17221489d7c8e78639193_b0.2_frequencies.csv",check.names = FALSE)
@@ -32,6 +40,10 @@ freq <- freq |>
   )
 freq
 ```
+
+## MoCHI Binding ddG
+
+Load MoCHI-inferred binding free energy changes (ddGb) for GRB2-SH3 variants.
 
 ```{r}
 sh3_final_df_ddgb <- read_tsv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domains_andre/GRB2-SH3/Abundance/mochi_project/task_1/weights/weights_Binding.txt')
@@ -52,15 +64,19 @@ sh3_final_df_ddgb <- sh3_final_df_ddgb %>% filter(old_id != "WT")
 head(sh3_final_df_ddgb)
 ```
 
+## Merge Predictors with ddGb
+
+Load ThermoMPNN ddGf and ESM-1v predictions, align sequences, and merge with experimental ddGb values.
+
 ```{r}
 test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/GRB2/ThermoMPNN_inference_AF-P62993-F1-model_v4.csv")
 test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P62993.csv")
-  
+
 colnames(test_esm)[2] <- "ESM1v"
-  
+
 test_ddg[, new_position := position + 1]
 test_ddg[, variant := paste0(wildtype, new_position, mutation)]
-  
+
 test_df <- merge(test_ddg, test_esm, by = "variant")
 
 pred_seq <-  ali_process_sequence(test_df, "new_position", "wildtype")
@@ -72,6 +88,10 @@ test_merged_df <- merge(sh3_final_df_ddgb, test_df, by.x="id_ref", by.y="variant
 nrow(test_merged_df) #756
 head(test_merged_df)
 ```
+
+# LOESS Residual Model
+
+Filter out orthosteric sites, fit a LOESS model of ESM-1v on ddGf, and compute per-residue median residuals merged with MSA depth.
 
 ```{r}
 paper_anno <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/sh3_ddg_cleaned.csv")
@@ -107,8 +127,9 @@ merged <- merge(freq, position_residuals, by.x ="position", by.y = "Pos_ref")
 merged
 ```
 
+# DCA Coupling to Orthosteric Sites
 
-
+Load EVcouplings scores and compute the maximum coupling strength from each non-orthosteric position to the orthosteric site set.
 
 ```{r}
 df <-  read.csv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/dca/grb2_evcoupling_legacy/couplings/CouplingScores.csv', sep = ',')
@@ -134,6 +155,9 @@ dca_to_ortho <- edges %>%
 dca_to_ortho
 ```
 
+## Filter by MSA Depth
+
+Restrict to positions with sufficient alignment depth (>=50%) before correlating DCA scores with ddGb.
 
 ```{r}
 high_depth_positions <- freq %>%
@@ -144,6 +168,11 @@ dca_to_ortho <- dca_to_ortho %>%
   inner_join(high_depth_positions, by = "position")
 dca_to_ortho
 ```
+
+## Merge DCA with ddGb
+
+Merge DCA coupling scores with per-residue median binding free energy changes.
+
 ```{r}
 ddgb_res <- sh3_final_df_ddgb %>%
   group_by(Pos_ref) %>%
@@ -156,6 +185,10 @@ merged <- merge(dca_to_ortho, ddgb_res, by.x = "position", by.y = "Pos_ref")
 merged
 ```
 
+# Correlation Plot: DCA Coupling vs. Median ddGb
+
+Scatter plot of maximum DCA coupling strength to orthosteric sites against median ddGb with Spearman correlation.
+
 ```{r, fig.width=4, fig.height=4.5}
 #173, 183, 203
 positions_to_highlight <- c(173, 183, 203)
@@ -165,7 +198,7 @@ merged <- merged %>%
     label_text = ifelse(position %in% positions_to_highlight, as.character(position), ""),
     # Optional: Create a column to make these points look different (e.g., bigger/bolder)
     is_highlighted = position %in% positions_to_highlight
-  ) 
+  )
 
 rho_val <- cor(merged$dca_to_ortho_max, merged$median_ddgb, method = "spearman", use = "complete.obs")
 subtitle_text <- paste0("Spearman's rho = ", round(rho_val, 2))
@@ -173,9 +206,9 @@ subtitle_text <- paste0("Spearman's rho = ", round(rho_val, 2))
 p1 <- ggplot(merged, aes(x = dca_to_ortho_max, y = median_ddgb, color = median_ddgb)) +
   geom_point(alpha = 0.7) +
   scale_color_gradient2(
-    low = "blue", 
-    mid = "grey", 
-    high = "red", 
+    low = "blue",
+    mid = "grey",
+    high = "red",
     midpoint = 0
   ) +
   theme_classic() +
@@ -200,22 +233,9 @@ p1 <- ggplot(merged, aes(x = dca_to_ortho_max, y = median_ddgb, color = median_d
 p1
 ```
 
+# Save Figure
+
 ```{r}
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_dca_sh3.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_dca_sh3.pdf",
        plot = p1, width = 3, height = 4, dpi = 300)
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

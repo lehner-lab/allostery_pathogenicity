@@ -1,5 +1,5 @@
 ---
-title: "revision_supp_msa.Rmd"
+title: "Supp: Multiple Sequence Alignment Depth (Neff)"
 output: html_document
 date: "2025-12-11"
 ---
@@ -16,6 +16,14 @@ library(Biostrings)
 library(DECIPHER)
 library(data.table)
 ```
+
+## Setup
+
+Loads the project environment together with bioinformatics libraries (`Biostrings`, `DECIPHER`) required for reading and processing multiple sequence alignments. This notebook quantifies effective sequence depth (Neff) from EVcouplings MSA output for two protein domains (PSD95-PDZ3 and GRB2-SH3) and tests whether positional Neff correlates with ESM-1v–ddGf residuals.
+
+## Data Loading and Global Neff Computation (PSD95-PDZ3)
+
+The EVcouplings A2M alignment file for PSD95-PDZ3 is read, subsampled to 15,000 sequences for tractability, and sequence weights are computed using the standard 80% identity threshold. The global Neff (sum of weights) summarises the effective diversity of the alignment.
 
 ```{r}
 # --- 1. SETUP PATHS ---
@@ -88,10 +96,18 @@ neff_df <- freq_raw |>
 neff_df
 ```
 
+## Position Offset Correction (PSD95-PDZ3)
+
+The EVcouplings alignment uses domain-level indexing starting at 1; adding 310 maps positions onto the full-length PSD95 residue numbering used in the DMS data.
+
 ```{r}
 neff_df$position <- neff_df$position + 310
 neff_df
 ```
+
+## Load PDZ3 DMS Binding Data
+
+The cleaned MoCHI-refit binding ddG table for PSD95-PDZ3 is loaded, providing per-mutation experimental binding energies that will be used to contextualise positional residuals.
 
 ```{r}
 pdz3_final_df_ddg <- read_csv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/pdz3_ddg_cleaned_mochi_refit.csv')
@@ -101,6 +117,11 @@ pdz3_final_df_ddgb <- pdz3_final_df_ddg %>% filter(trait_name == "Binding") %>%
 nrow(pdz3_final_df_ddgb) #1567
 head(pdz3_final_df_ddgb)
 ```
+
+## Merge ThermoMPNN and ESM-1v Predictions with DMS Data (PSD95-PDZ3)
+
+ThermoMPNN ddGf and ESM-1v scores are loaded for the full-length PSD95 protein and merged with the PDZ3 DMS data after aligning sequence positions using helper functions. This creates a combined table for downstream LOESS residual analysis.
+
 ```{r}
 test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/PSD95/ThermoMPNN_inference_AF-P78352-F1-model_v4.csv")
 test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P78352.csv")
@@ -128,6 +149,11 @@ test_merged_df <- merge(pdz3_final_df_ddgb, test_df, by.x="variant_match", by.y=
 nrow(test_merged_df) #1567
 head(test_merged_df)
 ```
+
+## LOESS Residuals for PDZ3 Positions
+
+Orthosteric site annotations from the published PDZ3 dataset are used to exclude active-site positions from the LOESS fit; per-mutation residuals are then computed and aggregated to per-residue medians, coloured by median binding ddG.
+
 ```{r}
 paper_anno <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/pdz3_ddg_cleaned.csv")
 head(paper_anno)
@@ -170,10 +196,18 @@ test_merged_df_residue <- test_merged_df_residue %>%
 test_merged_df_residue
 ```
 
+## Merge Neff with Residuals (PSD95-PDZ3)
+
+The per-position Neff values from the MSA are joined with the per-residue median ESM-1v–ddGf residuals to test whether positions with lower evolutionary coverage show larger prediction discordance.
+
 ```{r}
 merged_df <- merge(neff_df, test_merged_df_residue, by.x = "position", by.y = "pos_match")
 merged_df
 ```
+
+## Scatter Plot: Neff vs. Residuals (PSD95-PDZ3)
+
+Spearman's rho is computed and a scatter plot of positional Neff against median ESM-1v–ddGf residual is produced, with points coloured by median binding ddG to reveal whether allosteric positions cluster distinctively.
 
 ```{r, fig.width=4, fig.height=4.5}
 # 1. Calculate Spearman's rho
@@ -215,6 +249,10 @@ p1 <- ggplot(merged_df, aes(x = positional_neff, y = residual_median, color = me
 
 p1
 ```
+
+## Data Loading and Global Neff Computation (GRB2-SH3)
+
+The same Neff pipeline is applied to the GRB2-SH3 EVcouplings MSA, providing an independent domain for testing whether MSA depth correlates with the ESM-1v–ddGf residual signal.
 
 ```{r}
 # --- 1. SETUP PATHS ---
@@ -286,6 +324,10 @@ neff_df <- freq_raw |>
 neff_df
 ```
 
+## Load GRB2-SH3 DMS Binding Data
+
+The MoCHI binding ddG weights for GRB2-SH3 are loaded and residue positions are remapped from domain-level to full-length GRB2 numbering (offset +158) to match the ThermoMPNN and ESM-1v outputs.
+
 ```{r}
 sh3_final_df_ddgb <- read_tsv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domains_andre/GRB2-SH3/Abundance/mochi_project/task_1/weights/weights_Binding.txt')
 sh3_final_df_ddgb <- sh3_final_df_ddgb %>% dplyr::select(id_ref, Pos_ref, `mean_kcal/mol`, `std_kcal/mol`)
@@ -304,6 +346,10 @@ sh3_final_df_ddgb <- sh3_final_df_ddgb %>%
 sh3_final_df_ddgb <- sh3_final_df_ddgb %>% filter(old_id != "WT")
 head(sh3_final_df_ddgb)
 ```
+
+## Merge ThermoMPNN and ESM-1v Predictions with DMS Data (GRB2-SH3)
+
+ThermoMPNN and ESM-1v data for the full-length GRB2 protein are loaded, merged with the SH3 DMS variants by aligned variant identifier, and returned as a combined table for LOESS residual analysis.
 
 ```{r}
 test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/GRB2/ThermoMPNN_inference_AF-P62993-F1-model_v4.csv")
@@ -325,6 +371,10 @@ test_merged_df <- merge(sh3_final_df_ddgb, test_df, by.x="id_ref", by.y="variant
 nrow(test_merged_df) #756
 head(test_merged_df)
 ```
+
+## LOESS Residuals for SH3 Positions
+
+Orthosteric positions for GRB2-SH3 are identified from published annotations and excluded from the LOESS fit; per-residue median ESM-1v–ddGf residuals are then computed and selected positions annotated for the scatter plot.
 
 ```{r}
 paper_anno <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/cleaned_ddg/sh3_ddg_cleaned.csv")
@@ -373,10 +423,18 @@ position_residuals <- position_residuals %>%
 position_residuals
 ```
 
+## Merge Neff with Residuals (GRB2-SH3)
+
+Per-position Neff values are joined with the per-residue median ESM-1v–ddGf residuals for GRB2-SH3 to enable the same Neff-vs-residual correlation test as performed for PDZ3.
+
 ```{r}
 merged_df <- merge(neff_df, position_residuals, by.x = "position", by.y = "Pos_ref")
 merged_df
 ```
+
+## Scatter Plot: Neff vs. Residuals (GRB2-SH3)
+
+Spearman's rho is computed and a scatter plot of positional Neff against median ESM-1v–ddGf residual is produced for GRB2-SH3, mirroring the PDZ3 panel for direct visual comparison.
 
 ```{r}
 # 1. Calculate Spearman's rho
@@ -419,6 +477,10 @@ p2 <- ggplot(merged_df, aes(x = positional_neff, y = median_residual, color = me
 p2
 ```
 
+## Combined Panel and Save
+
+The PDZ3 and SH3 scatter plots are arranged side-by-side into a single panel and saved as a PDF for inclusion in the supplementary figures.
+
 ```{r}
 p3 <- plot_grid(p1,p2,ncol=2)
 p3
@@ -428,15 +490,3 @@ p3
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_msa.pdf", 
        plot = p3, width = 6, height = 4, dpi = 300)
 ```
-
-
-
-
-
-
-
-
-
-
-
-

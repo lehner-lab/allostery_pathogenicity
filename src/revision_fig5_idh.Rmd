@@ -1,8 +1,10 @@
 ---
-title: "revision_fig5_idh.Rmd"
+title: "Fig 5: IDH1 — ddGf vs ESM-1v Allosteric Signal"
 output: html_document
 date: "2026-01-21"
 ---
+
+# Setup
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -14,30 +16,33 @@ library(ggrepel)
 load.project()
 ```
 
-# IDH
+# ddGf vs ESM-1v Correlation
+
+This section defines the analysis function and computes the Spearman correlation between ThermoMPNN ddGf and ESM-1v scores.
+
 ```{r, fig.width=5, fig.height=5}
 analyze_ddg_vs_esm1v <- function(ddg_file, esm_file, protein_name = "Protein") {
   # Load data
   test_ddg <- fread(ddg_file)
   test_esm <- fread(esm_file)
-  
+
   # Prepare ESM1v column
   colnames(test_esm)[2] <- "ESM1v"
-  
+
   # Construct variant column in ddg data
   test_ddg[, new_position := pos + 1]
   test_ddg[, variant := paste0(wtAA, new_position, mutAA)]
-  
+
   # Merge on variant
   test_df <- merge(test_ddg, test_esm, by = "variant")
-  
+
   # Rename ddG column
   test_df <- test_df %>% dplyr::rename(ddG_pred = `ddG (kcal/mol)`)
-  
+
   # Spearman correlation
   spearman_rho <- cor.test(test_df$ddG_pred, test_df$ESM1v, method = "spearman")
   rho_value <- round(spearman_rho$estimate, 2)
-  
+
   # Plot
   p <- ggplot(test_df, aes(x = ddG_pred, y = ESM1v)) +
     geom_bin2d(bins = 100) +
@@ -53,7 +58,7 @@ analyze_ddg_vs_esm1v <- function(ddg_file, esm_file, protein_name = "Protein") {
       text = element_text(size = 12),
       legend.position = "right"
     )
-  
+
   # Output
   list(
     spearman_rho = spearman_rho,
@@ -71,25 +76,29 @@ nrow(idh_pred$merged_data)
 
 
 p0 <- idh_pred$plot
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig2_idh_p0.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig2_idh_p0.pdf",
        plot = p0, width = 5, height = 5, dpi = 300)
 p0
 ```
 
+# LOESS Residual Model
+
+This section fits a LOESS curve excluding active-site positions, then computes residuals for all mutations to isolate non-stability signal.
+
 ```{r, fig.width=5, fig.height=5}
 plot_loess_residuals <- function(test_df, active_site_positions,
                                  span = 0.7, protein_name = "idh") {
-  
+
   # Filter out active site positions
   test_df_fil <- test_df %>% filter(!new_position %in% active_site_positions)
-  
+
   # Fit loess model on filtered data
   loess_fit <- loess(ESM1v ~ ddG_pred, data = test_df_fil, span = span, family = "symmetric")
-  
+
   # Predict on all data
   test_df$fitted_pred <- predict(loess_fit, newdata = test_df)
   test_df$residuals_pred <- test_df$ESM1v - test_df$fitted_pred
-  
+
   # Fit line data for the smooth curve
   fit_line_df <- data.frame(
     ddG_pred = seq(0,
@@ -97,17 +106,17 @@ plot_loess_residuals <- function(test_df, active_site_positions,
                    length.out = 200)
   )
   fit_line_df$ESM1v <- predict(loess_fit, newdata = fit_line_df)
-  
+
   # Spearman correlation
   spearman_result <- suppressWarnings(cor.test(test_df$ddG_pred, test_df$ESM1v, method = "spearman"))
   spearman_rho <- spearman_result$estimate
   spearman_p <- spearman_result$p.value
-  
+
   # Axis and color scale limits
   xlim_vals <- range(test_df$ddG_pred, na.rm = TRUE)
   ylim_vals <- range(test_df$ESM1v, na.rm = TRUE)
   resid_limit <- max(abs(test_df$residuals_pred), na.rm = TRUE)
-  
+
   # Main plot
   p <- ggplot(test_df, aes(x = ddG_pred , y = ESM1v, color = residuals_pred)) +
     geom_point(size = 2, alpha = 0.35) +
@@ -128,19 +137,9 @@ plot_loess_residuals <- function(test_df, active_site_positions,
       limits = c(-resid_limit, resid_limit), name = "Residuals"
     ) +
     theme(legend.position = "left")
-  
-  # Add marginal density plots
-  p_marginal <- ggMarginal(
-    p,
-    type = "density",
-    margins = "both",
-    groupColour = FALSE,
-    groupFill = FALSE,
-    size = 10,
-    colour = "grey",
-    fill = "lightgrey"
-  )
-  
+
+  p_marginal <- add_marginal_density(p)
+
   return(list(
     plot = p_marginal,
     data = test_df
@@ -149,48 +148,27 @@ plot_loess_residuals <- function(test_df, active_site_positions,
 
 idh_pred_residual <- plot_loess_residuals(idh_pred$merged_data, active_site_positions = c(15,  16,  17,  18,  19,  21 , 22,  23,  44,  45,  71 , 72 , 73 , 74 , 75 , 76 , 77 , 78 , 79,  80,  81,  82,  83 , 85 , 86 , 91 , 92,  93 , 94 , 95 , 96,  97,  98,  99 ,100, 107, 109, 121, 122, 123, 252,253 ,254, 255, 256, 257, 258, 259, 260 ,276 ,279 ,280 ,281, 282, 283 ,284, 285, 286 ,287, 288 ,289 ,291 ,292 ,293, 294, 295 ,304 ,305 ,306 ,307 ,308, 309, 310, 311, 312, 313, 314, 315 ,316, 317, 325, 326,327, 328 ,329, 330 ,331 ,332, 333 ,334 ,335 ,372, 373, 374 ,375 ,376, 377, 393, 394, 397), protein_name = "idh")
 p1 <- idh_pred_residual$plot
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_idh_p1.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_idh_p1.pdf",
        plot = p1, width = 4.5, height = 4, dpi = 300)
 p1
 ```
+
+# PDB B-factor Mapping
+
+This section maps median LOESS residuals onto PDB B-factors for structural visualization.
+
 ```{r}
 map_loess_residuals_to_pdb <- function(test_df, pdb_path, output_pdb_path) {
-
-  # 1. Compute median residuals per position
   median_residuals <- test_df %>%
     group_by(new_position) %>%
     summarise(median_residuals = median(residuals_pred, na.rm = TRUE), .groups = "drop")
-  
-  # 2. Read in PDB
-  pdb <- read.pdb(pdb_path)
-  
-  # 3. Initialize new B-factor vector
-  new_b_factors <- pdb$atom$b
-  
-  # 4. Map residuals to matching residue numbers in the PDB
-  for (i in seq_len(nrow(median_residuals))) {
-    pos <- median_residuals$new_position[i]
-    val <- median_residuals$median_residuals[i]
-    matching_indices <- which(pdb$atom$resno == pos)
-    new_b_factors[matching_indices] <- val
-  }
-  
-  # 5. Replace non-matching indices with outlier value (e.g., 999)
-  matched_positions <- unique(median_residuals$new_position)
-  non_matching_indices <- which(!(pdb$atom$resno %in% matched_positions))
-  new_b_factors[non_matching_indices] <- 999
-  
-  # 6. Assign and save new PDB
-  pdb$atom$b <- new_b_factors
-  write.pdb(pdb, file = output_pdb_path)
-  
-  # Optional: return summary
-  return(list(
-    min_residual = min(median_residuals$median_residuals, na.rm = TRUE),
-    max_residual = max(median_residuals$median_residuals, na.rm = TRUE),
-    length(non_matching_indices),
-    output_file = output_pdb_path
-  ))
+  map_residuals_to_pdb(
+    data = median_residuals,
+    pdb_path = pdb_path,
+    output_path = output_pdb_path,
+    position_col = "new_position",
+    value_col = "median_residuals"
+  )
 }
 
 pdb_residual <- map_loess_residuals_to_pdb(
@@ -205,9 +183,9 @@ print(pdb_residual)
 #color byattribute a:bfactor #10 & sel target csab palette -9,red:0,white:8.3,blue
 
 #chimerax
-#select @@bfactor>=999 
+#select @@bfactor>=999
 #color sel dim grey
-#select @@bfactor<999 
+#select @@bfactor<999
 #color byattribute a:bfactor #10 & sel target csab palette -9,red:0,white:8.3,blue
 #color sel dark orange
 #set silhouette true
@@ -215,59 +193,45 @@ print(pdb_residual)
 #set silhouetteWidth 3
 ```
 
+# Ligand Distance Calculation
+
+This section computes the minimum side-chain heavy-atom distance from each Chain A residue to the NDP ligand in the crystal structure.
+
 ```{r}
 active_site_positions <- c(15,  16,  17,  18,  19,  21 , 22,  23,  44,  45,  71 , 72 , 73 , 74 , 75 , 76 , 77 , 78 , 79,  80,  81,  82,  83 , 85 , 86 , 91 , 92,  93 , 94 , 95 , 96,  97,  98,  99 ,100, 107, 109, 121, 122, 123, 252,253 ,254, 255, 256, 257, 258, 259, 260 ,276 ,279 ,280 ,281, 282, 283 ,284, 285, 286 ,287, 288 ,289 ,291 ,292 ,293, 294, 295 ,304 ,305 ,306 ,307 ,308, 309, 310, 311, 312, 313, 314, 315 ,316, 317, 325, 326,327, 328 ,329, 330 ,331 ,332, 333 ,334 ,335 ,372, 373, 374 ,375 ,376, 377, 393, 394, 397)
 
-# 1. Load PDB
 pdb <- read.pdb("~/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/IDH/6io0.pdb", rm.alt = TRUE)
 
-# ---- Step 1: Selections ----
-
-# A. Define Atoms
 sele_protein <- atom.select(pdb, "protein", verbose=FALSE)
 sele_sc      <- atom.select(pdb, "sidechain", verbose=FALSE)
 sele_glyca   <- atom.select(pdb, resid = "GLY", string = "calpha", verbose=FALSE)
 sele_H       <- atom.select(pdb, "h", verbose=FALSE)
 sele_water   <- atom.select(pdb, "water", verbose=FALSE)
-sele_glc     <- atom.select(pdb, resid = "NDP", verbose=FALSE) 
+sele_glc     <- atom.select(pdb, resid = "NDP", verbose=FALSE)
 
-# --- NEW: Define Chain A ---
 sele_chainA  <- atom.select(pdb, chain = "A", verbose=FALSE)
 
-# B. Combine for "Side-Chain Heavy Atoms" (scHA) in Chain A
-# Logic: ((Protein AND Sidechain) OR (Glycine C-alpha)) AND Chain A
 sele_prot_sc       <- combine.select(sele_protein, sele_sc, operator = "AND", verbose=FALSE)
 sele_prot_sc_glyca <- combine.select(sele_prot_sc, sele_glyca, operator = "OR", verbose=FALSE)
 
-# *** Apply Chain A Filter Here ***
 sele_prot_chainA   <- combine.select(sele_prot_sc_glyca, sele_chainA, operator = "AND", verbose=FALSE)
 
-# C. Final Clean Selections (Remove H and Water)
 sele_prot_final_inds <- combine.select(sele_prot_chainA, sele_H, sele_water, operator = "-", verbose=FALSE)
 sele_glc_final_inds  <- combine.select(sele_glc, sele_H, operator = "-", verbose=FALSE)
 
-# Check if atoms exist to prevent NA errors
 if(length(sele_glc_final_inds$atom) == 0) stop("Error: No 'NDP' ligand atoms found.")
 if(length(sele_prot_final_inds$atom) == 0) stop("Error: No Chain A protein atoms found.")
 
-# ---- Step 2: Compute Atomic Distances ----
-
-# A. Trim PDB 
 pdb_prot <- trim.pdb(pdb, sele_prot_final_inds)
 pdb_lig  <- trim.pdb(pdb, sele_glc_final_inds)
 
-# B. Calculate Pairwise Distance Matrix 
 dist_mat <- dist.xyz(pdb_prot$xyz, pdb_lig$xyz)
 
-# C. Get the minimum distance
 min_dist_per_atom <- apply(dist_mat, 1, min, na.rm = TRUE)
-
-# ---- Step 3: Aggregate to Residue Level ----
 
 atom_df <- pdb_prot$atom
 atom_df$dist_to_ligand <- min_dist_per_atom
 
-# D. Group by Residue
 min_dist_df <- atom_df %>%
   group_by(resno, resid, chain) %>%
   summarise(
@@ -275,15 +239,18 @@ min_dist_df <- atom_df %>%
     .groups = "drop"
   )
 
-# ---- Inspect ----
 fil_min_dist_df <- min_dist_df %>% dplyr::select(resid, resno, min_dist_to_ligand)
 fil_min_dist_df
 ```
+
+# Merge Residuals with Distance
+
+This section merges the negative LOESS residuals with per-residue ligand distances and computes median residuals per position.
+
 ```{r}
 merged_df <- merge(idh_pred_residual$data, fil_min_dist_df, by.x = "new_position", by.y = "resno") %>%
   filter(residuals_pred <= 0)
 
-# --- Residue-level median residuals ---
 merged_df_residue <- merged_df %>%
   group_by(new_position) %>%
   summarise(loess_residual_avg = median(residuals_pred, na.rm = TRUE), .groups = "drop") %>%
@@ -291,6 +258,13 @@ merged_df_residue <- merged_df %>%
 
 merged_df_residue %>% filter (new_position %in% active_site_positions)
 ```
+
+# Spatial Decay Analysis
+
+## Exponential Decay Fit
+
+This section fits a nonlinear exponential decay model relating absolute residual magnitude to ligand distance.
+
 ```{r}
 exp_model <- nlsLM(
   abs(loess_residual_avg) ~ a * exp(-b * min_dist_to_ligand),
@@ -299,12 +273,15 @@ exp_model <- nlsLM(
 )
 exp_model
 ```
+
+## Bootstrap CI
+
+This section bootstraps the exponential fit 1000 times to derive 95% confidence intervals for the decay curve and half-distance.
+
 ```{r}
-# --- Prediction grid ---
 x_vals <- seq(min(merged_df_residue$min_dist_to_ligand),
               max(merged_df_residue$min_dist_to_ligand), length.out = 200)
 
-# --- Bootstrapping for confidence intervals ---
 set.seed(11)
 boot_params <- replicate(1000, {
   samp <- merged_df_residue[sample(nrow(merged_df_residue), replace = TRUE), ]
@@ -322,7 +299,6 @@ fit_df_residue <- data.frame(
   upper = apply(boot_preds, 1, quantile, probs = 0.975)
 )
 
-# --- Model parameter extraction and derived quantity ---
 model_summary <- summary(exp_model)
 coefs <- coef(exp_model)
 se <- model_summary$coefficients[, "Std. Error"]
@@ -339,28 +315,28 @@ half_d <- log(2) / coefs["b"]
 half_d_ci <- quantile(log(2) / boot_params[, "b"], probs = c(0.025, 0.975))
 residue_half_d <- c(half_d, half_d_ci)
 
-cat("Parameter a (intercept):", residue_a, "\n") 
-cat("Parameter b (decay rate):", residue_b, "\n")   
-cat("Half-distance (log(2)/b):", residue_half_d, "\n") 
+cat("Parameter a (intercept):", residue_a, "\n")
+cat("Parameter b (decay rate):", residue_b, "\n")
+cat("Half-distance (log(2)/b):", residue_half_d, "\n")
 ```
 
+## Decay Plot
+
+This section plots the exponential decay of allosteric signal magnitude versus distance to the ligand.
+
 ```{r, fig.width=5, fig.height=5}
-# --- Annotate site types ---
 merged_df_residue <- merged_df_residue %>%
   mutate(site_type = if_else(new_position %in% active_site_positions, "orthosteric", "non-orthosteric"))
 
-# --- Plot ---
 orange_labs <- active_site_positions
 cyan_labs <- c(111,119,120,121,124,128,130,255,258,259,267,269,278,281,284)
 all_labs <- union(orange_labs, cyan_labs)
 
 p_decay <- ggplot(merged_df_residue, aes(x = min_dist_to_ligand, y = abs(loess_residual_avg))) +
 
-  # Unlabeled points
   geom_point(data = subset(merged_df_residue, !new_position %in% all_labs),
              aes(color = site_type), size = 2, alpha = 0.5) +
 
-  # CI ribbon
   geom_ribbon(
   data = fit_df_residue,
   aes(x = min_dist_to_ligand, ymin = lower, ymax = upper),
@@ -368,7 +344,6 @@ p_decay <- ggplot(merged_df_residue, aes(x = min_dist_to_ligand, y = abs(loess_r
   fill = "grey70",
   alpha = 0.3) +
 
-  # Main fit line
   geom_line(
   data = fit_df_residue,
   aes(x = min_dist_to_ligand, y = loess_residual_pred),
@@ -376,16 +351,13 @@ p_decay <- ggplot(merged_df_residue, aes(x = min_dist_to_ligand, y = abs(loess_r
   color = "black")+
 
 
-  # Labeled orange points
   geom_point(data = subset(merged_df_residue, new_position %in% orange_labs),
              shape = 16, size = 2, color = "#E69F00") +
-  # Labeled cyan points
   geom_point(data = subset(merged_df_residue, new_position %in% cyan_labs),
              shape = 17, size = 3, color = "#4DBBD5") +
   geom_text_repel(data = subset(merged_df_residue, new_position %in% cyan_labs),
                   aes(label = new_position), color = "black") +
 
-  # Labels and theme
   labs(
     title = "IDH",
     x = "Minimal distance to NDP (PDB:6IO0)",
@@ -393,50 +365,49 @@ p_decay <- ggplot(merged_df_residue, aes(x = min_dist_to_ligand, y = abs(loess_r
   ) +
   theme_classic() +
   theme(legend.position = "none", base = 12) +
-  scale_color_manual(values = c("non-orthosteric" = "#8DAA9D", "orthosteric" = "#E69F00")) 
+  scale_color_manual(values = c("non-orthosteric" = "#8DAA9D", "orthosteric" = "#E69F00"))
 
-p_decay <- ggMarginal(
-  p_decay,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p_decay <- add_marginal_density(p_decay)
 
 p_decay
 ```
 
 ```{r}
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_decay6.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_decay6.pdf",
        plot = p_decay, width = 4, height = 4, dpi = 300)
 ```
+
+# Log-Linear Regression
+
+This section fits a log-linear model as a complementary check on the distance-residual relationship.
 
 ```{r}
 lm_model <- lm(log(abs(loess_residual_avg)) ~ min_dist_to_ligand, data = merged_df_residue)
 summary(lm_model)
 
 # Call:
-# lm(formula = log(abs(loess_residual_avg)) ~ min_dist_to_ligand, 
+# lm(formula = log(abs(loess_residual_avg)) ~ min_dist_to_ligand,
 #     data = merged_df_residue)
-# 
+#
 # Residuals:
-#     Min      1Q  Median      3Q     Max 
-# -4.1821 -0.3790  0.1932  0.6297  1.4218 
-# 
+#     Min      1Q  Median      3Q     Max
+# -4.1821 -0.3790  0.1932  0.6297  1.4218
+#
 # Coefficients:
-#                     Estimate Std. Error t value Pr(>|t|)    
+#                     Estimate Std. Error t value Pr(>|t|)
 # (Intercept)         1.134267   0.104507  10.854  < 2e-16 ***
 # min_dist_to_ligand -0.034850   0.005459  -6.384 5.36e-10 ***
 # ---
-# Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
-# 
+# Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+#
 # Residual standard error: 0.9144 on 357 degrees of freedom
-# Multiple R-squared:  0.1025,	Adjusted R-squared:  0.09995 
+# Multiple R-squared:  0.1025,	Adjusted R-squared:  0.09995
 # F-statistic: 40.76 on 1 and 357 DF,  p-value: 5.364e-10
 ```
+
+# Violin Plot: Site Classification
+
+This section compares residual magnitudes across orthosteric, allosteric, and other site classes using violin plots with Wilcoxon tests.
 
 ```{r, fig.width=5, fig.height=5}
 orthosteric_sites <- active_site_positions
@@ -464,7 +435,6 @@ p3 <- ggplot(merged_df_residue, aes(x = site_class, y = abs(loess_residual_avg),
   geom_jitter(width = 0.15, size = 2, alpha = 0.7, color = "lightgrey") +
   stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
   stat_summary(fun = median, geom = "point", shape = 23, size = 2, fill = "black", color = "black", stroke = 0.7) +
-  # Add sample size n=xxx above each group
   geom_text(
     data = label_df,
     aes(x = site_class, y = max(abs(merged_df_residue$loess_residual_avg)) * 1.1,
@@ -478,7 +448,6 @@ p3 <- ggplot(merged_df_residue, aes(x = site_class, y = abs(loess_residual_avg),
   inherit.aes = FALSE,
   size = 5
 ) +
-  # Significance bars
   geom_signif(
     comparisons = list(
       c("orthosteric", "allosteric"),
@@ -491,7 +460,6 @@ p3 <- ggplot(merged_df_residue, aes(x = site_class, y = abs(loess_residual_avg),
     tip_length = 0.01
   ) +
 
-  # Labels and theme
   labs(
     title = "IDH (per residue)",
     x = "",
@@ -508,25 +476,11 @@ p3 <- ggplot(merged_df_residue, aes(x = site_class, y = abs(loess_residual_avg),
 p3
 ```
 
+# Save Figures
+
+Write the violin plot panel to disk as a publication-ready PDF.
+
 ```{r}
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_violin6.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_violin6.pdf",
        plot = p3, width = 3, height = 4, dpi = 300)
 ```
-
-
-
-
-```{r}
-
-```
-
-
-
-
-
-
-
-
-
-
-

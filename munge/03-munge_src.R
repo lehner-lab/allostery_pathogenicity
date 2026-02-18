@@ -65,7 +65,7 @@ src_merged_df <- src_ddg %>%
          position_old = str_extract(id, '\\d+'),
          mt_aa = str_extract(id, '[A-Za-z]+$')) %>%
   mutate(position_old = as.numeric(position_old)) %>% 
-  rename(old_id = id) %>% 
+  dplyr::rename(old_id = id) %>% 
   mutate(Pos_real = position_old + 267) %>% 
   mutate(id = paste0(wt_aa, Pos_real, mt_aa))
 

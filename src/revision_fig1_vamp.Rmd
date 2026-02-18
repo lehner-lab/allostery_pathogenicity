@@ -1,8 +1,10 @@
 ---
-title: "revision_fig1_vamp.Rmd"
+title: "Fig 1: VAMP-seq Protein Stability — AlphaMissense R² Analysis"
 output: html_document
 date: "2025-12-02"
 ---
+
+# Setup
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -15,6 +17,9 @@ load.project()
 ```
 
 # VKOR
+
+Load VKOR VAMP-seq abundance and activity scores and merge with AlphaMissense predictions.
+
 ```{r}
 vkor_ddgf <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/VKOR1_HUMAN_Chiasson_2020_abundance.csv", header = TRUE)
 vkor_ddga <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/VKOR1_HUMAN_Chiasson_2020_activity.csv", header = TRUE)
@@ -32,6 +37,10 @@ vkor_df$AM_logit <- log(vkor_df$AM_clamped / (1 - vkor_df$AM_clamped))
 
 head(vkor_df)
 ```
+
+# OCT2
+
+Load OCT2 transporter VAMP-seq abundance scores and merge with AlphaMissense predictions.
 
 ```{r}
 oct_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/S22A1_HUMAN_Yee_2023_abundance.csv", header = TRUE)
@@ -58,6 +67,11 @@ oct_df$AM_logit <- log(oct_df$AM_clamped / (1 - oct_df$AM_clamped))
 
 head(oct_df)
 ```
+
+# GCK
+
+Load GCK VAMP-seq abundance scores and merge with AlphaMissense predictions.
+
 ```{r}
 gck_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/HXK4_HUMAN_Gersing_2023_abundance.csv", header = TRUE)
 gck_am <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/vampseq_am/P35557.csv")
@@ -76,6 +90,10 @@ gck_df$AM_logit <- log(gck_df$AM_clamped / (1 - gck_df$AM_clamped))
 head(gck_df)
 ```
 
+# PTEN
+
+Load PTEN VAMP-seq abundance scores and merge with AlphaMissense predictions.
+
 ```{r}
 pten_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/PTEN_HUMAN_Matreyek_2021.csv", header = TRUE)
 pten_am <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/vampseq_am/P60484.csv")
@@ -89,6 +107,10 @@ pten_df$AM_logit <- log(pten_df$AM_clamped / (1 - pten_df$AM_clamped))
 
 head(pten_df)
 ```
+
+# CYP2C9
+
+Load CYP2C9 VAMP-seq abundance scores and merge with AlphaMissense predictions.
 
 ```{r}
 cyp2c9_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/CP2C9_HUMAN_Amorosi_2021_abundance.csv", header = TRUE)
@@ -107,6 +129,11 @@ cyp2c9_df$AM_logit <- log(cyp2c9_df$AM_clamped / (1 - cyp2c9_df$AM_clamped))
 
 head(cyp2c9_df)
 ```
+
+# TPMT
+
+Load TPMT VAMP-seq abundance scores and merge with AlphaMissense predictions.
+
 ```{r}
 tpmt_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/TPMT_HUMAN_Matreyek_2018.csv", header = TRUE)
 tpmt_am <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/vampseq_am/P51580.csv")
@@ -124,12 +151,20 @@ tpmt_df$AM_logit <- log(tpmt_df$AM_clamped / (1 - tpmt_df$AM_clamped))
 
 head(tpmt_df)
 ```
+
+# NUDT15
+
+Load NUDT15 VAMP-seq abundance scores and merge with AlphaMissense predictions.
+
 ```{r}
 nudt15_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/NUD15_HUMAN_Suiter_2020_all.csv", header = TRUE)
 nudt15_am <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/vampseq_am/Q9NV35.csv")
 nudt15_ddg <- nudt15_ddg %>% dplyr::select(mutant, Average_abundance_score)  %>%
   drop_na(mutant, Average_abundance_score)
 nrow(nudt15_ddg) #2924
+nudt15_ddg
+```
+```{r}
 nrow(nudt15_am) #3116
 
 nudt15_df <- merge(nudt15_ddg, nudt15_am, by.x = "mutant", by.y = "protein_variant")
@@ -138,13 +173,19 @@ nrow(nudt15_df) #2922
 nudt15_df <- nudt15_df %>%
   mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
 
-nudt15_df <- nudt15_df %>% rename( DMS_score = Average_abundance_score)
+nudt15_df <- nudt15_df %>% dplyr::rename( DMS_score = Average_abundance_score)
 
 nudt15_df$AM_clamped <- pmin(pmax(nudt15_df$am_pathogenicity, epsilon), 1 - epsilon)
 nudt15_df$AM_logit <- log(nudt15_df$AM_clamped / (1 - nudt15_df$AM_clamped))
 
 head(nudt15_df)
 ```
+
+
+# PRKN
+
+Load Parkin VAMP-seq abundance scores and merge with AlphaMissense predictions.
+
 ```{r}
 prkn_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/proteinGym/PRKN_HUMAN_Clausen_2023.csv", header = TRUE)
 prkn_am <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/vampseq_am/O60260.csv")
@@ -162,6 +203,11 @@ prkn_df$AM_logit <- log(prkn_df$AM_clamped / (1 - prkn_df$AM_clamped))
 
 head(prkn_df)
 ```
+
+# ASPA
+
+Load ASPA VAMP-seq abundance scores from MaveDB and merge with AlphaMissense predictions.
+
 ```{r}
 aspa_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_ddg/ASPA_mavedb/urn_mavedb_00000657-a-1_scores_abundance.csv", header = TRUE)
 aspa_am <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/vampseq_am/P45381.csv")
@@ -174,9 +220,9 @@ nrow(aspa_am) #5947
 
 # Amino acid three-letter to one-letter code mapping
 aa_map <- c(
-  Ala = "A", Arg = "R", Asn = "N", Asp = "D", Cys = "C", 
-  Gln = "Q", Glu = "E", Gly = "G", His = "H", Ile = "I", 
-  Leu = "L", Lys = "K", Met = "M", Phe = "F", Pro = "P", 
+  Ala = "A", Arg = "R", Asn = "N", Asp = "D", Cys = "C",
+  Gln = "Q", Glu = "E", Gly = "G", His = "H", Ile = "I",
+  Leu = "L", Lys = "K", Met = "M", Phe = "F", Pro = "P",
   Ser = "S", Thr = "T", Trp = "W", Tyr = "Y", Val = "V", Ter = "*"
 )
 
@@ -184,16 +230,16 @@ aa_map <- c(
 convert_to_short_format <- function(hgvs_pro) {
   # Skip if there's no change (p.=)
   if (hgvs_pro == "p.=") return(NA)
-  
+
   # Extract parts of the mutation using regex
   matches <- regmatches(hgvs_pro, regexec("p\\.(\\w{3})(\\d+)(\\w{3})", hgvs_pro))
   if (length(matches[[1]]) < 4) return(NA)  # Return NA if format doesn't match
-  
+
   # Map three-letter codes to one-letter codes and format as "T2A"
   wt_aa <- aa_map[matches[[1]][2]]
   position <- matches[[1]][3]
   mut_aa <- aa_map[matches[[1]][4]]
-  
+
   paste0(wt_aa, position, mut_aa)
 }
 
@@ -203,7 +249,7 @@ aspa_ddg$variant <- sapply(aspa_ddg$hgvs_pro, convert_to_short_format)
 aspa_df <- merge(aspa_ddg, aspa_am, by.x = "variant", by.y = "protein_variant")
 aspa_df <- aspa_df %>%
   mutate(mutation_position = as.numeric(str_extract(variant, "(?<=\\D)(\\d+)(?=\\D)")))
-aspa_df <- aspa_df %>% rename(DMS_score = score )
+aspa_df <- aspa_df %>% dplyr::rename(DMS_score = score )
 
 aspa_df$AM_clamped <- pmin(pmax(aspa_df$am_pathogenicity, epsilon), 1 - epsilon)
 aspa_df$AM_logit <- log(aspa_df$AM_clamped / (1 - aspa_df$AM_clamped))
@@ -212,36 +258,39 @@ nrow(aspa_df) #5843
 head(aspa_df)
 ```
 
+# R² Calculation
+
+Fit linear models of VAMP-seq DMS score against AlphaMissense logit for each protein and compute R².
 
 ```{r}
 # Wrapper function to fit linear model and calculate R² for each data frame
 calculate_r2_for_dfs <- function(dfs, x_var, y_var) {
   results <- list()
-  
+
   for (name in names(dfs)) {
     df <- dfs[[name]]
-    
+
     # Fit the model
     model <- lm(as.formula(paste(y_var, "~", x_var)), data = df)
     r2 <- summary(model)$r.squared
-    
+
     # Count rows
     n_rows <- nrow(df)
-    
+
     # Store results in a named list
     results[[name]] <- list(
       r_squared = r2,
       n_rows = n_rows
     )
   }
-  
+
   return(results)
 }
 
 # Example usage
 # Combine data frames into a named list
 combo_df <- list(vkor_df = vkor_df, oct_df = oct_df, gck_df = gck_df,
-                 pten_df = pten_df, cyp2c9_df = cyp2c9_df, tpmt_df = tpmt_df, 
+                 pten_df = pten_df, cyp2c9_df = cyp2c9_df, tpmt_df = tpmt_df,
                  nudt15_df = nudt15_df, prkn_df = prkn_df, aspa_df = aspa_df)
 
 # Calculate R² for each data frame using the wrapper function
@@ -267,10 +316,14 @@ r2_df <- r2_df %>%
 r2_df <- r2_df %>% arrange(desc(r_squared))
 r2_df
 ```
+
 ```{r}
 median(r2_df$r_squared)
 ```
 
+# R² Bar Plot
+
+Bar plot of per-protein R² values for VAMP-seq abundance vs. AlphaMissense logit pathogenicity.
 
 ```{r, fig.width=8, fig.height=4}
 # a small offset above the bar for n labels
@@ -281,18 +334,18 @@ p1 <- ggplot(r2_df,
                  y = r_squared,
                  fill = type)) +
   geom_col() +
-  
+
   # R² label in the middle of each bar
   geom_text(aes(y = r_squared / 2,
                 label = round(r_squared, 3)),
             color = "black", size = 4.5) +
-  
+
   # n label above each bar
   geom_text(aes(y = r_squared + offset,
                 label = paste0("n=", n_rows)),
             color = "black", size = 4) +
-  
-  labs(title = "VAMP-seq Datasets: 9 Full-length Human Proteins", 
+
+  labs(title = "VAMP-seq Datasets: 9 Full-length Human Proteins",
        subtitle = "Linear regression",
        x = "", y = "R squared") +
   theme_classic(base_size = 14) +
@@ -301,14 +354,11 @@ p1 <- ggplot(r2_df,
   theme(axis.text.x = element_text(size = 12, angle = 45, hjust = 1),
         legend.position = "right") +
   # give some headroom for the n labels
-  ylim(0, 1) 
+  ylim(0, 1)
 
 p1
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig1_vamp_r2_am.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig1_vamp_r2_am.pdf",
        plot = p1, width = 8, height = 4, dpi = 300)
 p1
 ```
-
-
-

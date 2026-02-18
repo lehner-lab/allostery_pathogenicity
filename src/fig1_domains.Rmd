@@ -1,8 +1,13 @@
 ---
-title: "fig1_domains"
+title: "ESM1v vs. Experimental Fitness Across Protein Domains (Domainome & Mega-scale)"
 output: pdf_document
 date: "2025-06-14"
 ---
+
+# Setup
+
+Load required libraries and set the working directory.
+
 ```{r setup, echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
@@ -12,9 +17,15 @@ library(bio3d)
 library(ggrepel)
 ```
 
+# Domainome 1.0
+
+## Load and Preprocess Domainome Data
+
+Read the Domainome 1.0 supplement table, remove variants missing ESM1v scores or fitness measurements, and parse mutation identifiers and positions from the UniProt mutation strings.
+
 ```{r}
 # Load and preprocess data
-domainome_data <- read_tsv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domainome/Extended_data_Table_5_aPCA_vs_variant_effect_predictors.txt")
+domainome_data <- read_tsv("/Users/xl7/Documents/0.Projects/00.large_supplements/domainome/Extended_data_Table_5_aPCA_vs_variant_effect_predictors.txt")
 setDT(domainome_data)
 
 # Initial dimensions
@@ -22,7 +33,7 @@ cat("Initial rows:", nrow(domainome_data), "\n")  # 607081
 cat("Initial unique domains:", length(unique(domainome_data$domain_ID)), "\n")  # 522
 
 # Remove rows with missing values
-domainome_data <- domainome_data[!is.na(ESM1v_domain) & 
+domainome_data <- domainome_data[!is.na(ESM1v_domain) &
                                  !is.na(scaled_fitness)]
 cat("Filtered rows:", nrow(domainome_data), "\n")  # 540283
 cat("Filtered unique domains:", length(unique(domainome_data$domain_ID)), "\n")  # 522
@@ -56,7 +67,13 @@ r_squared_df <- data.frame(
 median_r_squared <- median(r_squared_df$adj.r.squared)
 median_r_squared #0.2515005
 ```
+
 # Megascale
+
+## Load and Clean Mega-scale Stability Data
+
+Read the Mega-scale (Tsuboyama 2023) ddG dataset, discard insertions/deletions and rows with missing ddG values, then classify each variant into stabilizing, destabilizing, or wild-type-like stability classes.
+
 ```{r}
 # Load data
 data <- read.csv("/Users/xl7/Documents/0.Projects/00.large_supplements/Rocklin2023/Processed_K50_dG_datasets/Tsuboyama2023_Dataset2_Dataset3_20230416.csv")
@@ -68,6 +85,11 @@ data <- data %>%
 
 cat("Cleaned dataset dimensions:", dim(data), "\n")
 ```
+
+## Filter for Proteins with Available AlphaFold Structures
+
+Assign stability classes and restrict the dataset to wild-type proteins that have a corresponding AlphaFold PDB model on disk.
+
 ```{r}
 data <- data %>%
   mutate(
@@ -90,11 +112,14 @@ megascale_df <- data %>%
   ungroup()
 
 cat("Filtered for PDB-available WT proteins:", dim(megascale_df), "\n")
-#Filtered for PDB-available WT proteins: 272712 39 
+#Filtered for PDB-available WT proteins: 272712 39
 
 length(unique(megascale_df$WT_name)) #298
 ```
 
+## Merge Mega-scale Data with ProteinGym ESM1v Scores
+
+Join the Mega-scale stability measurements with pre-computed ESM1v ensemble scores from ProteinGym by matching mutated sequences, then write the merged table to disk.
 
 ```{r}
 # Recalculate stability classes just to ensure consistency
@@ -133,6 +158,10 @@ write.csv(megascale_merged_df,
           row.names = FALSE)
 ```
 
+## Map PDB Identifiers to UniProt Accessions
+
+Extract unique wild-type protein names, strip the `.pdb` extension, and use a pre-downloaded UniProt ID-mapping table to identify proteins that appear in both the Mega-scale and Domainome datasets.
+
 ```{r}
 unique(megascale_merged_df$WT_name)
 cat(paste(unique(megascale_merged_df$WT_name), collapse = ", "))
@@ -150,11 +179,15 @@ overlapped_uniprot <- intersect(unique(domainome_data$uniprot_ID), mapped_unipro
 #"O75400" "O94993" "O95155" "P02640" "P07751" "P11961" "P40040" "Q13526" "Q16512" "Q9ULT8"
 ```
 
+## Identify Overlapping Proteins Between Datasets
+
+Pull the PDB base names corresponding to UniProt accessions shared between Mega-scale and Domainome, then extract one representative sequence per overlapping protein from each dataset.
+
 ```{r}
 overlapped_pdb <- pdb_map %>% filter (Entry %in% overlapped_uniprot) %>% pull(From)
 #"3DKM" "1W4G" "1I6C" "1URF" "1UZC" "7JJK" "1TUD" "2WQG" "3L1X" "1YU5"
 megascale_merged_df$base_name <- sub("\\.pdb$", "", megascale_merged_df$base_name)
-megascale_merged_df_overlap <- megascale_merged_df %>% filter(base_name %in% overlapped_pdb) 
+megascale_merged_df_overlap <- megascale_merged_df %>% filter(base_name %in% overlapped_pdb)
 
 megascale_merged_df_overlap <- megascale_merged_df_overlap %>%
   group_by(base_name) %>%
@@ -163,6 +196,9 @@ megascale_merged_df_overlap <- megascale_merged_df_overlap %>%
 megascale_merged_df_overlap
 ```
 
+## Extract Domainome Sequences for Overlapping Proteins
+
+Retrieve one representative domain sequence per overlapping UniProt entry from the Domainome dataset for manual sequence comparison.
 
 ```{r}
 domainome_data_overlap <- domainome_data %>% filter(uniprot_ID %in% overlapped_uniprot) %>%
@@ -171,43 +207,54 @@ domainome_data_overlap <- domainome_data %>% filter(uniprot_ID %in% overlapped_u
   ungroup() %>% dplyr::select(uniprot_ID, domain_ID, aa_seq)
 domainome_data_overlap
 ```
+
+## Cross-reference Domainome and Mega-scale via PDB Map
+
+Join the Domainome overlap sequences with the PDB-to-UniProt mapping table to pair each domain sequence with its corresponding PDB identifier.
+
 ```{r}
 merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry")
 ```
 
+## Manual Sequence Overlap Verification
+
+Retrieve paired wild-type sequences from both datasets for each overlapping protein to enable manual alignment checks in tools like AliView.
 
 ```{r}
 # check overlap manually in Aliview
-megascale_merged_df %>% filter(base_name == "1URF") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED 
+megascale_merged_df %>% filter(base_name == "1URF") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED
 merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "Q16512") %>% pull(aa_seq)
 
-megascale_merged_df %>% filter(base_name == "1I6C") %>% slice(1) %>% pull(wt_seq)#OVERLAPPED 
+megascale_merged_df %>% filter(base_name == "1I6C") %>% slice(1) %>% pull(wt_seq)#OVERLAPPED
 merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "Q13526") %>% pull(aa_seq)
 
-megascale_merged_df %>% filter(base_name == "2WQG") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED 
+megascale_merged_df %>% filter(base_name == "2WQG") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED
 merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "P40040") %>% pull(aa_seq)
 
-megascale_merged_df %>% filter(base_name == "1W4G") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED 
+megascale_merged_df %>% filter(base_name == "1W4G") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED
 merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "P11961") %>% pull(aa_seq)
 
-megascale_merged_df %>% filter(base_name == "1TUD") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED 
+megascale_merged_df %>% filter(base_name == "1TUD") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED
 merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "P07751") %>% pull(aa_seq)
 
-megascale_merged_df %>% filter(base_name == "1YU5") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED 
+megascale_merged_df %>% filter(base_name == "1YU5") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED
 merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "P02640") %>% pull(aa_seq)
 
-megascale_merged_df %>% filter(base_name == "3L1X") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED 
+megascale_merged_df %>% filter(base_name == "3L1X") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED
 merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "O95155") %>% pull(aa_seq)
 
-megascale_merged_df %>% filter(base_name == "7JJK") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED 
+megascale_merged_df %>% filter(base_name == "7JJK") %>% slice(1) %>% pull(wt_seq) #OVERLAPPED
 merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "O94993") %>% pull(aa_seq)
 
-megascale_merged_df %>% filter(base_name == "1UZC") %>% slice(1) %>% pull(wt_seq) #checked unique 
+megascale_merged_df %>% filter(base_name == "1UZC") %>% slice(1) %>% pull(wt_seq) #checked unique
 
-megascale_merged_df %>% filter(base_name == "3DKM") %>% slice(1) %>% pull(wt_seq) #checked unique 
+megascale_merged_df %>% filter(base_name == "3DKM") %>% slice(1) %>% pull(wt_seq) #checked unique
 merge(domainome_data_overlap, pdb_map, by.x="uniprot_ID", by.y = "Entry") %>% filter(uniprot_ID == "Q9ULT8") %>% pull(aa_seq)
 ```
 
+## Remove Overlapping Proteins and Compute Per-domain R²
+
+Exclude Mega-scale proteins whose sequences overlap with the Domainome to avoid double-counting, then fit per-protein linear models between ESM1v scores and ddG values and summarise the distribution with a median R².
 
 ```{r}
 megascale_merged_df_fil <- megascale_merged_df %>% filter(!base_name %in% c("1URF","1I6C","2WQG","1W4G","1TUD","1YU5","3L1X","7JJK"))
@@ -219,8 +266,6 @@ head(megascale_merged_df_fil)
 #          "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/megascale/megascale_esm1v_58_proteingym.csv",
 #          row.names = FALSE)
 ```
-
-
 
 ```{r}
 megascale_list <- split(megascale_merged_df_fil, megascale_merged_df_fil$base_name)
@@ -244,6 +289,12 @@ megascale_r_squared_df <- data.frame(
 megascale_median_r_squared <- median(megascale_r_squared_df$adj.r.squared)
 megascale_median_r_squared #0.2175292
 ```
+
+# Combined R² Distribution Plot
+
+## Visualise ESM1v Predictive Performance Across Both Datasets
+
+Combine the per-domain R² values from Domainome and Mega-scale into a single data frame and produce a violin-plus-boxplot figure comparing the distributions, annotated with domain counts and median R².
 
 ```{r}
 # Create a combined dataframe for plotting
@@ -291,22 +342,35 @@ p1 <- ggplot(r2_combined, aes(x = source, y = adj.r.squared, fill = source)) +
     plot.subtitle = element_text(size = 13),
     legend.position = "none"
   )
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig1_domains_r2.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig1_domains_r2.pdf",
        plot = p1, width = 6, height = 4, dpi = 300)
 p1
 ```
+
+## Report R² Ranges for Both Datasets
+
+Print the minimum and maximum adjusted R² values observed across domains in each dataset.
+
 ```{r}
 range(r_squared_df$adj.r.squared) #-0.0009882439  0.6039444000
 range(megascale_r_squared_df$adj.r.squared) # 0.0009137284 0.5690583561
 ```
 
+## Count Human Domains in Mega-scale
+
+Tally how many of the non-overlapping Mega-scale proteins are annotated as human, and compare this to the number of human domains covered by Domainome.
 
 ```{r}
 nrow(pdb_map %>% filter(!From %in% c("1URF","1I6C","2WQG","1W4G","1TUD","1YU5","3L1X","7JJK")) %>% filter(Organism == "Homo sapiens (Human)")) #18
-# 18 human domains in megascale 
-# 500 human domains in domainome 
+# 18 human domains in megascale
+# 500 human domains in domainome
 ```
 
+# ClinVar Variant Analysis
+
+## Classify Domainome Variants by Stability Using Z-scores
+
+Compute per-variant z-scores from scaled fitness and its standard error, apply FDR correction, and assign each variant to one of four stability categories (stabilizing, mildly destabilizing, strongly destabilizing, or wild type-like).
 
 ```{r}
 # Step 1: Calculate z-scores based on scaled_gr and its sigma
@@ -329,9 +393,13 @@ domainome_data[fdr_destabilising < 0.1 & scaled_fitness < 0, stability_class := 
 domainome_data[fdr_destabilising < 0.1 & scaled_fitness < (-0.3), stability_class := "strongly destabilizing"]
 
 table(domainome_data$stability_class)
-#  mildly destabilizing            stabilizing strongly destabilizing         wild type-like 
-#                103114                   4932                 194801                 237436 
+#  mildly destabilizing            stabilizing strongly destabilizing         wild type-like
+#                103114                   4932                 194801                 237436
 ```
+
+## Merge Domainome with ClinVar Annotations
+
+Load the proteome-wide ClinVar variant table and join it to the Domainome dataset by UniProt accession and variant identifier to obtain clinically annotated variants with experimental fitness measurements.
 
 ```{r}
 clinvar_csv <- read.csv("~/Documents/0.Projects/01.protein-seq-evo-v1/data/proteome_meta/20250616_clinvar_proteome.csv")
@@ -344,6 +412,10 @@ nrow(domainome_merged_df) #632
 head(domainome_merged_df)
 ```
 
+## Attempted ClinVar Merge for Mega-scale (Commented Out)
+
+This block documents an attempted inner join between the Mega-scale dataset and ClinVar via UniProt accessions; it is kept for reference because the merge yields no overlapping variants.
+
 ```{r}
 # megascale_merged_df_fil <- merge(pdb_map, megascale_merged_df_fil, by.x = "From", by.y = "base_name")
 # megascale_merged_df_fil <- megascale_merged_df_fil %>% dplyr::rename(variant = mutant,
@@ -352,6 +424,10 @@ head(domainome_merged_df)
 # # null
 ```
 
+## Recode Stability Classes for Plotting
+
+Collapse the four-level stability classification into three broader groups (stabilizing, destabilizing, WT-like) to simplify the ClinVar stacked-bar figure.
+
 ```{r}
 domainome_merged_df <- domainome_merged_df %>%
   mutate(stability = case_when(
@@ -359,10 +435,14 @@ domainome_merged_df <- domainome_merged_df %>%
     stability_class %in% c("strongly destabilizing") ~ "destabilizing",
     stability_class %in% c("wild type-like","mildly destabilizing") ~ "WT-like",
     TRUE ~ stability_class  # Keep other categories unchanged
-  )) 
+  ))
 
 table(domainome_merged_df$stability)
 ```
+
+## Summarise Stability by ClinVar Classification
+
+Merge likely benign/pathogenic with their definitive counterparts, group by clinical significance and stability, and compute per-group variant counts and percentages for the bar chart.
 
 ```{r}
 domainome_summary_df <- domainome_merged_df %>%
@@ -382,7 +462,9 @@ domainome_summary_df <- domainome_merged_df %>%
 domainome_summary_df
 ```
 
+## Plot ClinVar Stability Distribution (Domainome)
 
+Produce a stacked bar chart showing the proportion of stabilizing, destabilizing, and WT-like variants among benign and pathogenic ClinVar entries across 167 human domains, and save it as a PDF panel.
 
 ```{r}
 # Set factor levels for consistent ordering
@@ -395,7 +477,7 @@ length(unique(domainome_merged_df$domain_ID)) #167
 
 p2 <- ggplot(domainome_summary_df, aes(x = clinvar_clinical_significance, y = percent, fill = stability)) +
   geom_bar(stat = "identity", position = "stack", width = 0.7) +  # Stacked bars
-  geom_text(aes(label = paste0(round(percent, 1), "% (", count, ")")), 
+  geom_text(aes(label = paste0(round(percent, 1), "% (", count, ")")),
             position = position_stack(vjust = 0.5), size = 4) +  # Center labels in stacks
   scale_fill_brewer(palette = "Set2") +
   labs(title = "Domainome: 167 Human Domains", subtitle = "632 variants",
@@ -406,26 +488,30 @@ p2 <- ggplot(domainome_summary_df, aes(x = clinvar_clinical_significance, y = pe
         plot.subtitle = element_text(size = 14, hjust = 0),
         axis.text.y = element_text(size = 12) ,
         axis.text.x = element_text(size = 12) ,
-        axis.title.y = element_text(size = 14))    
+        axis.title.y = element_text(size = 14))
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig1_domains_clinvar.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/panels/fig1_domains_clinvar.pdf",
        plot = p2, width = 4, height = 4, dpi = 300)
 p2
 ```
 
+## ROC/PR-AUC Calculation (Commented Out)
+
+This block documents the binary classification vectors and ROC/PR-AUC calculations used to evaluate destabilization as a predictor of ClinVar pathogenicity; kept for reproducibility reference.
+
 ```{r}
 # # # domainome
-# # clinvar_clinical_significance    stability.  count.   percent.  
-# # benign	WT-like	139	        86.335404	
-# # benign	destabilizing	19	  11.801242	
-# # benign	stabilizing	3	      1.863354	
-# # pathogenic	WT-like	221	    46.921444	
-# # pathogenic	destabilizing	  245	52.016985	
-# # pathogenic	stabilizing	5	  1.061571	
-# 
+# # clinvar_clinical_significance    stability.  count.   percent.
+# # benign	WT-like	139	        86.335404
+# # benign	destabilizing	19	  11.801242
+# # benign	stabilizing	3	      1.863354
+# # pathogenic	WT-like	221	    46.921444
+# # pathogenic	destabilizing	  245	52.016985
+# # pathogenic	stabilizing	5	  1.061571
+#
 # # patho 221+245+5 = 471
 # # benign 139+19+3 = 161
-# 
+#
 # # Create expanded binary vectors
 # y_true <- c(
 #   rep(1, 245),  # pathogenic destabilizing
@@ -433,7 +519,7 @@ p2
 #   rep(0, 19),   # benign destabilizing
 #   rep(0, 142)   # benign non-destabilizing
 # )
-# 
+#
 # # Predicted labels or scores: 1 for destabilizing, 0 for not
 # y_pred <- c(
 #   rep(1, 245),  # pathogenic destabilizing
@@ -441,22 +527,20 @@ p2
 #   rep(1, 19),   # benign destabilizing
 #   rep(0, 142)   # benign non-destabilizing
 # )
-# 
+#
 # # ROC AUC
 # roc_obj <- roc(y_true, y_pred)
 # roc_auc <- auc(roc_obj)
-# 
+#
 # # PR AUC
 # pr_obj <- pr.curve(scores.class0 = y_pred[y_true == 1],
 #                    scores.class1 = y_pred[y_true == 0],
 #                    curve = TRUE)
 # pr_auc <- pr_obj$auc.integral
-# 
+#
 # # Print results
 # cat("ROC-AUC:", round(roc_auc, 4), "\n")
 # #ROC-AUC: 0.7011
 # cat("PR-AUC:", round(pr_auc, 4), "\n")
-# #PR-AUC: 0.8717 
+# #PR-AUC: 0.8717
 ```
-
-

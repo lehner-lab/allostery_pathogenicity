@@ -1,8 +1,12 @@
 ---
-title: "revision_hypermutant.Rmd"
+title: "Supp: Hypermutant Immunoglobulin Proteins — ESM-1v vs. ThermoMPNN Residual Decay Analysis"
 output: html_document
 date: "2025-12-11"
 ---
+
+## Setup
+
+Loads project dependencies including `bio3d` for structural data processing and `ggExtra` for marginal-density scatter plots.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -14,11 +18,21 @@ library(ggrepel)
 load.project()
 ```
 
+## Protein 1: T Cell Receptor Alpha Variable 18 (A0A075B6X5)
+
+### Data Loading
+
+Reads the pre-filtered single-amino-acid variant table for A0A075B6X5, which contains ThermoMPNN-predicted ddGf values and ESM-1v scores for each mutation.
+
 ```{r}
 df <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/supp/A0A075B6X5_filtered_with_esm1v.csv")
 df
 ```
 
+
+### LOESS Residual Model and Scatter Plot
+
+Defines a reusable `plot_loess_residuals` function that fits a symmetric LOESS curve of ESM-1v on ThermoMPNN ddGf (excluding active-site positions), computes per-mutation residuals, and returns a marginal-density scatter plot colored by residual magnitude.
 
 ```{r, fig.width=5, fig.height=5}
 plot_loess_residuals <- function(test_df, active_site_positions,
@@ -73,17 +87,7 @@ plot_loess_residuals <- function(test_df, active_site_positions,
     ) +
     theme(legend.position = "bottom")
   
-  # Add marginal density plots
-  p_marginal <- ggMarginal(
-    p,
-    type = "density",
-    margins = "both",
-    groupColour = FALSE,
-    groupFill = FALSE,
-    size = 10,
-    colour = "grey",
-    fill = "lightgrey"
-  )
+  p_marginal <- add_marginal_density(p)
   
   return(list(
     plot = p_marginal,
@@ -101,15 +105,18 @@ p1 <- df_residual$plot
 p1
 ```
 ```{r}
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_hypermutant_scatter1.pdf", 
+ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_hypermutant_scatter1.pdf",
        plot = p1, width = 3, height = 4, dpi = 300)
 ```
 
+### Structural Distance Computation (CDR Loops)
+
+Loads the AlphaFold2 structure for A0A075B6X5, defines complementarity-determining region (CDR) loops as active-site residues, and computes the minimum side-chain heavy-atom distance from every residue to the CDR atoms.
 
 ```{r}
 #https://www.sciencedirect.com/science/article/pii/S0145305X02000393
-# defined by AF2 structure 
-# 1. Load PDB 
+# defined by AF2 structure
+# 1. Load PDB
 pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/hypermutant/AF-A0A075B6X5-F1-model_v6.pdb", rm.alt = TRUE)
 # 2. Define Active Sites
 active_site_resnos <- c(26:37, 46:51, 69:81)
@@ -173,6 +180,10 @@ min_dist_df <- atom_df %>%
 min_dist_df
 ```
 
+### Merge Residuals with Structural Distances
+
+Joins the per-mutation LOESS residuals to the residue-level minimum CDR distances, retaining only mutations with valid distance measurements.
+
 ```{r}
 merged_df <- merge(df_residual$data, min_dist_df, by.x="new_position", by.y = "resno", all.x = TRUE)
 nrow(merged_df)
@@ -180,6 +191,10 @@ merged_df <- merged_df %>% filter(!is.na(min_dist_to_list))
 nrow(merged_df)
 merged_df
 ```
+
+### Exponential Decay Model (Residual vs. Distance)
+
+Aggregates negative LOESS residuals to the residue level (median), then fits an exponential decay `|residual| ~ a * exp(-b * distance)` excluding CDR residues, and estimates the half-distance with 1000-iteration bootstrap confidence intervals.
 
 ```{r}
 # --- Merge with prediction data ---
@@ -252,6 +267,9 @@ cat("Parameter b (decay rate):", residue_b, "\n")
 cat("Half-distance (log(2)/b):", residue_half_d, "\n")
 ```
 
+### Decay Plot
+
+Plots absolute median residuals against minimum CDR distance, overlaying the exponential fit with bootstrap confidence ribbon and highlighting CDR residues in orange.
 
 ```{r, fig.width=5, fig.height=5}
 # --- Annotate site types ---
@@ -308,11 +326,17 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp
 
 
 
+## Protein 2: Immunoglobulin Kappa Variable 1D-16 (P01601)
+
+### Data Loading and LOESS Scatter Plot
+
+Reads the filtered variant table for P01601 and applies the same LOESS residual model, producing a scatter plot of ESM-1v against ThermoMPNN ddGf.
+
 ```{r}
 df <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/supp/P01601_filtered_with_esm1v.csv")
 df_residual <- plot_loess_residuals(
-  df, 
-  active_site_positions = c(), 
+  df,
+  active_site_positions = c(),
   protein_name = "P01601"
 )
 
@@ -324,9 +348,13 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp
        plot = p1, width = 3, height = 4, dpi = 300)
 ```
 
+### Structural Distance Computation (CDR Loops)
+
+Loads the AlphaFold2 structure for P01601, defines CDR loop residues as active sites, and computes per-residue minimum side-chain distances to those loops.
+
 ```{r}
 #https://www.uniprot.org/uniprotkb/P01601/entry#family_and_domains
-# 1. Load PDB 
+# 1. Load PDB
 pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/hypermutant/AF-P01601-F1-model_v6.pdb", rm.alt = TRUE)
 # 2. Define Active Sites
 active_site_resnos <- c(30:40, 48:54, 70:80)
@@ -389,6 +417,10 @@ min_dist_df <- atom_df %>%
 min_dist_df
 ```
 
+### Merge Residuals with Structural Distances
+
+Joins the per-mutation LOESS residuals to the residue-level minimum CDR distances for P01601, retaining only mutations with valid distance measurements.
+
 ```{r}
 merged_df <- merge(df_residual$data, min_dist_df, by.x="new_position", by.y = "resno", all.x = TRUE)
 nrow(merged_df)
@@ -396,6 +428,10 @@ merged_df <- merged_df %>% filter(!is.na(min_dist_to_list))
 nrow(merged_df)
 merged_df
 ```
+
+### Exponential Decay Model (Residual vs. Distance)
+
+Fits the exponential decay model and derives the half-distance with bootstrapped confidence intervals for P01601.
 
 ```{r}
 # --- Merge with prediction data ---
@@ -467,6 +503,11 @@ cat("Parameter a (intercept):", residue_a, "\n")
 cat("Parameter b (decay rate):", residue_b, "\n")
 cat("Half-distance (log(2)/b):", residue_half_d, "\n")
 ```
+
+### Decay Plot
+
+Plots absolute median residuals against minimum CDR distance with exponential fit and bootstrap ribbon for P01601, highlighting CDR residues in orange.
+
 ```{r, fig.width=5, fig.height=5}
 # --- Annotate site types ---
 merged_df_residue <- merged_df_residue %>%
@@ -519,11 +560,17 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp
        plot = p2, width = 3, height = 3, dpi = 300)
 ```
 
+## Protein 3: Immunoglobulin Kappa Variable 3D-7 (A0A0C4DH55)
+
+### Data Loading and LOESS Scatter Plot
+
+Reads the filtered variant table for A0A0C4DH55 and applies the same LOESS residual model used for the preceding proteins.
+
 ```{r}
 df <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/supp/A0A0C4DH55_filtered_with_esm1v.csv")
 df_residual <- plot_loess_residuals(
-  df, 
-  active_site_positions = c(), 
+  df,
+  active_site_positions = c(),
   protein_name = "A0A0C4DH55"
 )
 
@@ -535,9 +582,13 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp
        plot = p1, width = 3, height = 4, dpi = 300)
 ```
 
+### Structural Distance Computation (CDR Loops)
+
+Loads the AlphaFold2 structure for A0A0C4DH55, defines CDR loop residues, and computes per-residue minimum side-chain distances to those loops.
+
 ```{r}
 #https://www.uniprot.org/uniprotkb/P01601/entry#family_and_domains
-# 1. Load PDB 
+# 1. Load PDB
 pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/hypermutant/AF-A0A0C4DH55-F1-model_v6.pdb", rm.alt = TRUE)
 # 2. Define Active Sites
 active_site_resnos <- c(30:42,48:57,72:86)
@@ -600,6 +651,10 @@ min_dist_df <- atom_df %>%
 min_dist_df
 ```
 
+### Merge Residuals with Structural Distances
+
+Joins the per-mutation LOESS residuals to the residue-level minimum CDR distances for A0A0C4DH55, retaining only mutations with valid distance measurements.
+
 ```{r}
 merged_df <- merge(df_residual$data, min_dist_df, by.x="new_position", by.y = "resno", all.x = TRUE)
 nrow(merged_df)
@@ -607,6 +662,11 @@ merged_df <- merged_df %>% filter(!is.na(min_dist_to_list))
 nrow(merged_df)
 merged_df
 ```
+
+### Exponential Decay Model (Residual vs. Distance)
+
+Fits the exponential decay model and derives the half-distance with bootstrapped confidence intervals for A0A0C4DH55.
+
 ```{r}
 # --- Merge with prediction data ---
 merged_df <- merged_df %>%
@@ -679,6 +739,10 @@ cat("Parameter b (decay rate):", residue_b, "\n")
 cat("Half-distance (log(2)/b):", residue_half_d, "\n")
 ```
 
+### Decay Plot
+
+Plots absolute median residuals against minimum CDR distance with exponential fit and bootstrap ribbon for A0A0C4DH55, highlighting CDR residues in orange.
+
 ```{r, fig.width=5, fig.height=5}
 # --- Annotate site types ---
 merged_df_residue <- merged_df_residue %>%
@@ -731,11 +795,3 @@ p2
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_hypermutant_decay3.pdf", 
        plot = p2, width = 3, height = 3, dpi = 300)
 ```
-
-
-
-
-
-
-
-

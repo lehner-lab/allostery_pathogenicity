@@ -1,8 +1,12 @@
 ---
-title: "Untitled"
+title: "Fig 3: BRCA1 SGE — LOESS Residual Analysis"
 output: html_document
 date: "2026-01-03"
 ---
+
+# Setup
+
+Load required libraries and initialise the ProjectTemplate environment for this analysis.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -13,6 +17,10 @@ library(bio3d)
 library(ggrepel)
 load.project()
 ```
+
+# Data Loading
+
+Load the BRCA1 SGE fitness scores from ProteinGym, ESM-1v predicted pathogenicity scores, and ClinVar germline classifications, then merge them into a single per-variant data frame.
 
 ```{r}
 brca1_exp <- read.csv("~/Documents/0.Projects/00.large_supplements/ProteinGym_v1.1/substitutions_raw_DMS/BRCA1_HUMAN_Findlay_2018.csv", header = TRUE)
@@ -43,6 +51,9 @@ brca1_df <- brca1_df %>%
 table(brca1_df$Germline.classification)
 ```
 
+# LOESS Residual Model
+
+Define the set of known orthosteric (active) positions across the RING and BRCT domains, fit a LOESS curve of SGE score vs. predicted ddGf on non-orthosteric variants only, then compute residuals for all 1837 variants relative to that baseline.
 
 ```{r}
 active_positions <- c(24,27,39,41,44,47,61,64,           # RING zinc binding chimeraX
@@ -77,6 +88,10 @@ fit_line_df$function_score <- predict(loess_fit, newdata = fit_line_df)
 range(brca1_df$residuals)
 ```
 
+# ClinVar Annotation
+
+Classify each variant into Benign, Pathogenic, or Other categories based on the ClinVar germline classification and review status, requiring at least single-submitter evidence for the first two categories.
+
 ```{r}
 unique(brca1_df$Germline.classification)
 unique(brca1_df$Germline.review.status)
@@ -105,6 +120,9 @@ brca1_df <- brca1_df %>%
 table(brca1_df$var_source)
 ```
 
+# Scatter Plots: ddGf vs. SGE Score
+
+Produce three side-by-side scatter plots — all variants, ClinVar Benign, and ClinVar Pathogenic — each overlaid with the non-orthosteric LOESS fit line and coloured by LOESS residual magnitude, with marginal density strips added via `add_marginal_density()`.
 
 ```{r, fig.width=9, fig.height=3}
 nrow(brca1_df)
@@ -138,16 +156,7 @@ p1 <- ggplot(brca1_df, aes(x = ddG_pred, y = function_score, color = residuals))
   legend.background = element_rect(fill = "white", color = NA)
 ) + ylim(-4,2)  + xlim(-1.5,4.5) 
 
-p1 <- ggMarginal(
-  p1,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p1 <- add_marginal_density(p1)
 
 p2 <- ggplot(brca1_df %>% filter (var_source == "Benign"), aes(x = ddG_pred, y = function_score, color = residuals)) +
   geom_point(size = 2) +
@@ -171,16 +180,7 @@ p2 <- ggplot(brca1_df %>% filter (var_source == "Benign"), aes(x = ddG_pred, y =
   legend.background = element_rect(fill = "white", color = NA)
 ) + ylim(-4,2)  + xlim(-1.5,4.5) 
 
-p2 <- ggMarginal(
-  p2,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p2 <- add_marginal_density(p2)
 
 p3 <- ggplot(brca1_df %>% filter (var_source == "Pathogenic"), aes(x = ddG_pred, y = function_score, color = residuals)) +
   geom_point(size = 2, shape = 17) +
@@ -212,16 +212,7 @@ p3 <- ggplot(brca1_df %>% filter (var_source == "Pathogenic"), aes(x = ddG_pred,
   legend.background = element_rect(fill = "white", color = NA)
 ) + ylim(-4,2)  + xlim(-1.5,4.5) 
 
-p3 <- ggMarginal(
-  p3,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p3 <- add_marginal_density(p3)
 
 p4 <- plot_grid(p1,p2,p3, ncol = 3)
 p4
@@ -231,6 +222,9 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3
        plot = p4, width = 9, height = 3, dpi = 300)
 ```
 
+## Legend Panel
+
+Generate a standalone version of the pathogenic scatter plot with the colour-bar legend visible, saved separately for figure assembly.
 
 ```{r}
 legend <- ggplot(brca1_df %>% filter (var_source == "Pathogenic"), aes(x = ddG_pred, y = function_score, color = residuals)) +
@@ -266,6 +260,10 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3
        plot = legend, width = 3, height = 9, dpi = 300)
 ```
 
+# PDB B-factor Mapping
+
+Compute the per-residue median LOESS residual across all variants at each position, then write those values into the B-factor column of three BRCA1 PDB structures (AlphaFold model, 1JM7 RING, 1T29 BRCT) for structural visualisation.
+
 ```{r}
 brca1_df <- brca1_df %>%
   mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
@@ -279,169 +277,24 @@ median_residuals <- brca1_df %>%
 min(median_residuals$median_residuals) #-3.039259
 max(median_residuals$median_residuals) #0.9052505
 
-pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BRCA1/AF-P38398-F1-model_v6.pdb")
-data <- median_residuals
-head(data)
+pdb_dir <- file.path(BASE_DIR, "data/residual_pdb/SGE/BRCA1")
 
-# Create a new B-factor vector initialized with the current B-factors from the PDB
-new_b_factors <- pdb$atom$b
-
-# Loop through each position in the correlation data and update the B-factors
-for (i in 1:nrow(data)) {
-  position <- data$mutation_position[i]
-  correlation_value <- data$median_residuals[i]
-  
-  # Find indices in the PDB that match the current position
-  indices <- which(pdb$atom$resno == position)
-  
-  # Print the indices and current B-factors before updating
-  #cat("Updating residue number:", position, "\n")
-  #cat("Indices in PDB:", indices, "\n")
-  #cat("Current B-factors:", new_b_factors[indices], "\n")
-  
-  # Update B-factors for all atoms in the current residue
-  new_b_factors[indices] <- correlation_value
-  
-  # Print the new B-factors after updating
-  #cat("Updated B-factors:", new_b_factors[indices], "\n")
-  #cat("\n")  # Add an extra line for readability
+# Map median residuals to B-factors for three PDB structures
+pdb_files <- c("AF-P38398-F1-model_v6", "1JM7", "1T29")
+for (pdb_name in pdb_files) {
+  map_residuals_to_pdb(
+    data        = median_residuals,
+    pdb_path    = file.path(pdb_dir, paste0(pdb_name, ".pdb")),
+    output_path = file.path(pdb_dir, paste0(pdb_name, "_median_residual_loess.pdb")),
+    position_col = "mutation_position",
+    value_col    = "median_residuals"
+  )
 }
-# Replace non-matching B-factors with outlier value so we can filter it out in ChimeraX
-non_matching_indices <- setdiff(seq_along(new_b_factors), which(pdb$atom$resno %in% data$mutation_position))
-new_b_factors[non_matching_indices] <- 999
-
-# Assign the new B-factors back to the pdb structure
-# Write the modified PDB structure to a new file
-pdb$atom$b <- new_b_factors
-write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BRCA1/AF-P38398-F1-model_v6_median_residual_loess.pdb")
-
-#chimerax
-#select @@bfactor>=999 
-#color sel dim grey
-#select @@bfactor<999 
-#color byattribute a:bfactor #1 & sel target csab palette -3.1,red:0,white:1.0,blue
-#select ::name="TLA"
-#color sel dark orange
-#set silhouette true
-#set silhouetteColor black
-#set silhouetteWidth 1
 ```
 
-```{r}
-brca1_df <- brca1_df %>%
-  mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
+# Violin: Benign vs. Pathogenic Residuals
 
-nrow(brca1_df)
-
-median_residuals <- brca1_df %>%
-  group_by(mutation_position) %>%
-  summarise(median_residuals = median(residuals, na.rm = TRUE))
-
-pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BRCA1/1JM7.pdb")
-data <- median_residuals
-head(data)
-
-# Create a new B-factor vector initialized with the current B-factors from the PDB
-new_b_factors <- pdb$atom$b
-
-# Loop through each position in the correlation data and update the B-factors
-for (i in 1:nrow(data)) {
-  position <- data$mutation_position[i]
-  correlation_value <- data$median_residuals[i]
-  
-  # Find indices in the PDB that match the current position
-  indices <- which(pdb$atom$resno == position)
-  
-  # Print the indices and current B-factors before updating
-  #cat("Updating residue number:", position, "\n")
-  #cat("Indices in PDB:", indices, "\n")
-  #cat("Current B-factors:", new_b_factors[indices], "\n")
-  
-  # Update B-factors for all atoms in the current residue
-  new_b_factors[indices] <- correlation_value
-  
-  # Print the new B-factors after updating
-  #cat("Updated B-factors:", new_b_factors[indices], "\n")
-  #cat("\n")  # Add an extra line for readability
-}
-# Replace non-matching B-factors with outlier value so we can filter it out in ChimeraX
-non_matching_indices <- setdiff(seq_along(new_b_factors), which(pdb$atom$resno %in% data$mutation_position))
-new_b_factors[non_matching_indices] <- 999
-
-# Assign the new B-factors back to the pdb structure
-# Write the modified PDB structure to a new file
-pdb$atom$b <- new_b_factors
-write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BRCA1/1JM7_median_residual_loess.pdb")
-
-#chimerax
-#select @@bfactor>=999 
-#color sel dim grey
-#select @@bfactor<999 
-#color byattribute a:bfactor #1 & sel target csab palette -3.1,red:0,white:1.0,blue
-#select ::name="TLA"
-#color sel dark orange
-#set silhouette true
-#set silhouetteColor grey
-#set silhouetteWidth 1
-```
-```{r}
-brca1_df <- brca1_df %>%
-  mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
-
-nrow(brca1_df)
-
-median_residuals <- brca1_df %>%
-  group_by(mutation_position) %>%
-  summarise(median_residuals = median(residuals, na.rm = TRUE))
-
-pdb <- read.pdb("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BRCA1/1T29.pdb")
-data <- median_residuals
-head(data)
-
-# Create a new B-factor vector initialized with the current B-factors from the PDB
-new_b_factors <- pdb$atom$b
-
-# Loop through each position in the correlation data and update the B-factors
-for (i in 1:nrow(data)) {
-  position <- data$mutation_position[i]
-  correlation_value <- data$median_residuals[i]
-  
-  # Find indices in the PDB that match the current position
-  indices <- which(pdb$atom$resno == position)
-  
-  # Print the indices and current B-factors before updating
-  #cat("Updating residue number:", position, "\n")
-  #cat("Indices in PDB:", indices, "\n")
-  #cat("Current B-factors:", new_b_factors[indices], "\n")
-  
-  # Update B-factors for all atoms in the current residue
-  new_b_factors[indices] <- correlation_value
-  
-  # Print the new B-factors after updating
-  #cat("Updated B-factors:", new_b_factors[indices], "\n")
-  #cat("\n")  # Add an extra line for readability
-}
-# Replace non-matching B-factors with outlier value so we can filter it out in ChimeraX
-non_matching_indices <- setdiff(seq_along(new_b_factors), which(pdb$atom$resno %in% data$mutation_position))
-new_b_factors[non_matching_indices] <- 999
-
-# Assign the new B-factors back to the pdb structure
-# Write the modified PDB structure to a new file
-pdb$atom$b <- new_b_factors
-write.pdb(pdb, file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/residual_pdb/SGE/BRCA1/1T29_median_residual_loess.pdb")
-
-#chimerax
-#select @@bfactor>=999 
-#color sel dim grey
-#select @@bfactor<999 
-#color byattribute a:bfactor #5 & sel target csab palette -3.1,red:0,white:1.0,blue
-#select ::name="TLA"
-#color sel dark orange
-#set silhouette true
-#set silhouetteColor grey
-#set silhouetteWidth 1
-```
-
+Compare the LOESS residual distributions between ClinVar Benign and Pathogenic variants using a violin plot, and test whether Benign residuals are significantly higher than Pathogenic with a one-sided Wilcoxon rank-sum test.
 
 ```{r}
 # ---------------------------
@@ -536,195 +389,13 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3
 ```
 
 ```{r}
-# # 1. Define Active Positions (Orthosteric)
-# active_positions <- c(24,27,39,41,44,47,61,64, # RING zinc binding
-#     3,6,7,8,10,11,14,15,17,18,21,22, 38,  # RING BARD1 interface chimeraX
-#     76,77,78,79,81,82,85,88,89,92,93,96,97, # RING BARD1 interface chimeraX
-#     1655, 1656, 1657, 1658, 1690, 1691, 1696, # BRCT BACH1 peptide binding sites by chimeraX
-#     1698,1699,1700,1701,1702,1740,1741,1774,1775,1811,1813,1836,1839)
-# 
-# # ---------------------------
-# # 0) Setup Data & Helper Functions
-# # ---------------------------
-# set.seed(123)
-# 
-# # Ensure positions are numeric for matching
-# brca1_df$mutation_position <- as.numeric(brca1_df$mutation_position)
-# 
-# # Annotate the dataframe
-# brca1_df <- brca1_df %>%
-#   mutate(site_type = ifelse(mutation_position %in% active_positions, 
-#                             "Orthosteric", 
-#                             "Non-Orthosteric"))
-# 
-# # Safe sample helper
-# safe_sample <- function(x) {
-#   if (length(x) <= 1) return(x)
-#   return(sample(x, 1))
-# }
-# 
-# # ---------------------------
-# # 1) Define Analysis Function (USING MEDIAN)
-# # ---------------------------
-# analyze_and_plot <- function(data_subset, title_suffix, global_pool_df) {
-#   
-#   # --- A. Setup Groups ---
-#   target_df <- data_subset %>%
-#     filter(var_source %in% c("Benign", "Pathogenic")) %>%
-#     mutate(group = var_source) %>%
-#     dplyr::select(mutant, function_score, residuals, group)
-#   
-#   patho_df <- target_df %>% filter(group == "Pathogenic")
-#   n_patho <- nrow(patho_df)
-#   
-#   if (n_patho < 3) return(NULL) 
-#   
-#   # --- B. Abundance Matching (Bootstrap) ---
-#   non_patho_pool <- global_pool_df %>%
-#     dplyr::select(function_score, residuals)
-#   
-#   # Define Bins
-#   match_window <- 0.5
-#   all_x <- c(patho_df$function_score, non_patho_pool$function_score)
-#   breaks_vec <- seq(min(all_x, na.rm=TRUE), max(all_x, na.rm=TRUE) + match_window, by=match_window)
-#   
-#   patho_df$bin        <- cut(patho_df$function_score, breaks = breaks_vec, include.lowest = TRUE)
-#   non_patho_pool$bin  <- cut(non_patho_pool$function_score, breaks = breaks_vec, include.lowest = TRUE)
-#   
-#   # Lookup list
-#   bin_lookup <- split(non_patho_pool$residuals, non_patho_pool$bin)
-#   
-#   # Bootstrap Loop
-#   n_boot <- 1000
-#   bootstrap_matrix <- matrix(NA_real_, nrow = n_boot, ncol = n_patho)
-#   
-#   for (i in seq_len(n_boot)) {
-#     for (j in seq_len(n_patho)) {
-#       bin_j <- patho_df$bin[j]
-#       candidates <- bin_lookup[[as.character(bin_j)]]
-#       if (!is.null(candidates) && length(candidates) > 0) {
-#         bootstrap_matrix[i, j] <- safe_sample(candidates)
-#       }
-#     }
-#   }
-#   
-#   # --- C. Statistics (MEDIAN) ---
-#   
-#   # 1. Pathogenic vs Null (One-sided Empirical MEDIAN)
-#   # Test: Is Null Median > Pathogenic Median?
-#   boot_medians <- apply(bootstrap_matrix, 1, median, na.rm = TRUE)
-#   obs_median   <- median(patho_df$residuals, na.rm = TRUE)
-#   p_val_boot   <- mean(boot_medians <= obs_median)
-#   
-#   label_boot <- if (p_val_boot == 0) {
-#     paste0("Empirical P < ", 1/n_boot)
-#   } else {
-#     paste0("Empirical P = ", signif(p_val_boot, 2))
-#   }
-#   
-#   # 2. Benign vs Pathogenic (Wilcoxon)
-#   gnomad_res <- target_df$residuals[target_df$group == "Benign"]
-#   p_val_wilcox <- NA_real_
-#   label_wilcox <- "N/A"
-#   
-#   if (length(gnomad_res) >= 3) {
-#     w_test <- wilcox.test(gnomad_res, patho_df$residuals, alternative = "greater")
-#     p_val_wilcox <- w_test$p.value
-#     label_wilcox <- paste0("P = ", signif(p_val_wilcox, 2))
-#   }
-#   
-#   # --- D. Prepare Plot Data ---
-#   null_residuals_flat <- as.vector(bootstrap_matrix)
-#   
-#   plot_df <- bind_rows(
-#     target_df %>% dplyr::select(group, residuals),
-#     tibble(group = "Abundance-matched Null", residuals = null_residuals_flat)
-#   )
-#   
-#   plot_df$group <- factor(plot_df$group, 
-#                           levels = c("Benign", "Pathogenic", "Abundance-matched Null"))
-#   
-#   # Labels (MEDIAN)
-#   label_df <- plot_df %>%
-#     group_by(group) %>%
-#     summarise(
-#       n = dplyr::n(),
-#       median_val = median(residuals, na.rm = TRUE),
-#       .groups = "drop"
-#     ) %>%
-#     mutate(
-#       n_label = ifelse(group == "Abundance-matched Null", "Pooled Null", paste0("n=", n)),
-#       label_y_n = 3.5, 
-#       label_y_med = median_val + 0.3 
-#     )
-#   
-#   custom_colors <- c("Benign" = "grey70", "Pathogenic" = "firebrick3", "Abundance-matched Null" = "grey30")
-#   
-#   # --- E. Plot (MEDIAN SUMMARY) ---
-#   p <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
-#     geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
-#     
-#     # Reverted to fun=median
-#     stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
-#     stat_summary(fun = median, geom = "point", shape = 23, size = 2.5, fill = "black") +
-#     
-#     geom_text(data = label_df, aes(y = label_y_n, label = n_label), size = 3.5) +
-#     geom_text(data = label_df, aes(y = label_y_med, label = sprintf("%.2f", median_val)), size = 4.5) +
-#     
-#     scale_fill_manual(values = custom_colors) +
-#     labs(title = paste0("BRCA1: ", title_suffix), 
-#          x = NULL, y = "SGE-TMPNN ddGf residuals") +
-#     theme_classic(base_size = 12) + 
-#     theme(legend.position = "none", 
-#           axis.text.x = element_text(angle = 20, hjust = 1)) +
-#     ylim(-6, 5.5) 
-#   
-#   # Add Stats
-#   if (!is.na(p_val_wilcox)) {
-#     p <- p + geom_signif(
-#       y_position = 4.8, xmin = "Benign", xmax = "Pathogenic",
-#       annotations = label_wilcox, tip_length = 0.01, textsize = 3.5
-#     )
-#   }
-#   
-#   p <- p + geom_signif(
-#     y_position = 4.2, xmin = "Pathogenic", xmax = "Abundance-matched Null",
-#     annotations = label_boot, tip_length = 0.01, textsize = 3.5
-#   )
-#   
-#   return(p)
-# }
-# 
-# # ---------------------------
-# # 2) Run Analysis
-# # ---------------------------
-# 
-# # Define the Global Pool (Strict Benign for Null)
-# global_patho_mutants <- brca1_df %>% filter(var_source == "Pathogenic") %>% pull(mutant)
-# 
-# pool_df <- brca1_df %>% 
-#   filter(var_source == "Benign", !mutant %in% global_patho_mutants)
-# 
-# # A. Orthosteric Plot
-# plot_ortho <- analyze_and_plot(
-#   data_subset = brca1_df %>% filter(site_type == "Orthosteric"),
-#   title_suffix = "Orthosteric Sites",
-#   global_pool_df = pool_df
-# )
-# 
-# # B. Non-Orthosteric Plot
-# plot_non_ortho <- analyze_and_plot(
-#   data_subset = brca1_df %>% filter(site_type == "Non-Orthosteric"),
-#   title_suffix = "Non-Orthosteric Sites",
-#   global_pool_df = pool_df
-# )
-# 
-# # ---------------------------
-# # 3) Display Side-by-Side
-# # ---------------------------
-# p_supp <- plot_grid(plot_ortho, plot_non_ortho, ncol=2)
-# p_supp
+# (Removed: abandoned abundance-matching bootstrap approach — replaced by
+#  the Benign vs Pathogenic Wilcoxon analysis in the cell below.)
 ```
+
+# Violin: Orthosteric vs. Non-Orthosteric Sites
+
+Stratify variants by whether their mutation position falls within the defined orthosteric (active-site) residues, then run `analyze_and_plot()` on each stratum to produce paired Benign/Pathogenic violin plots with Wilcoxon p-values, displayed side-by-side.
 
 ```{r}
 library(ggplot2)
@@ -860,6 +531,13 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3
        plot = p_supp, width = 6, height = 3, dpi = 300)
 ```
 
+# Interchain Distance Calculation
+
+Define `doubledeepms__minimum_interchain_distances_from_PDB_perres()`, which computes the minimum heavy-atom and side-chain heavy-atom distances from each residue on chain A to any residue on the partner chain B using bio3d.
+
+## BRCA1-RING Domain
+
+Apply the distance function to the BRCA1-RING/BARD1 heterodimer (PDB: 1JM7) to obtain per-residue minimal interchain distances for the RING domain.
 
 ```{r}
 doubledeepms__minimum_interchain_distances_from_PDB_perres <- function(
@@ -949,6 +627,10 @@ fil_min_dist_df <- fil_min_dist_df %>% dplyr::rename(min_dist_to_ligand = scHAmi
 fil_min_dist_df
 ```
 
+## Exponential Decay Fit
+
+Merge BRCA1 variants with the RING domain interchain distances, retain only variants with negative residuals (those displaced below the LOESS baseline), and fit a two-parameter exponential decay of |residual| as a function of minimal distance to the partner chain.
+
 ```{r}
 ring_merged_df <- merge(brca1_df, fil_min_dist_df, by.x="mutation_position", by.y = "Pos", all.x = TRUE)
 nrow(ring_merged_df)
@@ -985,6 +667,10 @@ fit_df_residue <- ring_merged_df_neg %>%
   filter(!is.na(min_dist_to_ligand)) %>% # Remove empty bins
   arrange(min_dist_to_ligand)            # Sort X for approx() function
 ```
+
+## Decay Plot
+
+Bootstrap 1000 replicates of the exponential decay fit to obtain 95% confidence intervals, then render a scatter plot of |residual| vs. interchain distance for the RING domain, coloured by site type (Non-orthosteric, Zinc-binding, BARD1-binding) with the fitted decay curve and CI ribbon overlaid.
 
 ```{r, fig.width=5, fig.height=5}
 bard1_binding <- c(3,6,7,8,10,11,14,15,17,18,21,22, 38,  # RING BARD1 interface
@@ -1070,19 +756,14 @@ p_decay <- ggplot(ring_merged_df_neg, aes(x = min_dist_to_ligand, y = abs(residu
   theme_classic() +
   theme(legend.position = "bottom")
 
-p_decay <- ggMarginal(
-  p_decay,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p_decay <- add_marginal_density(p_decay)
 
 p_decay
 ```
+
+## BRCA1-BRCT Domain
+
+Apply the same interchain distance function to the BRCA1-BRCT/BACH1 peptide complex (PDB: 1T29) to compute per-residue minimal distances for the BRCT domain.
 
 ```{r}
 brct_out <- doubledeepms__minimum_interchain_distances_from_PDB_perres(
@@ -1095,6 +776,11 @@ fil_min_dist_df <- brct_out %>% dplyr::select(Pos, scHAmin_ligand)
 fil_min_dist_df <- fil_min_dist_df %>% dplyr::rename(min_dist_to_ligand = scHAmin_ligand)
 fil_min_dist_df
 ```
+
+### Exponential Decay Fit
+
+Merge BRCA1 variants with the BRCT domain interchain distances, retain negatively displaced variants, and fit an exponential decay model of |residual| vs. minimal distance to the BACH1 peptide partner.
+
 ```{r}
 brct_merged_df <- merge(brca1_df, fil_min_dist_df, by.x="mutation_position", by.y = "Pos", all.x = TRUE)
 nrow(brct_merged_df)
@@ -1131,6 +817,10 @@ fit_df_residue <- brct_merged_df_neg %>%
   filter(!is.na(min_dist_to_ligand)) %>% # Remove empty bins
   arrange(min_dist_to_ligand)            # Sort X for approx() function
 ```
+
+### Decay Plot
+
+Bootstrap 1000 replicates of the BRCT exponential decay fit, then render a scatter plot of |residual| vs. interchain distance coloured by site type (Non-orthosteric vs. BACH1-binding) with the fitted curve and 95% CI ribbon.
 
 ```{r, fig.width=5, fig.height=5}
 bach1_pos <- c(1655, 1656, 1657, 1658, 1690, 1691, 1696, # BRCT BACH1 peptide binding sites by chimeraX
@@ -1212,16 +902,7 @@ p_decay_brct <- ggplot(brct_merged_df_neg, aes(x = min_dist_to_ligand, y = abs(r
   theme_classic() +
   theme(legend.position = "bottom")
 
-p_decay_brct <- ggMarginal(
-  p_decay_brct,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p_decay_brct <- add_marginal_density(p_decay_brct)
 
 p_decay_brct
 ```
@@ -1235,6 +916,10 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3
 ```{r}
 brca1_df
 ```
+
+# Correlation Plots: Raw Predictor Scores
+
+Produce side-by-side scatter plots showing the raw (un-residualised) correlations of ESM-1v predicted pathogenicity and TMPNN ddGf against the experimental SGE function score, annotated with Spearman's rho and stratified by ClinVar status.
 
 ```{r, fig.width=8, fig.height=4.5}
 p_corr1 <- ggplot(brca1_df, aes(x = ESM1v_all_variants, y = function_score)) +
@@ -1259,16 +944,7 @@ p_corr1 <- ggplot(brca1_df, aes(x = ESM1v_all_variants, y = function_score)) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
   geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") 
 
-p_corr1 <- ggMarginal(
-  p_corr1,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p_corr1 <- add_marginal_density(p_corr1)
 
 p_corr2 <- ggplot(brca1_df, aes(x = ddG_pred, y = function_score)) +
   geom_point(aes(shape = var_source, color = var_source, alpha = var_source), size = 2) +
@@ -1292,16 +968,7 @@ p_corr2 <- ggplot(brca1_df, aes(x = ddG_pred, y = function_score)) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
   geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") 
 
-p_corr2 <- ggMarginal(
-  p_corr2,
-  type = "density",
-  margins = "both",
-  groupColour = FALSE,
-  groupFill = FALSE,
-  size = 10,
-  colour = "grey",
-  fill = "lightgrey"
-)
+p_corr2 <- add_marginal_density(p_corr2)
 
 p_corr <- plot_grid (p_corr1, p_corr2)
 p_corr
@@ -1311,6 +978,10 @@ p_corr
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_corr1.pdf", 
        plot = p_corr, width = 6, height = 4, dpi = 300)
 ```
+
+# Composite Residual Model
+
+Fit a second LOESS of ESM-1v scores vs. ddGf on non-orthosteric variants to obtain ESM-1v residuals, then rank-normalise both the SGE LOESS residuals and the ESM-1v LOESS residuals to construct a composite score, and merge the result with the RING domain interchain distances for downstream spatial analysis.
 
 ```{r}
 # Fit a loess model using the filtered data
@@ -1348,7 +1019,10 @@ brca1_plot <- brca1_plot %>%
 brca1_plot<- merge(brca1_plot, fil_min_dist_df, by.x="mutation_position", by.y = "Pos")
 brca1_plot
 ```
-Trends were visualized using Generalized Additive Models (GAM) to accurately capture the non-linear decay of signal intensity. 
+
+# Spatial Decay: Signal vs. Noise (GAM)
+
+Pivot the composite residual (signal) and the SGE–ESM-1v delta (noise) into long format, then overlay both spatial decay trends against interchain distance using GAM smooths to compare the distance-dependence of genuine allosteric signal vs. prediction-disagreement noise.
 
 ```{r, fig.width=4, fig.height=4}
 plot_ready_raw <- brca1_plot %>%
@@ -1391,199 +1065,17 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3
        plot = p_unbinned, width = 4, height = 4, dpi = 300)
 ```
 
-```{r, fig.width=3, fig.height=5}
-# # ---------------------------
-# # 0) Settings & Safe Sample Helper
-# # ---------------------------
-# set.seed(11)
-# n_boot <- 1000
-# match_window <- 0.5
-# 
-# # Helper to prevent sample() from behaving weirdly with single numbers
-# safe_sample <- function(x) {
-#   if (length(x) <= 1) return(x)
-#   return(sample(x, 1))
-# }
-# 
-# # ---------------------------
-# # 1) Define groups for plotting
-# # ---------------------------
-# # Keep Benign + Pathogenic as-is
-# bp_df <- brca1_df %>%
-#   filter(var_source %in% c("Benign", "Pathogenic")) %>%
-#   mutate(group = var_source) %>%
-#   dplyr::select(mutant, function_score, residuals, group)
-# 
-# # Pathogenic set (for abundance matching target)
-# patho_df <- bp_df %>%
-#   filter(group == "Pathogenic") %>%
-#   dplyr::select(mutant, function_score, residuals, group)
-# 
-# n_patho <- nrow(patho_df)
-# 
-# # Pool to sample from: Others (exclude pathogenic variants explicitly)
-# non_patho_pool <- brca1_df %>%
-#   filter(var_source == "Benign") %>%
-#   anti_join(patho_df %>% dplyr::select(mutant), by = "mutant") %>%
-#   dplyr::select(function_score, residuals)
-# 
-# # ---------------------------
-# # 2) Abundance binning + Bootstrap
-# # ---------------------------
-# # Dynamic breaks that cover both sets
-# all_x <- c(patho_df$function_score, non_patho_pool$function_score)
-# 
-# breaks_vec <- seq(min(all_x, na.rm = TRUE),
-#                   max(all_x, na.rm = TRUE) + match_window,
-#                   by = match_window)
-# 
-# non_patho_pool <- non_patho_pool %>%
-#   mutate(bin = cut(function_score, breaks = breaks_vec, include.lowest = TRUE))
-# 
-# patho_df_binned <- patho_df %>%
-#   mutate(bin = cut(function_score, breaks = breaks_vec, include.lowest = TRUE))
-# 
-# bin_lookup <- split(non_patho_pool$residuals, non_patho_pool$bin)
-# 
-# # Matrix to store bootstrap samples
-# bootstrap_matrix <- matrix(NA_real_, nrow = n_boot, ncol = nrow(patho_df_binned))
-# 
-# for (i in seq_len(n_boot)) {
-#   for (j in seq_len(nrow(patho_df_binned))) {
-#     bin_j <- patho_df_binned$bin[j]
-#     candidates <- bin_lookup[[as.character(bin_j)]]
-#     # Use safe_sample logic
-#     if (!is.null(candidates) && length(candidates) > 0) {
-#       bootstrap_matrix[i, j] <- safe_sample(candidates)
-#     }
-#   }
-# }
-# 
-# # ---------------------------
-# # 3) Statistics Calculations (Must be done BEFORE plotting)
-# # ---------------------------
-# 
-# # A. One-sided Empirical P-value (Pathogenic vs Null)
-# # Test: Is Null Median > Pathogenic Median? (One-sided)
-# boot_medians <- apply(bootstrap_matrix, 1, median, na.rm = TRUE)
-# obs_median   <- median(patho_df$residuals, na.rm = TRUE)
-# p_val_boot   <- mean(boot_medians <= obs_median)
-# 
-# # B. One-sided Wilcoxon (gnomAD vs Pathogenic)
-# # Test: Is gnomAD > Pathogenic?
-# gnomad_res <- bp_df$residuals[bp_df$group == "Benign"]
-# patho_res  <- bp_df$residuals[bp_df$group == "Pathogenic"]
-# wilcox_res <- wilcox.test(gnomad_res, patho_res, alternative = "greater")
-# p_val_wilcox <- wilcox_res$p.value
-# 
-# # ---------------------------
-# # 4) Prepare Plot Data
-# # ---------------------------
-# 
-# # Use FLATTENED matrix for the violin (visualizes population, not just medians)
-# # This fixes the "thin violin" issue
-# null_residuals_for_plot <- as.vector(bootstrap_matrix)
-# 
-# plot_df <- bind_rows(
-#   bp_df %>% dplyr::select(group, residuals),
-#   tibble(group = "Abundance-matched Null", residuals = null_residuals_for_plot)
-# )
-# 
-# desired_order <- c("Benign", "Pathogenic", "Abundance-matched Null")
-# plot_df$group <- factor(plot_df$group, levels = desired_order)
-# 
-# custom_colors <- c(
-#   "Benign" = "grey70",
-#   "Pathogenic" = "firebrick3",
-#   "Abundance-matched Null" = "grey30"
-# )
-# 
-# # ---- FIXED LABEL DATAFRAME ----
-# label_df <- plot_df %>%
-#   group_by(group) %>%
-#   summarise(
-#     n = dplyr::n(),
-#     median_val = median(residuals, na.rm = TRUE),
-#     .groups = "drop"
-#   ) %>%
-#   mutate(
-#     # 1. Create the label text
-#     n_label = case_when(
-#       group == "Abundance-matched Null" ~ "Pooled Null",
-#       TRUE ~ paste0("n = ", n)
-#     ),
-#     # 2. DEFINE THE Y-COORDINATES (This was missing!)
-#     label_y_n = 3.0,             
-#     label_y_med = median_val + 0.3
-#   )
-# # 1. Calculate the p-value 
-# p_val_boot <- mean(boot_medians <= obs_median)
-# 
-# # 2. Format the label string
-# # If p is 0, say "P < 0.001" (assuming n_boot = 1000)
-# # Otherwise, display the actual number
-# p_label_boot <- if (p_val_boot == 0) {
-#   paste0("Empirical P < ", 1/n_boot)
-# } else {
-#   paste0("Empirical P = ", signif(p_val_boot, 2))
-# }
-# 
-# annotations = p_label_boot
-# 
-# # ---------------------------
-# # 5) Plot
-# # ---------------------------
-# p_violin <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
-#   geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
-#   stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
-#   stat_summary(fun = median, geom = "point", shape = 23, size = 2.5, fill = "black") +
-#   
-#   # Labels
-#   geom_text(data = label_df, aes(y = label_y_n, label = n_label), size = 4) +
-#   geom_text(data = label_df, aes(y = label_y_med, label = sprintf("%.2f", median_val)), size = 5) +
-#   
-#   scale_fill_manual(values = custom_colors) +
-#   labs(title = "BRCA1", x = NULL, y = "SGE-TMPNN ddGf residuals") +
-#   theme_classic(base_size = 12) + 
-#   theme(legend.position = "none", axis.text.x = element_text(angle = 20, hjust = 1)) +
-#   
-#   # Significance Annotations
-#   geom_signif(
-#     y_position = 4.5, xmin = "Benign", xmax = "Pathogenic",
-#     annotations = paste0("P = ", signif(p_val_wilcox, 2)),
-#     tip_length = 0.01, textsize = 3.5
-#   ) +
-#   geom_signif(
-#     y_position = 4.0, xmin = "Pathogenic", xmax = "Abundance-matched Null",
-#     annotations = p_label_boot,
-#     tip_length = 0.01, textsize = 3.5
-#   )
-# 
-# print(p_violin)
+```{r}
+library(mgcv)
+
+# Fit the GAM for the biological signal (Comp_residual_norm)
+gam_signal <- gam(Abs_Value ~ s(min_dist_to_ligand, k = 8), 
+                  data = filter(plot_ready_raw, Residual_Type == "Comp_residual_norm"))
+summary(gam_signal)
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+```{r}
+# Fit the GAM for the noise (Delta_Pathogenicity)
+gam_noise <- gam(Abs_Value ~ s(min_dist_to_ligand, k = 8), 
+                 data = filter(plot_ready_raw, Residual_Type == "Delta_Pathogenicity"))
+summary(gam_noise)
+```

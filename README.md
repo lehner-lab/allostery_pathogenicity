@@ -12,7 +12,7 @@ Analysis code and metadata for:
 
 ## Overview
 
-Many disease-causing missense variants lie far from a protein's active site, yet the mechanisms by which they impair function remain poorly understood. This repository provides the analysis code and metadata to reproduce all figures from the accompanying preprint, which proposes and validates a broadly applicable framework for detecting allosteric effects in variant effect maps.
+Many disease-causing mutations occur far from protein active sites, but the mechanisms remain poorly understood. This repository provides the analysis code and metadata to reproduce all findings from our accompanying preprint. We introduce a framework to decouple stability-driven effects from functional mutational effects, allowing for the systematic detection of allostery in variant effect maps.
 
 ---
 

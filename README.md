@@ -98,19 +98,6 @@ All analyses run in **R ≥ 4.3** using the [ProjectTemplate](http://projecttemp
 
 ---
 
-## Key methods
-
-| Step | Method | Scripts |
-|---|---|---|
-| Stability residual computation | LOESS regression of DMS score on ESM-1v/ThermoMPNN ddGf; residual = observed − predicted | All `revision_fig*.Rmd` |
-| Spatial decay analysis | Exponential decay fit (NLS + bootstrap CI) of median residual vs. minimum heavy-atom distance to ligand | `revision_fig4.Rmd`, `revision_fig5_*.Rmd` |
-| ClinVar pathogenicity enrichment | Wilcoxon test + stability class contingency across benign/pathogenic ClinVar variants | `revision_fig2_*.Rmd`, `revision_fig3*.Rmd` |
-| 3D structure mapping | Per-residue residuals written to PDB B-factor column for ChimeraX visualisation | `lib/helpers.R → map_residuals_to_pdb()` |
-| Model comparison | ANOVA likelihood-ratio tests and bootstrap-adjusted R² for nested linear/mixed models | `supp_fig4.Rmd` |
-| Conservation benchmarks | PhyloP scores and MSA-derived Neff compared against LOESS residuals | `revision_*_phylop.Rmd`, `revision_supp_msa.Rmd` |
-
----
-
 ## Citation
 
 ```bibtex

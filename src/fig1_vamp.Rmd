@@ -17,6 +17,7 @@ library(bio3d)
 library(ggrepel)
 library(dplyr)
 library(stringr)
+load.project()
 ```
 
 # Per-protein Data Loading

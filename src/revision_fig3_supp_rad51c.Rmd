@@ -15,6 +15,7 @@ library('ProjectTemplate')
 library(ggExtra)
 library(bio3d)
 library(ggrepel)
+load.project()
 ```
 
 # Data Loading

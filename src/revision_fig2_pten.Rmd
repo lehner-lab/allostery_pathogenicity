@@ -10,12 +10,14 @@ Load required libraries for the analysis. `ProjectTemplate` auto-loads project-s
 
 ```{r setup, echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
 library('ProjectTemplate')
 library(ggExtra)
 library(bio3d)
 library(ggrepel)
 library(ggsignif)
 library(ggpubr)
+load.project()
 ```
 
 # PTEN DMS Data

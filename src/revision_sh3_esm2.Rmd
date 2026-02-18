@@ -15,10 +15,10 @@ library(data.table)
 library(ggrepel)
 library(ggExtra)
 library(cowplot)
-
-# Set paths once
 proj_dir <- "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1"
-setwd(proj_dir)
+library('ProjectTemplate')
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+load.project()
 ```
 
 # Data Loading
@@ -28,6 +28,7 @@ setwd(proj_dir)
 Load the MoCHI folding ddG weights for the GRB2 SH3 domain, apply a reference-position offset of 158, and construct a standardised variant identifier for downstream joining.
 
 ```{r}
+make_variant_id <- function(wt, pos, mt) paste0(wt, pos, mt)
 sh3_final_df_ddgf <- read_tsv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/domains_andre/GRB2-SH3/Abundance/mochi_project/task_1/weights/weights_Folding.txt')
 sh3_final_df_ddgf <- sh3_final_df_ddgf %>% dplyr::select(id_ref, Pos_ref, `mean_kcal/mol`, `std_kcal/mol`)
 dim(sh3_final_df_ddgf)
@@ -154,13 +155,13 @@ list(loess = lo, fitted = fitted, residual = resid)
 
 # ESM1v residuals
 
-r1 <- fit_residuals_loess(test_merged_df, y_col = "ESM1v", exclude_pos = ortho_list_ref, span = 0.7)
+r1 <- fit_residuals_loess(test_merged_df, y_col = "ESM1v", exclude_pos = ortho_list, span = 0.7)
 test_merged_df$fitted_esm1v <- r1$fitted
 test_merged_df$resid_esm1v  <- r1$residual
 
 # ESM2 residuals
 
-r2 <- fit_residuals_loess(test_merged_df, y_col = "esm2", exclude_pos = ortho_list_ref, span = 0.7)
+r2 <- fit_residuals_loess(test_merged_df, y_col = "esm2", exclude_pos = ortho_list, span = 0.7)
 test_merged_df$fitted_esm2 <- r2$fitted
 test_merged_df$resid_esm2  <- r2$residual
 

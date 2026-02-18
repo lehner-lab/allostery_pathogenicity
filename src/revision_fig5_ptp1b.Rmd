@@ -10,11 +10,12 @@ Load required libraries and initialise the ProjectTemplate project environment.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
 library('ProjectTemplate')
 library(ggExtra)
 library(bio3d)
 library(ggrepel)
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+load.project()
 ```
 
 # ddGf vs ESM-1v Correlation

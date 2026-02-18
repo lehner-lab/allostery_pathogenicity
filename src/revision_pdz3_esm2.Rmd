@@ -17,7 +17,10 @@ library(ggExtra)
 library(cowplot)
 library(scatterplot3d)
 library(dplyr)
-# Set paths once
+library('ProjectTemplate')
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+load.project()
+
 proj_dir <- "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1"
 setwd(proj_dir)
 ```

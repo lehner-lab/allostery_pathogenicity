@@ -10,12 +10,14 @@ Load project libraries including `ggExtra`, `bio3d`, `ggrepel`, and `Biostrings`
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+
 library('ProjectTemplate')
 library(ggExtra)
 library(bio3d)
 library(ggrepel)
 library(Biostrings)
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+load.project()
 ```
 
 ## Sequence Alignment Utility (archived)

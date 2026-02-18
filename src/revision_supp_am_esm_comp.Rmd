@@ -6,8 +6,9 @@ date: "2026-01-26"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
 library('ProjectTemplate')
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+load.project()
 library(ggExtra)
 library(bio3d)
 library(ggrepel)

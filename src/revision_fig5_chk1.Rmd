@@ -8,11 +8,11 @@ date: "2026-01-21"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
 library('ProjectTemplate')
 library(ggExtra)
 library(bio3d)
 library(ggrepel)
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
 load.project()
 ```
 

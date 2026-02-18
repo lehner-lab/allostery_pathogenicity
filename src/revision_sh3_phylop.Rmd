@@ -8,6 +8,15 @@ date: "2026-01-14"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(data.table)
+library(ggrepel)
+library(ggExtra)
+library(cowplot)
+
+library('ProjectTemplate')
+setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
+load.project()
 ```
 
 # Data Loading

@@ -86,9 +86,7 @@ All analyses run in **R ≥ 4.3** using the [ProjectTemplate](http://projecttemp
    cd 01.protein-seq-evo-v1
    ```
 
-2. **Download datasets** from the Zenodo links above and place them under `data/` according to the paths referenced in each script (see `lib/globals.R` for `BASE_DIR` and `SUPPLEMENTS_DIR`).
-
-3. **Open the R project** (`01.protein-seq-evo-v1.Rproj`) in RStudio or set the working directory to the project root, then run any analysis script:
+2. **Open the R project** (`01.protein-seq-evo-v1.Rproj`) in RStudio or set the working directory to the project root, then run any analysis script:
 
    ```r
    library(ProjectTemplate)

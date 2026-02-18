@@ -75,30 +75,6 @@ Large input datasets are hosted on Zenodo and must be downloaded separately befo
 
 All analyses run in **R ≥ 4.3** using the [ProjectTemplate](http://projecttemplate.net/) framework, which handles library loading and data munging automatically via `load.project()`.
 
-Key R packages:
-
-| Package | Purpose |
-|---|---|
-| `tidyverse` | Data wrangling and ggplot2 visualisation |
-| `data.table` | Fast in-memory operations on large tables |
-| `bio3d` | PDB I/O and B-factor mapping |
-| `ggExtra` | Marginal density overlays on scatter plots |
-| `minpack.lm` | Non-linear least-squares exponential decay fitting (`nlsLM`) |
-| `mgcv` | GAM models for spatial decay baselines |
-| `lme4` | Linear mixed models for per-residue random effects |
-| `broom` | Tidy model summaries |
-| `Metrics` | R² and other regression metrics |
-
-Install all packages with:
-
-```r
-install.packages(c(
-  "ProjectTemplate", "tidyverse", "data.table", "bio3d",
-  "ggExtra", "minpack.lm", "mgcv", "lme4", "broom",
-  "Metrics", "ggrepel", "pROC", "PRROC"
-))
-```
-
 ---
 
 ## Reproducing the analysis

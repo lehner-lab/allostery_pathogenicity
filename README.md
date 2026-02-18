@@ -62,7 +62,7 @@ Many disease-causing mutations occur far from protein active sites, but the mech
 
 ## Data access
 
-Large input datasets are hosted on Zenodo and must be downloaded separately before running the analysis scripts:
+Large input datasets for proteome-wide analyses are hosted on Zenodo:
 
 | Dataset | Description | DOI |
 |---|---|---|

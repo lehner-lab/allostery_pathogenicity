@@ -12,7 +12,7 @@ Analysis code and metadata for:
 
 ## Overview
 
-This repository reproduces all main and supplementary figures from the above preprint. The central framework decomposes single-amino-acid variant effects from deep mutational scanning (DMS) experiments into a **stability component** and a **residual functional component** that is unexplained by stability alone. The residual signal is enriched at ligand-contacting orthosteric sites and known allosteric sites. 
+Many disease-causing missense variants lie far from a protein's active site, yet the mechanisms by which they impair function remain poorly understood. This repository provides the analysis code and metadata to reproduce all figures from the accompanying preprint, which proposes and validates a broadly applicable framework for detecting allosteric effects in variant effect maps.
 
 ---
 

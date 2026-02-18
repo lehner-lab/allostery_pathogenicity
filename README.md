@@ -83,7 +83,6 @@ All analyses run in **R ≥ 4.3** using the [ProjectTemplate](http://projecttemp
 
    ```bash
    git clone <repo-url>
-   cd 01.protein-seq-evo-v1
    ```
 
 2. **Open the R project** (`01.protein-seq-evo-v1.Rproj`) in RStudio or set the working directory to the project root, then run any analysis script:

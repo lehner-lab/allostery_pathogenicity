@@ -39,7 +39,6 @@ freq <- freq |>
     gap_freq,
     conservation
   )
-freq
 ```
 
 ## MoCHI Binding ddG
@@ -125,7 +124,6 @@ position_residuals <- test_merged_df %>%
     median_ddgb = median(b_ddg_pred, na.rm = TRUE)
   )
 merged <- merge(freq, position_residuals, by.x ="position", by.y = "Pos_ref")
-merged
 ```
 
 # DCA Coupling to Orthosteric Sites
@@ -152,8 +150,6 @@ dca_to_ortho <- edges %>%
     dca_to_ortho_sumTop3 = sum(sort(cn, decreasing = TRUE)[1:min(3, n())], na.rm = TRUE),
     .groups = "drop"
   )
-
-dca_to_ortho
 ```
 
 ## Filter by MSA Depth
@@ -163,11 +159,9 @@ Restrict to positions with sufficient alignment depth (>=50%) before correlating
 ```{r}
 high_depth_positions <- freq %>%
   filter(depth_raw >= 0.5)
-high_depth_positions
 
 dca_to_ortho <- dca_to_ortho %>%
   inner_join(high_depth_positions, by = "position")
-dca_to_ortho
 ```
 
 ## Merge DCA with ddGb
@@ -180,10 +174,8 @@ ddgb_res <- sh3_final_df_ddgb %>%
   summarize(
     median_ddgb = median(b_ddg_pred, na.rm = TRUE)
   )
-ddgb_res
 
 merged <- merge(dca_to_ortho, ddgb_res, by.x = "position", by.y = "Pos_ref")
-merged
 ```
 
 # Correlation Plot: DCA Coupling vs. Median ddGb

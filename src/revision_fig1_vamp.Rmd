@@ -162,7 +162,6 @@ nudt15_am <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/dat
 nudt15_ddg <- nudt15_ddg %>% dplyr::select(mutant, Average_abundance_score)  %>%
   drop_na(mutant, Average_abundance_score)
 nrow(nudt15_ddg) #2924
-nudt15_ddg
 ```
 ```{r}
 nrow(nudt15_am) #3116

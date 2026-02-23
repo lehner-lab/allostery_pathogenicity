@@ -225,16 +225,9 @@ min_dist_df <- atom_df %>%
 
 # ---- Inspect & Merge ----
 fil_min_dist_df <- min_dist_df %>% dplyr::select(resid, resno, min_dist_to_ligand)
-fil_min_dist_df
 ```
 
 ## Residual Data Inspection
-
-A quick view of the full per-mutation residual table returned by `plot_loess_residuals` for PDK1.
-
-```{r}
-pdk1_pred_residual$data
-```
 
 ## Residue-Level Residuals vs. Ligand Distance
 
@@ -249,8 +242,6 @@ merged_df_residue <- merged_df %>%
   group_by(new_position) %>%
   summarise(loess_residual_avg = median(residuals_pred, na.rm = TRUE), .groups = "drop") %>%
   left_join(fil_min_dist_df, by = c("new_position" = "resno"))
-
-merged_df_residue %>% filter (new_position %in% active_site_positions)
 ```
 
 ## Exponential Decay Model Fit

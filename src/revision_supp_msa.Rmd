@@ -9,6 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library('ProjectTemplate')
 setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
 load.project()
+
 library(ggExtra)
 library(bio3d)
 library(ggrepel)
@@ -93,8 +94,7 @@ neff_df <- freq_raw |>
     conservation
   )
 
-# --- 4. VIEW RESULTS ---
-neff_df
+head(neff_df)
 ```
 
 ## Position Offset Correction (PSD95-PDZ3)
@@ -103,7 +103,6 @@ The EVcouplings alignment uses domain-level indexing starting at 1; adding 310 m
 
 ```{r}
 neff_df$position <- neff_df$position + 310
-neff_df
 ```
 
 ## Load PDZ3 DMS Binding Data
@@ -194,7 +193,6 @@ test_merged_df_residue <- test_merged_df_residue %>%
     # Optional: Create a column to make these points look different (e.g., bigger/bolder)
     is_highlighted = pos_match %in% allo_pos
   ) 
-test_merged_df_residue
 ```
 
 ## Merge Neff with Residuals (PSD95-PDZ3)
@@ -203,7 +201,6 @@ The per-position Neff values from the MSA are joined with the per-residue median
 
 ```{r}
 merged_df <- merge(neff_df, test_merged_df_residue, by.x = "position", by.y = "pos_match")
-merged_df
 ```
 
 ## Scatter Plot: Neff vs. Residuals (PSD95-PDZ3)
@@ -321,8 +318,7 @@ neff_df <- freq_raw |>
     conservation
   )
 
-# --- 4. VIEW RESULTS ---
-neff_df
+head(neff_df)
 ```
 
 ## Load GRB2-SH3 DMS Binding Data
@@ -420,8 +416,6 @@ position_residuals <- position_residuals %>%
     # Optional: Create a column to make these points look different (e.g., bigger/bolder)
     is_highlighted = Pos_ref %in% positions_to_highlight
   ) 
-
-position_residuals
 ```
 
 ## Merge Neff with Residuals (GRB2-SH3)
@@ -430,7 +424,6 @@ Per-position Neff values are joined with the per-residue median ESM-1v–ddGf re
 
 ```{r}
 merged_df <- merge(neff_df, position_residuals, by.x = "position", by.y = "Pos_ref")
-merged_df
 ```
 
 ## Scatter Plot: Neff vs. Residuals (GRB2-SH3)

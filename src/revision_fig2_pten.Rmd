@@ -8,7 +8,7 @@ date: "2026-01-02"
 
 Load required libraries for the analysis. `ProjectTemplate` auto-loads project-specific helpers and data, while `bio3d`, `ggExtra`, `ggrepel`, `ggsignif`, and `ggpubr` support structural bioinformatics and visualization tasks.
 
-```{r setup, echo=FALSE}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
 library('ProjectTemplate')
@@ -69,9 +69,6 @@ duplicate_rows <- pten_df %>%
   filter(mutant %in% dup_mutants) %>%
   arrange(mutant) # Sort so duplicates are next to each other
 
-# Print them to console
-print(duplicate_rows)
-
 pten_ddg <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/vampseq/vampseq_clinvar/P60484_merged.csv")
 pten_df <- merge(pten_df, pten_ddg, by.x="mutant", by.y = "variant", all.x = TRUE)
 nrow(pten_df)
@@ -84,8 +81,6 @@ nrow(pten_df) #4839
 #summary(pten_gnomad$Allele.Frequency)
 #      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
 # 6.195e-07 6.197e-07 6.211e-07 2.946e-06 1.859e-06 1.289e-04 
-
-pten_df
 ```
 
 
@@ -479,7 +474,7 @@ label_df <- plot_df %>%
 p_val_boot <- mean(boot_medians <= obs_median)
 
 # 2. Format the label string
-# If p is 0, say "P < 0.001" (assuming n_boot = 1000)
+# If p is 0, say "P < 0.001" (n_boot = 1000)
 # Otherwise, display the actual number
 p_label_boot <- if (p_val_boot == 0) {
   paste0("Empirical P < ", 1/n_boot)
@@ -808,16 +803,13 @@ min_dist_df <- atom_df %>%
     .groups = "drop"
   )
 
-# ---- Inspect & Merge ----
-print(head(min_dist_df))
 
 fil_min_dist_df <- min_dist_df %>% dplyr::select(resid, resno, min_dist_to_ligand)
 ```
 
 ```{r}
-# Merge (assuming pten_df_clean exists)
+# Merge 
 merged_df <- merge(pten_df, fil_min_dist_df, by.x="mutation_position", by.y = "resno", all.x = TRUE)
-merged_df
 ```
 
 

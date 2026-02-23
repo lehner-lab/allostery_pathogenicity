@@ -13,6 +13,8 @@ library(data.table)
 library(ggrepel)
 library(ggExtra)
 library(cowplot)
+library(dplyr)
+library(scatterplot3d)
 
 library('ProjectTemplate')
 setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
@@ -104,7 +106,6 @@ test_merged_df <-test_merged_df %>%
   left_join(sh3_final_df_ddgf, by = "id_ref")
 
 nrow(test_merged_df)
-test_merged_df
 ```
 
 ## PhyloP Conservation Scores
@@ -115,7 +116,6 @@ Load variant-level PhyloP scores and merge with the main dataframe.
 phylop <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/phyloP/GRB2_verPhyloP_hg38.csv")
 phylop <- phylop %>%
   dplyr::rename(id_ref = hgvsp_like)
-phylop
 ```
 
 ```{r}
@@ -123,7 +123,6 @@ test_merged_df <- test_merged_df %>%
   left_join(phylop, by = "id_ref")
 
 test_merged_df$phylop_mean <- test_merged_df$phylop_mean * (-1)
-test_merged_df
 ```
 
 # Site Annotation
@@ -135,7 +134,6 @@ paper_anno <- read.csv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/da
 ortho_list <- unique(paper_anno %>% filter(orthosteric == TRUE) %>% pull(Pos_real))
 
 ortho_list_ref <- append(ortho_list, c(170 ,192 ,195 ,204 ,209))
-ortho_list_ref
 
 allo_list_ref <- c(173, 183, 203)
 ```
@@ -192,8 +190,6 @@ test_residue <- test_merged_df %>%
                                new_position %in% allo_list_ref  ~ "Allosteric site",
                                #Pos_ref %in% core_pos ~ "Core site",
                                TRUE                        ~ "Non-orthosteric site"))
-
-test_residue
 ```
 
 # PhyloP vs. ddGb Scatter Plots
@@ -300,8 +296,6 @@ plot_grid(p1,p2,p3,p4,ncol=4,nrow =1)
 Visualize the three-dimensional relationship between folding, binding, and evolutionary constraint.
 
 ```{r, fig.width=5, fig.height=5}
-library(dplyr)
-library(scatterplot3d)
 
 df_plot <- test_residue %>%
   transmute(

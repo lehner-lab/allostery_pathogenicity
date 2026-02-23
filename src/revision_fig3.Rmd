@@ -15,6 +15,10 @@ library('ProjectTemplate')
 library(ggExtra)
 library(bio3d)
 library(ggrepel)
+library(dplyr)
+library(ggsignif)
+library(cowplot)
+library(mgcv)
 load.project()
 ```
 
@@ -388,21 +392,12 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3
        plot = p_violin, width = 4, height = 2.5, dpi = 300)
 ```
 
-```{r}
-# (Removed: abandoned abundance-matching bootstrap approach — replaced by
-#  the Benign vs Pathogenic Wilcoxon analysis in the cell below.)
-```
 
 # Violin: Orthosteric vs. Non-Orthosteric Sites
 
 Stratify variants by whether their mutation position falls within the defined orthosteric (active-site) residues, then run `analyze_and_plot()` on each stratum to produce paired Benign/Pathogenic violin plots with Wilcoxon p-values, displayed side-by-side.
 
 ```{r}
-library(ggplot2)
-library(dplyr)
-library(ggsignif)
-library(cowplot)
-
 # 1. Define Active Positions (Orthosteric)
 active_positions <- c(24,27,39,41,44,47,61,64, # RING zinc binding
     3,6,7,8,10,11,14,15,17,18,21,22, 38,  # RING BARD1 interface
@@ -624,7 +619,6 @@ ring_out <- doubledeepms__minimum_interchain_distances_from_PDB_perres(
 
 fil_min_dist_df <- ring_out %>% dplyr::select(Pos, scHAmin_ligand)
 fil_min_dist_df <- fil_min_dist_df %>% dplyr::rename(min_dist_to_ligand = scHAmin_ligand)
-fil_min_dist_df
 ```
 
 ## Exponential Decay Fit
@@ -774,7 +768,6 @@ brct_out <- doubledeepms__minimum_interchain_distances_from_PDB_perres(
 
 fil_min_dist_df <- brct_out %>% dplyr::select(Pos, scHAmin_ligand)
 fil_min_dist_df <- fil_min_dist_df %>% dplyr::rename(min_dist_to_ligand = scHAmin_ligand)
-fil_min_dist_df
 ```
 
 ### Exponential Decay Fit
@@ -913,9 +906,6 @@ p_decay_all
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_decay1.pdf", 
        plot = p_decay_all, width = 8, height = 4.5, dpi = 300)
 ```
-```{r}
-brca1_df
-```
 
 # Correlation Plots: Raw Predictor Scores
 
@@ -1017,7 +1007,6 @@ brca1_plot <- brca1_plot %>%
   )
 
 brca1_plot<- merge(brca1_plot, fil_min_dist_df, by.x="mutation_position", by.y = "Pos")
-brca1_plot
 ```
 
 # Spatial Decay: Signal vs. Noise (GAM)
@@ -1066,8 +1055,6 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3
 ```
 
 ```{r}
-library(mgcv)
-
 # Fit the GAM for the biological signal (Comp_residual_norm)
 gam_signal <- gam(Abs_Value ~ s(min_dist_to_ligand, k = 8), 
                   data = filter(plot_ready_raw, Residual_Type == "Comp_residual_norm"))

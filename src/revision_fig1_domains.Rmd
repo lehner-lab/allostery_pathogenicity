@@ -8,7 +8,7 @@ date: "2025-12-02"
 
 Load required libraries and initialise the ProjectTemplate environment for this analysis.
 
-```{r}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 setwd("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1")
 library('ProjectTemplate')
@@ -139,8 +139,6 @@ head(combined_df)
 
 ## UniProt ID Mapping
 
-Query the UniProt REST API to resolve each ProteinGym entry-name identifier (e.g., `PITX2_HUMAN`) to its canonical UniProt accession, then filter to retain only human proteins with unambiguous accessions.
-
 ```{r}
 unique_proteins <- unique(combined_df$protein_name)
 
@@ -190,10 +188,6 @@ id_mapping_df_fil <- id_mapping_df %>% filter(!uniprot_id %in% c("P15282",
                                                                  "P65589", "P96930",
                                                                  "P29374", "P26614",
                                                                  "YAIA_ECOLI"))
-id_mapping_df_fil <- id_mapping_df_fil %>%
-  filter(str_detect(protein_name, "_HUMAN"))
-
-id_mapping_df_fil #22
 ```
 
 ## Sequence Alignment to Full Protein
@@ -209,8 +203,6 @@ combined_df_fil  <- combined_df_fil %>%
   mutate(
     position = as.numeric(str_extract(mutant, "\\d+"))
   )
-
-combined_df_fil
 ```
 
 ```{r}
@@ -253,8 +245,6 @@ id_mapping_df_fil_with_sequences <- id_mapping_df_fil %>%
   rowwise() %>%
   mutate(sequence = get_uniprot_sequence(uniprot_id)) %>%
   ungroup() # Remove rowwise grouping
-
-id_mapping_df_fil_with_sequences
 ```
 
 ```{r}
@@ -280,7 +270,6 @@ domain_wt <- domain_wt %>%
 
 domain_wt <- domain_wt %>% dplyr::select(protein_name, wt_sequence)
 seq_mapping <- merge(domain_wt, id_mapping_df_fil_with_sequences, by = "protein_name")
-seq_mapping
 ```
 
 ```{r}
@@ -298,17 +287,9 @@ seq_mapping <- seq_mapping %>%
     end_index = locations[, "end"]
   )
 
-nrow(seq_mapping) #22
 seq_mapping <- na.omit(seq_mapping)
-nrow(seq_mapping) #13 --> dropped 9 rows with non-matching sequence 
 seq_mapping <- seq_mapping %>% dplyr::select(protein_name, uniprot_id, start_index)
-seq_mapping
 ```
-```{r}
-unique(seq_mapping$uniprot_id)
-# "P48052" "O00257" "P31689" "P29323" "Q00688" "Q5VST9" "Q8TE49" "Q13526" "O75400" "P54725" "O94993" "O95155" "O95071"
-```
-
 
 ```{r}
 combined_df_fil <- combined_df_fil %>% filter (protein_name %in% unique(seq_mapping$protein_name))
@@ -323,13 +304,9 @@ combined_df_fil <- combined_df_fil %>%
       replacement = as.character(pos_uniprot)
     )
   )
-
-combined_df_fil
 ```
 
 ## AlphaMissense Scores
-
-Load per-protein AlphaMissense score files from the local `megascale_am` directory, annotate each row with its UniProt accession, and apply the same logit transformation used for the Domainome data.
 
 ```{r}
 # Get a list of all files with "Tsuboyama" in the name
@@ -372,24 +349,17 @@ am_df <- map_dfr(file_list, read_and_label_protein)
 epsilon <- 1e-10
 am_df$AM_clamped <- pmin(pmax(am_df$am_pathogenicity, epsilon), 1 - epsilon)
 am_df$AM_logit <- log(am_df$AM_clamped / (1 - am_df$AM_clamped))
-am_df
 ```
 
 ## R² Computation
 
-Merge the Mega-scale DMS variants with their AlphaMissense logit scores, then compute per-protein adjusted R² by regressing AM logits on DMS scores for each protein with at least three data points.
-
 ```{r}
-nrow(combined_df_fil) # 13683
-
 mega_combined <- merge(
   combined_df_fil,
   am_df,
   by.x = c("uniprot_id", "mutant_ref"),
   by.y = c("protein_name", "protein_variant")
 )
- 
-mega_combined #13683
 ```
 
 

@@ -29,7 +29,6 @@ rad_exp_full <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/dat
 rad_exp_full <- rad_exp_full %>% filter (Consequence == "missense_variant")
 nrow(rad_exp_full)
 length(unique(rad_exp_full$Protein_position))
-rad_exp_full
 ```
 
 ## Variant Annotation Parsing
@@ -72,7 +71,6 @@ rad_exp <- rad_exp %>%
     z_score_D4_D14 = mean(z_score_D4_D14, na.rm = TRUE),
     .groups = "drop"
   )
-rad_exp
 ```
 
 ## ClinVar Annotations
@@ -129,8 +127,6 @@ rad_esm <- rad_esm %>%
   dplyr::select(-clinvar_variation_id, 
          -clinvar_clinical_significance, 
          -clinvar_review_status) 
-
-rad_esm
 ```
 
 ## Data Merging
@@ -158,8 +154,6 @@ rad_df <- merge(rad_df, rad_clinvar[, cols_to_merge_clinvar],
 # 4. Final Cleanup -------------------------------------------------------
 rad_df <- rad_df %>%
   mutate(mutation_position = as.numeric(str_extract(variant_pro, "(?<=\\D)(\\d+)(?=\\D)")))
-
-rad_df
 ```
 ## ClinVar Annotation
 
@@ -190,7 +184,6 @@ rad_df <- rad_df %>%
   )
 
 table(rad_df$var_source)
-rad_df
 ```
 # LOESS Residual Model
 
@@ -569,8 +562,6 @@ min_dist_df <- atom_df %>%
     min_dist_to_list = min(dist_to_target, na.rm = TRUE),
     .groups = "drop"
   )
-
-min_dist_df
 ```
 
 # Exponential Decay Fit
@@ -821,7 +812,6 @@ rad_plot <- rad_plot %>%
   )
 
 rad_plot<- merge(rad_plot, min_dist_df, by.x="mutation_position", by.y = "resno")
-rad_plot
 ```
 
 ## GAM Spatial Decay Comparison Plot

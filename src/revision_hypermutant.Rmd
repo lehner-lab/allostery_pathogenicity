@@ -26,7 +26,7 @@ Reads the pre-filtered single-amino-acid variant table for A0A075B6X5, which con
 
 ```{r}
 df <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/supp/A0A075B6X5_filtered_with_esm1v.csv")
-df
+head(df)
 ```
 
 
@@ -176,8 +176,6 @@ min_dist_df <- atom_df %>%
     min_dist_to_list = min(dist_to_target, na.rm = TRUE),
     .groups = "drop"
   )
-
-min_dist_df
 ```
 
 ### Merge Residuals with Structural Distances
@@ -189,7 +187,6 @@ merged_df <- merge(df_residual$data, min_dist_df, by.x="new_position", by.y = "r
 nrow(merged_df)
 merged_df <- merged_df %>% filter(!is.na(min_dist_to_list))
 nrow(merged_df)
-merged_df
 ```
 
 ### Exponential Decay Model (Residual vs. Distance)
@@ -413,8 +410,6 @@ min_dist_df <- atom_df %>%
     min_dist_to_list = min(dist_to_target, na.rm = TRUE),
     .groups = "drop"
   )
-
-min_dist_df
 ```
 
 ### Merge Residuals with Structural Distances
@@ -426,7 +421,6 @@ merged_df <- merge(df_residual$data, min_dist_df, by.x="new_position", by.y = "r
 nrow(merged_df)
 merged_df <- merged_df %>% filter(!is.na(min_dist_to_list))
 nrow(merged_df)
-merged_df
 ```
 
 ### Exponential Decay Model (Residual vs. Distance)
@@ -647,8 +641,6 @@ min_dist_df <- atom_df %>%
     min_dist_to_list = min(dist_to_target, na.rm = TRUE),
     .groups = "drop"
   )
-
-min_dist_df
 ```
 
 ### Merge Residuals with Structural Distances
@@ -660,7 +652,6 @@ merged_df <- merge(df_residual$data, min_dist_df, by.x="new_position", by.y = "r
 nrow(merged_df)
 merged_df <- merged_df %>% filter(!is.na(min_dist_to_list))
 nrow(merged_df)
-merged_df
 ```
 
 ### Exponential Decay Model (Residual vs. Distance)

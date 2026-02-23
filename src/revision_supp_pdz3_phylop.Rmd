@@ -107,7 +107,6 @@ Load variant-level PhyloP scores and merge with the main dataframe.
 phylop <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/phyloP/DLG4_verPhyloP_hg38.csv")
 phylop <- phylop %>%
   dplyr::rename(variant_match = hgvsp_like)
-phylop
 ```
 
 ```{r}
@@ -115,7 +114,6 @@ test_merged_df <- test_merged_df %>%
   left_join(phylop, by = "variant_match")
 
 test_merged_df$phylop_mean <- test_merged_df$phylop_mean * (-1)
-test_merged_df
 ```
 
 # Site Annotation
@@ -130,7 +128,6 @@ paper_anno <- read.csv(file.path(proj_dir, "data/cleaned_ddg/pdz3_ddg_cleaned.cs
 ortho_list_ref <- unique(paper_anno %>% filter(orthosteric == TRUE) %>% pull(pos_am))
 
 ortho_list_ref <- union(ortho_list_ref, c(322, 323, 324, 325, 326, 327, 328, 331, 339, 372, 376, 379, 380))
-ortho_list_ref
 
 
 #pdz3_final_df_ddg_2plot %>%
@@ -143,7 +140,6 @@ allo_list_ref <- c(312, 314, 318, 329, 330, 336, 338, 341, 347, 357, 359, 360, 3
 
 #core_pos <- unique(paper_anno %>% filter (Pos_class == "core") %>% pull(pos_am))
 core_pos <- unique(pdz3_ddgf %>% filter (f_ddg_pred >= 1) %>% pull (pos_am)) + ref_offset
-core_pos
 ```
 
 # LOESS Residual Model
@@ -198,8 +194,6 @@ test_residue <- test_merged_df %>%
                                Pos_ref %in% allo_list_ref  ~ "Allosteric site",
                                #Pos_ref %in% core_pos ~ "Core site",
                                TRUE                        ~ "Non-orthosteric site"))
-
-test_residue
 ```
 
 # PhyloP vs. ddGb Scatter Plots

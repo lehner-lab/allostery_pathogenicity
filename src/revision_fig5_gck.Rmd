@@ -236,7 +236,6 @@ min_dist_df <- atom_df %>%
   )
 
 fil_min_dist_df <- min_dist_df %>% dplyr::select(resid, resno, min_dist_to_ligand)
-fil_min_dist_df
 ```
 
 # Merge Residuals with Distance
@@ -251,8 +250,6 @@ merged_df_residue <- merged_df %>%
   group_by(new_position) %>%
   summarise(loess_residual_avg = median(residuals_pred, na.rm = TRUE), .groups = "drop") %>%
   left_join(fil_min_dist_df, by = c("new_position" = "resno"))
-
-merged_df_residue %>% filter (new_position %in% active_site_positions)
 ```
 
 # Spatial Decay Analysis

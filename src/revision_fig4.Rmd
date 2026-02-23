@@ -22,8 +22,6 @@ load.project()
 
 ## Sequence Alignment Utility (archived)
 
-A commented-out helper function that performs pairwise local alignment of a DMS library sequence against the full-length PSD-95 protein sequence to map library residue indices to canonical positions; the resulting orthosteric contact positions are listed inline for reference.
-
 ```{r}
 # align_and_add_true_pos <- function(df, full_seq, library_col = "library") {
 #   # 1) Build WT library sequence (per library), assuming Pos is 1-based
@@ -149,8 +147,6 @@ ortho_list <- c(376, 325, 324, 372, 327, 323, 322, 326, 328, 331, 339, 379, 380)
 
 pdz3_final_df_ddg_2plot$orthosteric <- FALSE
 pdz3_final_df_ddg_2plot$orthosteric[pdz3_final_df_ddg_2plot$Pos_ref %in% ortho_list] <- TRUE
-
-pdz3_final_df_ddg_2plot 
 ```
 
 ## LOESS Residual Model for PDZ3
@@ -168,8 +164,6 @@ pdz3_final_df_ddg_2plot$fitted <- predict(loess_fit, newdata = pdz3_final_df_ddg
 
 # Calculate residuals for ALL points
 pdz3_final_df_ddg_2plot$residuals <- pdz3_final_df_ddg_2plot$ESM1v - pdz3_final_df_ddg_2plot$fitted
-
-pdz3_final_df_ddg_2plot
 ```
 
 ## PDB B-factor Mapping for PDZ3
@@ -649,7 +643,6 @@ sh3_final_df_ddgb <- sh3_final_df_ddgb %>%
 sh3_final_df_ddgf <- process_and_merge_protein_data(sh3_data, sh3_final_df_ddgf)
 sh3_final_df_ddgb <- sh3_final_df_ddgb %>% dplyr::select(id_ref, b_ddg_pred, b_ddg_pred_sd)
 sh3_final_df_ddg_2plot <- merge(sh3_final_df_ddgf, sh3_final_df_ddgb, by = "id_ref")
-sh3_final_df_ddg_2plot
 ```
 
 ## LOESS Residual Model for SH3
@@ -671,8 +664,6 @@ sh3_final_df_ddg_2plot$fitted <- predict(loess_fit, newdata = sh3_final_df_ddg_2
 
 # Calculate residuals for ALL points
 sh3_final_df_ddg_2plot$residuals <- sh3_final_df_ddg_2plot$ESM1v - sh3_final_df_ddg_2plot$fitted
-
-sh3_final_df_ddg_2plot
 ```
 
 ## PDB B-factor Mapping for SH3

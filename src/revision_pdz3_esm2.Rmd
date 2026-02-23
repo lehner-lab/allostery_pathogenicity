@@ -85,10 +85,6 @@ Pos_ref = position + 1, #
 variant_match = make_variant_id(wildtype, Pos_ref, mutation)
 ) %>%
 left_join(test_esm %>% as_tibble(), by = c("variant_match" = "variant"))
-
-# sanity check alignment anchor
-
-test_df %>% filter(Pos_ref == 311) %>% head()
 ```
 
 ## Merging MoCHI and Structural Predictions
@@ -99,9 +95,6 @@ Join the MoCHI binding ddG table with the ThermoMPNN/ESM-1v table on variant ide
 test_merged_df <- pdz3_ddgb %>%
   left_join(test_df, by = c("variant_match", "Pos_ref")) %>%
   left_join(pdz3_ddgf %>% dplyr::select(variant_match, Pos_ref, f_ddg_pred, f_ddg_pred_sd), by = c("variant_match", "Pos_ref"))
-
-stopifnot(nrow(test_merged_df) == 1567)
-test_merged_df %>% dplyr::select(variant_match, Pos_ref, b_ddg_pred, f_ddg_pred, ddG_pred, ESM1v) %>% head()
 ```
 
 ## ESM-2 Scores

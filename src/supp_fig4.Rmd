@@ -491,8 +491,6 @@ pdz3_out <- doubledeepms__minimum_interchain_distances_from_PDB_perres(
   chain_query = "A",
   chain_target = "B"
 )
-
-pdz3_out
 ```
 
 

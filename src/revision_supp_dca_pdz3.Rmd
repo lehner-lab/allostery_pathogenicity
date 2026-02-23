@@ -39,7 +39,6 @@ freq <- freq |>
     gap_freq,
     conservation
   )
-freq
 ```
 
 ## MoCHI Binding ddG
@@ -134,7 +133,6 @@ test_merged_df_residue <- test_merged_df_residue %>%
     # Optional: Create a column to make these points look different (e.g., bigger/bolder)
     is_highlighted = pos_match %in% allo_pos
   )
-test_merged_df_residue
 ```
 
 # DCA Coupling to Orthosteric Sites
@@ -145,12 +143,10 @@ Load EVcouplings scores and compute the maximum coupling strength from each non-
 df <-  read.csv('/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/dca/psd95-pdz3_evcoupling_legacy/couplings/CouplingScores.csv', sep = ',')
 df$i <- df$i + 310
 df$j <- df$j + 310
-df
 
 edges <- df %>%
   #filter(probability > 0.9) %>%
   transmute(i = as.integer(i), j = as.integer(j), cn = as.numeric(cn))
-edges
 
 dca_to_ortho <- edges %>%
   filter(i %in% ortho_list | j %in% ortho_list) %>%
@@ -163,14 +159,8 @@ dca_to_ortho <- edges %>%
     dca_to_ortho_sumTop3 = sum(sort(cn, decreasing = TRUE)[1:min(3, n())], na.rm = TRUE),
     .groups = "drop"
   )
-
-
-dca_to_ortho
 ```
 
-```{r}
-dca_to_ortho %>% filter(position %in% ortho_list)
-```
 
 ## Filter by MSA Depth and Merge with ddGb
 
@@ -192,7 +182,6 @@ test_merged_df_residue
 
 merged <- test_merged_df_residue %>%
   inner_join(dca_to_ortho, by ="position")
-merged
 ```
 
 # Correlation Plot: DCA Coupling vs. Median ddGb

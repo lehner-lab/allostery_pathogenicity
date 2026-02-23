@@ -61,7 +61,6 @@ bap1_exp <- bap1_exp %>%
 
 nrow(bap1_exp)
 length(unique(bap1_exp$variant_pro))
-bap1_exp
 ```
 ## ClinVar Annotations
 
@@ -73,7 +72,6 @@ bap1_clinvar <- bap1_clinvar %>% dplyr::select(Protein.change, VariationID, dbSN
 bap1_clinvar <- bap1_clinvar %>%
   separate_rows(Protein.change, sep = ",\\s*") %>%
   filter(!grepl("\\*", Protein.change))
-bap1_clinvar
 
 table(bap1_clinvar$Germline.classification)
 ```
@@ -103,8 +101,6 @@ bap1_df <- merge(bap1_df, bap1_clinvar[, cols_to_merge_clinvar],
                 by.x = "variant_pro", by.y = "Protein.change", all.x = TRUE)
 bap1_df <- bap1_df %>%
   mutate(mutation_position = as.numeric(str_extract(variant_pro, "(?<=\\D)(\\d+)(?=\\D)")))
-
-bap1_df
 ```
 ## ClinVar Annotation
 
@@ -503,8 +499,6 @@ min_dist_df <- atom_df %>%
     min_dist_to_list = min(dist_to_target, na.rm = TRUE),
     .groups = "drop"
   )
-
-min_dist_df
 ```
 
 # Exponential Decay Fit
@@ -750,7 +744,6 @@ bap1_plot <- bap1_plot %>%
   )
 
 bap1_plot<- merge(bap1_plot, min_dist_df, by.x="mutation_position", by.y = "resno")
-bap1_plot
 ```
 ## GAM Spatial Decay Comparison Plot
 

@@ -95,8 +95,6 @@ ortho_list <- unique(paper_anno %>% filter(orthosteric == TRUE) %>% pull(Pos_rea
 
 ortho_list <- append(ortho_list, c(170 ,192 ,195 ,204 ,209))
 length(ortho_list)
-ortho_list
-test_merged_df
 ```
 
 ## Merging ddGf into Main Table
@@ -105,7 +103,6 @@ Append the MoCHI folding ddG predictions to the merged variant table by joining 
 
 ```{r}
 test_merged_df <- merge(test_merged_df, sh3_final_df_ddgf, by = "id_ref")
-test_merged_df
 ```
 
 ## ESM-2 Scores
@@ -124,8 +121,6 @@ esm2_long <- esm2_raw %>%
 
 test_merged_df <- test_merged_df %>%
   left_join(esm2_long, by = "id_ref")
-
-test_merged_df
 ```
 
 # Residual Models
@@ -138,7 +133,6 @@ Define the allosteric and core position sets, then fit LOESS curves of ESM-1v an
 allo_pos <- c(173, 183, 203)
 
 core_pos <- unique(sh3_final_df_ddgf %>% filter (f_ddg_pred >= 1) %>% pull (Pos_ref))
-core_pos
 
 fit_residuals_loess <- function(df, y_col, x_col = "ddG_pred", exclude_pos = NULL, span = 0.7) {
 df_fit <- df
@@ -174,7 +168,6 @@ sum(is.na(test_merged_df$resid_esm2))
 Aggregate variant-level residuals and raw scores to per-residue medians across all SH3 positions. Each residue is labelled as a binding site, allosteric site, or non-orthosteric site based on the annotation lists defined above.
 
 ```{r}
-test_merged_df
 test_residue <- test_merged_df %>%
   group_by(Pos_ref.x) %>%
   summarise(resid_median_esm1v = median(resid_esm1v, na.rm = TRUE),

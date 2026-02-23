@@ -105,7 +105,6 @@ Load variant-level PhyloP scores and merge with the main dataframe.
 phylop <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/phyloP/DLG4_verPhyloP_hg38.csv")
 phylop <- phylop %>%
   dplyr::rename(variant_match = hgvsp_like)
-phylop
 ```
 
 ```{r}
@@ -189,8 +188,6 @@ test_residue <- test_merged_df %>%
                                Pos_ref %in% allo_list_ref  ~ "Allosteric site",
                                #Pos_ref %in% core_pos ~ "Core site",
                                TRUE                        ~ "Non-orthosteric site"))
-
-test_residue
 ```
 
 # PhyloP vs. ddGb Scatter Plots

@@ -67,7 +67,7 @@ Large input datasets for proteome-wide analyses are hosted on Zenodo:
 | Dataset | Description | DOI |
 |---|---|---|
 | Proteome-wide raw data | ThermoMPNN predictions | [10.5281/zenodo.18381534](https://zenodo.org/records/18381534) |
-| Proteome-wide meta data | Per-protein ESM-1v/ThermoMPNN scores & ClinVar annotations  | [10.5281/zenodo.18386427](https://zenodo.org/records/18386427) |
+| Proteome-wide meta data | Per-protein ESM-1v fitness, ThermoMPNN ddGf scores, and ClinVar annotations  | [10.5281/zenodo.18386427](https://zenodo.org/records/18386427) |
 
 ---
 

@@ -39,17 +39,17 @@ Many disease-causing mutations occur far from protein active sites, but the mech
 │   └── globals.R                 # Project-wide constants (paths, colour palettes, AA codes)
 │
 ├── data/
-│   ├── cleaned_ddg/              # Per-protein MoCHI-refit folding & binding ddG tables
-│   │   └── (kras, pdz3, sh3, src, …)
+│   ├── cleaned_ddg/              # Per-protein MoCHI folding & binding ddG tables
+│   │   └── (pdz3, sh3, …)
 │   ├── paper_supplements/        # Externally downloaded supplement tables
-│   │   ├── domainome/            # Domainome 1.0 (Hoefler et al.)
+│   │   ├── domainome/            # Domainome 1.0 (Beltran et al. 2025)
 │   │   ├── megascale/            # Mega-scale stability (Tsuboyama et al. 2023)
-│   │   ├── kras_chenchun/        # KRAS DMS (Chenchun et al.)
-│   │   └── src_toni/             # SRC DMS
+│   │   ├── kras_chenchun/        # KRAS DMS (Weng et al. 2024)
+│   │   └── src_toni/             # SRC DMS (Beltran et al. 2025)
 │   ├── proteome_meta/            # ClinVar variant table and UniProt metadata
 │   ├── vampseq/                  # VAMP-seq datasets (7 full-length human proteins)
 │   ├── scores/                   # ESM-1v, ESM-2, ThermoMPNN, AlphaMissense scores
-│   ├── decay_pdb/ & residual_pdb/ # PDB files with B-factors replaced by model values
+│   ├── decay_pdb/ & residual_pdb/ # PDB files 
 │   └── sasa/                     # Solvent-accessible surface area annotations
 │
 ├── figs/                         # Output figure panels (PDF/PNG)

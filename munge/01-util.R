@@ -42,7 +42,7 @@ process_protein_data <- function(consurf_file, am_file, esm1b_file, popeve_file,
       dplyr::select(wt_aa, position, mt_aa, EVE_scores_ASM)  %>% 
       mutate(id = paste0(wt_aa, position, mt_aa))
   } else {
-    # Create EVE data from the popEVE data (assuming it's constructed similarly)
+    # Create EVE data from the popEVE data 
     eve_df <- read_csv(popeve_file) %>%
       dplyr::select(id=mutant, EVE) %>%
       as_tibble()

@@ -123,7 +123,7 @@ sh3_final_df_fit <- read_csv('./data/cleaned_ddg/sh3_fit_cleaned.csv')
 ########################################
 ######### SH3 RSA Data #################
 ########################################
-# Use the function to read your file
+# 
 sh3_rsa_file <- "./data/sasa/2vwf_rsa.txt"
 sh3_rsa_df <- read_sasa_file(sh3_rsa_file)
 sh3_rsa_df <- sh3_rsa_df[sh3_rsa_df$Chain == "A",]

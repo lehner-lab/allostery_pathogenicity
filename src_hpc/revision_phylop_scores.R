@@ -10,7 +10,7 @@ library(data.table)
 
 cadd <- "/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/00.human_proteome_inputs/cadd/whole_genome_SNVs_inclAnno.tsv.gz"
 
-# 0) Point this to a GRCh38 GTF on your cluster (GENCODE recommended)
+# 0) Point this to a GRCh38 GTF on cluster (GENCODE recommended)
 gtf_path <- "/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/00.human_proteome_inputs/gencode.v45.annotation.gtf.gz"
 
 # Pull the first "gene" feature line for gene_name "GCK"

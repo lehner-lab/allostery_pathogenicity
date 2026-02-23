@@ -47,7 +47,6 @@ pdz3_final_df_ddg <- read_csv('./data/cleaned_ddg/pdz3_ddg_cleaned_mochi_refit.c
 ########################################
 ######### PDZ3 RSA Data #################
 ########################################
-# Use the function to read your file
 # pdz3_rsa_file <- "./data/sasa/1be9_rsa.txt"
 # pdz3_rsa_df <- read_sasa_file(pdz3_rsa_file)
 # pdz3_rsa_df <- pdz3_rsa_df[pdz3_rsa_df$Chain == "A",]

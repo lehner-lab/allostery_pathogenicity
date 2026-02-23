@@ -138,7 +138,6 @@ src_final_df_fit_anno$active_site[is.na(src_final_df_fit_anno$active_site)] <- F
 ########################################
 ######### SRC RSA Data #################
 ########################################
-# Use the function to read your file
 src_rsa_file <- "./data/sasa/2src_rsa.txt"
 src_rsa_df <- read_sasa_file(src_rsa_file)
 src_rsa_df <- src_rsa_df[src_rsa_df$Chain == "A",]

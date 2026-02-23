@@ -84,7 +84,6 @@ neff_df <- freq_raw |>
     depth_raw = (1 - gap_freq),
     
     # Neff(pos) = Coverage(pos) * Global_Neff
-    # This tells you how many effective sequences cover this specific position
     positional_neff = depth_raw * global_neff
   ) |>
   dplyr::select(
@@ -187,7 +186,6 @@ allo_pos <- c(312, 314, 318, 329, 330, 336, 338, 341, 347, 357, 359, 360, 362, 3
 
 test_merged_df_residue <- test_merged_df_residue %>%
   mutate(
-    # Label logic: ONLY label if the position is in your list
     label_text = ifelse(pos_match %in% allo_pos, as.character(pos_match), ""),
     
     # Optional: Create a column to make these points look different (e.g., bigger/bolder)
@@ -410,7 +408,6 @@ positions_to_highlight <- c(173, 183, 203)
 
 position_residuals <- position_residuals %>%
   mutate(
-    # Label logic: ONLY label if the position is in your list
     label_text = ifelse(Pos_ref %in% positions_to_highlight, as.character(Pos_ref), ""),
     
     # Optional: Create a column to make these points look different (e.g., bigger/bolder)

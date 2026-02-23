@@ -126,7 +126,7 @@ bootstrap_adjusted_r_squared <- function(input_data, model_id, n_bootstrap = 100
   # Define the number of rows (n)
   n <- nrow(input_data)
   
-  # Number of predictors (p) - In your case, there are two predictors: f_ddg_pred and sos1_ddg
+  # Number of predictors (p) 
   p <- 2
   
   # Total sum of squares (SST) for the original data

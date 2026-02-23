@@ -17,7 +17,6 @@
 #     dplyr::select(id, Pos_real, `mean_kcal/mol`, `std_kcal/mol`, wt_codon)
 # }
 # 
-# # Ensure you drop NA in 'id' column before merging
 # df_ddg_folding <- process_ddg(kras_ddg, "folding", "abundance_ddg", "abundance_ddg_std")
 # df_ddg_folding <- df_ddg_folding[df_ddg_folding$id != "NA"& df_ddg_folding$id != "WT", ]
 # min(as.numeric(df_ddg_folding$`mean_kcal/mol`))
@@ -87,7 +86,6 @@
 #     dplyr::select(id, Pos_real, `mean_kcal/mol`, `std_kcal/mol`, wt_codon)
 # }
 # 
-# # Ensure you drop NA in 'id' column before merging
 # df_ddg_folding <- process_ddg(kras_ddg, "folding", "abundance_ddg", "abundance_ddg_std")
 # df_ddg_pik <- process_ddg(kras_ddg, "PIK3CG", "pik3cg_ddg", "pik3cg_ddg_std")
 # df_ddg_raf1 <- process_ddg(kras_ddg, "RAF1", "raf1_ddg", "raf1_ddg_std")
@@ -325,7 +323,6 @@ kras_ddg_apca_esm1v_full <- read_csv('./data/cleaned_ddg/kras_ddg_apca_esm1v_ful
 ########################################
 ######### KRAS RSA Data ################
 ########################################
-# Use the function to read your file
 kras_rsa_file <- "./data/sasa/6vjj_rsa.txt"
 kras_rsa_df <- read_sasa_file(kras_rsa_file)
 kras_rsa_df <- kras_rsa_df[kras_rsa_df$Chain == "A",]

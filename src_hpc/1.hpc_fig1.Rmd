@@ -697,7 +697,7 @@ quantile(core_var_r2$adj_r2, 0.75, na.rm = FALSE) #0.2315741
 # # Use multiple sessions (parallel workers)
 # plan(multisession)
 # 
-# # Set the directory path where your RDS files are stored
+# # Set the directory path where RDS files are stored
 # dir_path <- "/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/allostery_pathogenicity/00.human_proteome_results/lm_rds_jan2026"
 # 
 # # List all RDS files in the directory
@@ -722,7 +722,7 @@ quantile(core_var_r2$adj_r2, 0.75, na.rm = FALSE) #0.2315741
 # # Use multiple sessions (parallel workers)
 # future::plan(multisession)
 # 
-# # Set the directory path where your RDS files are stored
+# # Set the directory path where RDS files are stored
 # core_dir_path <- "/lustre/scratch126/gengen/projects_v2/alpha-allostery-global/00.human_proteome_results/core_lm_rds"
 # 
 # # List all RDS files in the directory

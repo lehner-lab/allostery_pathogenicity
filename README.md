@@ -12,7 +12,7 @@ Analysis code and metadata for:
 
 ## Overview
 
-Many disease-causing mutations occur far from protein active sites, but the mechanisms remain poorly understood. This repository provides the analysis code and metadata to reproduce all findings from our accompanying preprint. We introduce a framework to decouple stability-driven effects from functional mutational effects, allowing for the systematic detection of allostery in experimental or computational variant effect maps.
+Many disease-causing mutations occur far from protein active sites, but the mechanisms remain poorly understood. This repository provides the analysis code and metadata to reproduce all findings from our accompanying preprint. Here we introduce a framework to decouple stability-driven effects from functional mutational effects, allowing for the systematic detection of allostery in experimental or computational variant effect maps.
 
 ---
 

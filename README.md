@@ -88,7 +88,7 @@ All analyses run in **R ≥ 4.3** using the [ProjectTemplate](http://projecttemp
    ```r
    library(ProjectTemplate)
    load.project()          # loads lib/, munge/, and caches data
-   rmarkdown::render("src/revision_fig4.Rmd")
+   rmarkdown::render("src/revision_fig3.Rmd")
    ```
 
    Each `.Rmd` in `src/` is self-contained and documents its inputs, model steps, and outputs with markdown section headers.

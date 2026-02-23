@@ -102,7 +102,7 @@ All analyses run in **R ≥ 4.3** using the [ProjectTemplate](http://projecttemp
 ```bibtex
 @article{liao2025allostery,
   title   = {Allostery is a widespread cause of loss-of-function variant pathogenicity},
-  author  = {Liao, Xiang and Lehner, Ben},
+  author  = {Liao, Xiaotian and Lehner, Ben},
   journal = {bioRxiv},
   year    = {2025},
   doi     = {10.1101/2025.06.20.660737}

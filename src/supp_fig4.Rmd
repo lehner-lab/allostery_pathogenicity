@@ -721,60 +721,7 @@ label_df <- pdz3_final_df_ddg_2plot %>%
 
 pdz3_final_df_ddg_2plot$site_class <- factor(pdz3_final_df_ddg_2plot$site_class, levels = c("orthosteric", "allosteric", "other"))
 
-fig3C <- ggplot(pdz3_final_df_ddg_2plot, aes(x = site_class, y = residuals, fill = site_class)) +
-  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA)+
-  stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
-  stat_summary(fun = median, geom = "point", shape = 23, size = 2, fill = "black", color = "black", stroke = 0.7) +
-    geom_text(
-    data = label_df,
-    aes(x = site_class, y = max(pdz3_final_df_ddg_2plot$residuals) * 1.1,
-        label = paste0("n = ", n)),
-    inherit.aes = FALSE,
-    size = 4
-  ) +
-  geom_text(
-    data = label_df,
-    aes(x = site_class, y = 10,
-        label = paste0("n = ", n)),
-    inherit.aes = FALSE,
-    size = 4
-  ) +
-    geom_text(
-  data = label_df,
-  aes(x = site_class, y = median_val + 1.9, label = sprintf("%.2f", median_val)),
-  inherit.aes = FALSE,
-  size = 6
-) +
-    geom_signif(
-    comparisons = list(
-      c("orthosteric", "allosteric"),
-      c("orthosteric", "other"),
-      c("allosteric", "other")
-    ),
-    map_signif_level = FALSE,
-    test = "wilcox.test",
-    step_increase = 0.1,
-    tip_length = 0.01
-  ) +
-  
-  # Labels and theme
-  labs(
-    title = "PSD-95-PDZ3",
-    subtitle = "",
-    x = "",
-    y = "ESM1v - ddGf residual"
-  ) +
-  scale_fill_manual(values = c(
-    "orthosteric" = "orange",
-    "allosteric" = "cyan3",
-    "other" = "darkgreen"
-  )) +
-  theme_classic() +
-  theme(legend.position = "none")
 
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_pdz_violin.pdf", 
-       plot = fig3C, width = 3, height = 3, dpi = 300)
-fig3C
 ```
 
 
@@ -1917,61 +1864,6 @@ label_df <- sh3_final_df_ddg_2plot %>%
   )
 
 sh3_final_df_ddg_2plot$site_class <- factor(sh3_final_df_ddg_2plot$site_class, levels = c("orthosteric", "allosteric", "other"))
-
-fig3C <- ggplot(sh3_final_df_ddg_2plot, aes(x = site_class, y = residuals, fill = site_class)) +
-  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA)+
-  stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
-  stat_summary(fun = median, geom = "point", shape = 23, size = 2, fill = "black", color = "black", stroke = 0.7) +
-  geom_text(
-    data = label_df,
-    aes(x = site_class, y = max(sh3_final_df_ddg_2plot$residuals) * 1.1,
-        label = paste0("n = ", n)),
-    inherit.aes = FALSE,
-    size = 4
-  ) +
-  geom_text(
-    data = label_df,
-    aes(x = site_class, y = 10,
-        label = paste0("n = ", n)),
-    inherit.aes = FALSE,
-    size = 4
-  ) +
-  geom_text(
-    data = label_df,
-    aes(x = site_class, y = median_val + 1.9, label = sprintf("%.2f", median_val)),
-    inherit.aes = FALSE,
-    size = 6
-  ) +
-  geom_signif(
-    comparisons = list(
-      c("orthosteric", "allosteric"),
-      c("orthosteric", "other"),
-      c("allosteric", "other")
-    ),
-    map_signif_level = FALSE,
-    test = "wilcox.test",
-    step_increase = 0.1,
-    tip_length = 0.01
-  ) +
-  
-  # Labels and theme
-  labs(
-    title = "GRB2-SH3",
-    subtitle = "",
-    x = "",
-    y = "ESM1v - ddGf residual"
-  ) +
-  scale_fill_manual(values = c(
-    "orthosteric" = "orange",
-    "allosteric" = "cyan3",
-    "other" = "darkgreen"
-  )) +
-  theme_classic() +
-  theme(legend.position = "none")
-
-ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_sh3_violin.pdf", 
-       plot = fig3C, width = 3, height = 3, dpi = 300)
-fig3C
 ```
 
 

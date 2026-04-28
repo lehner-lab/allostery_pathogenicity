@@ -23,23 +23,15 @@ load.project()
 This section defines the analysis function and computes the Spearman correlation between ThermoMPNN ddGf and ESM-1v scores for PTP1B (UniProt P18031).
 
 ```{r, fig.width=5, fig.height=5}
-analyze_ddg_vs_esm1v <- function(ddg_file, esm_file, protein_name = "Protein") {
+analyze_ddg_vs_esm1v <- function(esm_file, protein_name = "Protein") {
   # Load data
-  test_ddg <- fread(ddg_file)
   test_esm <- fread(esm_file)
   
-  # Prepare ESM1v column
-  colnames(test_esm)[2] <- "ESM1v"
-  
-  # Construct variant column in ddg data
-  test_ddg[, new_position := pos + 1]
-  test_ddg[, variant := paste0(wtAA, new_position, mutAA)]
-  
   # Merge on variant
-  test_df <- merge(test_ddg, test_esm, by = "variant")
+  test_df <- test_esm
   
   # Rename ddG column
-  test_df <- test_df %>% dplyr::rename(ddG_pred = `ddG (kcal/mol)`)
+  test_df <- test_df %>% dplyr::rename(ESM1v= ESM1v_all_variants)
   
   # Spearman correlation
   spearman_rho <- cor.test(test_df$ddG_pred, test_df$ESM1v, method = "spearman")
@@ -68,9 +60,9 @@ analyze_ddg_vs_esm1v <- function(ddg_file, esm_file, protein_name = "Protein") {
     merged_data = test_df
   )
 }
+
 ptp1b_pred <- analyze_ddg_vs_esm1v(
-  ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/PTP1B/AF-P18031-F1-model_v4.csv",
-  esm_file = "/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P18031.csv",
+  esm_file = "/Users/xl7/Documents/0.Projects/00.large_supplements/esm1v_ddgf_proteome_wide_mar2026/merged_out_dec2025/P18031_merged.csv",
   protein_name = "PTP1B"
 )
 
@@ -337,12 +329,6 @@ residue_half_d <- c(half_d, half_d_ci)
 cat("Parameter a (intercept):", residue_a, "\n") 
 cat("Parameter b (decay rate):", residue_b, "\n")   
 cat("Half-distance (log(2)/b):", residue_half_d, "\n")
-#  cat("Parameter a (intercept):", residue_a, "\n") 
-# Parameter a (intercept): 4.510289 3.841592 5.178986 
-# > cat("Parameter b (decay rate):", residue_b, "\n")   
-# Parameter b (decay rate): 0.0345627 0.02449589 0.04462951 
-# > cat("Half-distance (log(2)/b):", residue_half_d, "\n") 
-# Half-distance (log(2)/b): 20.05478 13.98747 33.31676
 ```
 
 ## Decay Plot
@@ -423,18 +409,18 @@ summary(lm_model)
 # 
 # Residuals:
 #     Min      1Q  Median      3Q     Max 
-# -4.1987 -0.4067  0.0487  0.5788  1.3440 
+# -4.1868 -0.4066  0.0487  0.5791  1.3441 
 # 
 # Coefficients:
 #                     Estimate Std. Error t value Pr(>|t|)    
-# (Intercept)         1.120787   0.108090  10.369  < 2e-16 ***
-# min_dist_to_ligand -0.024135   0.005926  -4.073 6.01e-05 ***
+# (Intercept)         1.120877   0.108057  10.373  < 2e-16 ***
+# min_dist_to_ligand -0.024139   0.005924  -4.075 5.97e-05 ***
 # ---
 # Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 # 
-# Residual standard error: 0.7521 on 286 degrees of freedom
-# Multiple R-squared:  0.05483,	Adjusted R-squared:  0.05152 
-# F-statistic: 16.59 on 1 and 286 DF,  p-value: 6.014e-05
+# Residual standard error: 0.7518 on 286 degrees of freedom
+# Multiple R-squared:  0.05487,	Adjusted R-squared:  0.05157 
+# F-statistic: 16.61 on 1 and 286 DF,  p-value: 5.968e-05
 ```
 
 # Violin Plot: Site Classification
@@ -452,6 +438,9 @@ merged_df_residue <- merged_df_residue %>%
     TRUE ~ "other"
   ))
 
+
+merged_df_residue$site_class <- factor(merged_df_residue$site_class, levels = c("orthosteric", "allosteric", "other"))
+
 label_df <- merged_df_residue %>%
   group_by(site_class) %>%
   summarise(
@@ -460,41 +449,62 @@ label_df <- merged_df_residue %>%
     .groups = "drop"
   )
 
-merged_df_residue$site_class <- factor(merged_df_residue$site_class, levels = c("orthosteric", "allosteric", "other"))
+format_p_e_notation <- function(p) {
+  if (p < 2.22e-16) return("italic(P) < 2.22e-16")
+  p_formatted <- formatC(p, format = "e", digits = 2)
+  return(paste0("italic(P) == ", p_formatted))
+}
+
+p1_val <- wilcox.test(abs(loess_residual_avg) ~ factor(site_class, levels = c("orthosteric", "allosteric")), 
+                  data = subset(merged_df_residue, site_class %in% c("orthosteric", "allosteric")), 
+                  alternative = "greater")$p.value
+
+p2_val <- wilcox.test(abs(loess_residual_avg) ~ factor(site_class, levels = c("orthosteric", "other")), 
+                  data = subset(merged_df_residue, site_class %in% c("orthosteric", "other")), 
+                  alternative = "greater")$p.value
+
+p3_val <- wilcox.test(abs(loess_residual_avg) ~ factor(site_class, levels = c("allosteric", "other")), 
+                      data = subset(merged_df_residue, site_class %in% c("allosteric", "other")), 
+                      alternative = "greater")$p.value
+
+ptp1b_annotations <- c(format_p_e_notation(p1_val), format_p_e_notation(p2_val), format_p_e_notation(p3_val))
 
 p3 <- ggplot(merged_df_residue, aes(x = site_class, y = abs(loess_residual_avg), fill = site_class)) +
-  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA)+
-  geom_jitter(width = 0.15, size = 2, alpha = 0.7, color = "lightgrey") +
-  stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
-  stat_summary(fun = median, geom = "point", shape = 23, size = 2, fill = "black", color = "black", stroke = 0.7) +
-  # Add sample size n=xxx above each group
-  geom_text(
-    data = label_df,
-    aes(x = site_class, y = max(abs(merged_df_residue$loess_residual_avg)) * 1.1,
-        label = paste0("n = ", n)),
-    inherit.aes = FALSE,
-    size = 4
+  # Base Violin
+  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
+  
+  # 1. Overlay Boxplot (Standard IQR, No outliers) 
+  geom_boxplot(width = 0.15, color = "slategrey", fill = "white", alpha = 0.5, outlier.shape = NA) +
+  
+  # Linerange for 95% quantiles (consistent with previous revisions) 
+  stat_summary(
+    fun.data = median_hilow, 
+    fun.args = list(conf.int = 0.95),
+    geom = "linerange", 
+    color = "slategrey",
+    linewidth = 0.3
   ) +
-  geom_text(
-  data = label_df,
-  aes(x = site_class, y = median_val + 0.5, label = sprintf("%.2f", median_val)),
-  inherit.aes = FALSE,
-  size = 5
-) +
-  # Significance bars
+  
+  # 2. Median labels
+  geom_text(data = label_df, aes(x = site_class, y = median_val + 0.5, 
+                                 label = sprintf("%.2f", median_val)),
+            inherit.aes = FALSE, size = 5) +
+  
+  # Sample size labels (Exact n required by checklist) 
+  geom_text(data = label_df, aes(x = site_class, y = 6, label = paste0("n = ", n)),
+            inherit.aes = FALSE, size = 4) +
+  
+  # 3. Significance bars with italic P and e-notation (One-sided Less) 
   geom_signif(
-    comparisons = list(
-      c("orthosteric", "allosteric"),
-      c("orthosteric", "other"),
-      c("allosteric", "other")
-    ),
-    map_signif_level = FALSE,
-    test = "wilcox.test",
+    comparisons = list(c("orthosteric", "allosteric"), c("orthosteric", "other"), c("allosteric", "other")),
+    annotations = ptp1b_annotations, 
+    parse = TRUE, # Required to render italic(P)
     step_increase = 0.1,
-    tip_length = 0.01
+    tip_length = 0.01,
+    textsize = 3.5
   ) +
 
-  # Labels and theme
+  # Labels and aesthetics
   labs(
     title = "PTP1B (per residue)",
     x = "",
@@ -506,7 +516,7 @@ p3 <- ggplot(merged_df_residue, aes(x = site_class, y = abs(loess_residual_avg),
     "other" = "#8DAA9D"
   )) +
   theme_classic() +
-  theme(legend.position = "none")
+  theme(legend.position = "none", axis.text.x = element_text(angle = 20, hjust = 1))
 
 p3
 ```

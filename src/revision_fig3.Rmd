@@ -97,9 +97,6 @@ range(brca1_df$residuals)
 Classify each variant into Benign, Pathogenic, or Other categories based on the ClinVar germline classification and review status, requiring at least single-submitter evidence for the first two categories.
 
 ```{r}
-unique(brca1_df$Germline.classification)
-unique(brca1_df$Germline.review.status)
-
 brca1_df <- brca1_df %>%
   mutate(
     var_source = case_when(
@@ -325,7 +322,7 @@ patho_res  <- plot_df$residuals[plot_df$group == "Pathogenic"]
 if (length(benign_res) > 0 && length(patho_res) > 0) {
   wilcox_res <- wilcox.test(benign_res, patho_res, alternative = "greater")
   p_val_wilcox <- wilcox_res$p.value
-  p_label_wilcox <- paste0("P = ", signif(p_val_wilcox, 2))
+  p_label_wilcox <- paste0("italic(P) == ", signif(p_val_wilcox, 2))
 } else {
   p_val_wilcox <- NA
   p_label_wilcox <- ""
@@ -361,9 +358,15 @@ label_df <- plot_df %>%
 p_violin <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
   geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
   
-  # Add Median crossbar and diamond point
-  stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
-  stat_summary(fun = median, geom = "point", shape = 23, size = 2.5, fill = "black") +
+  geom_boxplot(width = 0.15, color = "slategrey", fill = "white", alpha = 0.5, outlier.shape = NA) +
+  stat_summary(
+    fun.data = median_hilow, 
+    fun.args = list(conf.int = 0.95),
+    geom = "linerange", 
+    width = 0.15, 
+    color = "slategrey",
+    linewidth = 0.5
+  ) +
   
   # Add Text Labels (N count and Median value)
   geom_text(data = label_df, aes(y = label_y_n, label = n_label), size = 4) +
@@ -380,7 +383,7 @@ p_violin <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
     y_position = max(plot_df$residuals, na.rm = TRUE) + 1.0, 
     xmin = "Benign", xmax = "Pathogenic",
     annotations = p_label_wilcox,
-    tip_length = 0.01, textsize = 3.5
+    tip_length = 0.01, textsize = 3.5,  parse = TRUE 
   )}
 
 print(p_violin)

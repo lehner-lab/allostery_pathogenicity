@@ -160,8 +160,6 @@ rad_df <- rad_df %>%
 Classify each variant as Pathogenic, Benign, or Other using ClinVar germline classification and review status, restricting to entries with at least single-submitter review confidence.
 
 ```{r}
-unique(rad_df$Germline.review.status)
-
 rad_df <- rad_df %>%
   mutate(
     var_source = case_when(
@@ -430,7 +428,7 @@ patho_res  <- plot_df$residuals[plot_df$group == "Pathogenic"]
 if (length(gnomad_res) > 0 && length(patho_res) > 0) {
   wilcox_res <- wilcox.test(gnomad_res, patho_res, alternative = "greater")
   p_val_wilcox <- wilcox_res$p.value
-  p_label_wilcox <- paste0("P = ", signif(p_val_wilcox, 2))
+  p_label_wilcox <- paste0("italic(P) == ", signif(p_val_wilcox, 2))
 } else {
   p_val_wilcox <- NA
   p_label_wilcox <- ""
@@ -464,9 +462,15 @@ label_df <- plot_df %>%
 p_violin <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
   geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
   
-  # Median bars and points
-  stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
-  stat_summary(fun = median, geom = "point", shape = 23, size = 2.5, fill = "black") +
+  geom_boxplot(width = 0.15, color = "slategrey", fill = "white", alpha = 0.5, outlier.shape = NA) +
+  stat_summary(
+    fun.data = median_hilow, 
+    fun.args = list(conf.int = 0.95),
+    geom = "linerange", 
+    width = 0.15, 
+    color = "slategrey",
+    linewidth = 0.5
+  ) +
   
   # Text Labels
   geom_text(data = label_df, aes(y = label_y_n, label = n_label), size = 4) +
@@ -483,7 +487,7 @@ p_violin <- ggplot(plot_df, aes(x = group, y = residuals, fill = group)) +
     y_position = max(plot_df$residuals, na.rm=TRUE) + 1.0, 
     xmin = "Benign", xmax = "Pathogenic",
     annotations = p_label_wilcox,
-    tip_length = 0.01, textsize = 3.5
+    tip_length = 0.01, textsize = 3.5, parse = TRUE 
   )}
 
 print(p_violin)

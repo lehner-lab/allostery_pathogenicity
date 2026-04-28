@@ -272,56 +272,83 @@ label_df <- pdz3_final_df_ddg_2plot %>%
 
 pdz3_final_df_ddg_2plot$site_class <- factor(pdz3_final_df_ddg_2plot$site_class, levels = c("orthosteric", "allosteric", "other"))
 
-p_violin <- ggplot(pdz3_final_df_ddg_2plot, aes(x = site_class, y = residuals, fill = site_class)) +
-  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA)+
-  stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
-  stat_summary(fun = median, geom = "point", shape = 23, size = 2, fill = "black", color = "black", stroke = 0.7) +
-    geom_text(
-    data = label_df,
-    aes(x = site_class, y = max(pdz3_final_df_ddg_2plot$residuals) * 1.1,
-        label = paste0("n = ", n)),
-    inherit.aes = FALSE,
-    size = 4
-  ) +
-  geom_text(
-    data = label_df,
-    aes(x = site_class, y = 10,
-        label = paste0("n = ", n)),
-    inherit.aes = FALSE,
-    size = 4
-  ) +
-    geom_text(
-  data = label_df,
-  aes(x = site_class, y = median_val + 1.9, label = sprintf("%.2f", median_val)),
-  inherit.aes = FALSE,
-  size = 6
-) +
-    geom_signif(
-    comparisons = list(
-      c("orthosteric", "allosteric"),
-      c("orthosteric", "other"),
-      c("allosteric", "other")
-    ),
-    map_signif_level = FALSE,
-    test = "wilcox.test",
-    step_increase = 0.1,
-    tip_length = 0.01
-  ) +
+format_p_e_notation <- function(p) {
+  if (p < 2.22e-16) return("italic(P) < 2.22e-16")
   
-  # Labels and theme
-  labs(
-    title = "PSD-95-PDZ3",
-    subtitle = "",
-    x = "",
-    y = "ESM-1v-ddGf residual"
-  ) +
-  scale_fill_manual(values = c(
-    "orthosteric" = "#E69F00",
-    "allosteric" = "#4DBBD5",
-    "other" = "#999999"
-  )) +
-  theme_classic() +
-  theme(legend.position = "none")
+  # Format in scientific notation (e.g., 3.40e-03)
+  p_formatted <- formatC(p, format = "e", digits = 2)
+  return(paste0("italic(P) == ", p_formatted))
+}
+
+p1 <- wilcox.test(residuals ~ factor(site_class, levels = c("orthosteric", "allosteric")), 
+                      data = subset(pdz3_final_df_ddg_2plot, site_class %in% c("orthosteric", "allosteric")),
+                      alternative = "less")$p.value
+
+p2 <- wilcox.test(residuals ~ factor(site_class, levels = c("orthosteric", "other")), 
+                      data = subset(pdz3_final_df_ddg_2plot, site_class %in% c("orthosteric", "other")),
+                      alternative = "less")$p.value
+
+p3 <- wilcox.test(residuals ~ factor(site_class, levels = c("allosteric", "other")), 
+                      data = subset(pdz3_final_df_ddg_2plot, site_class %in% c("allosteric", "other")),
+                      alternative = "less")$p.value
+
+
+my_annotations <- c(format_p_e_notation(p1), format_p_e_notation(p2), format_p_e_notation(p3))
+
+p_violin <- ggplot(pdz3_final_df_ddg_2plot, aes(x = site_class, y = residuals, fill = site_class)) +
+   geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA)+
+   geom_boxplot(width = 0.15, color = "slategrey", fill = "white", alpha = 0.5, outlier.shape = NA) +
+   stat_summary(
+     fun.data = median_hilow, 
+     fun.args = list(conf.int = 0.95),
+     geom = "linerange", 
+     color = "slategrey",
+     linewidth = 0.5  ) +
+     geom_text(
+     data = label_df,
+     aes(x = site_class, y = max(pdz3_final_df_ddg_2plot$residuals) * 1.1,
+         label = paste0("n = ", n)),
+     inherit.aes = FALSE,
+     size = 4
+   ) +
+   geom_text(
+     data = label_df,
+     aes(x = site_class, y = 10,
+         label = paste0("n = ", n)),
+     inherit.aes = FALSE,
+     size = 4
+   ) +
+     geom_text(
+   data = label_df,
+   aes(x = site_class, y = median_val + 1.9, label = sprintf("%.2f", median_val)),
+   inherit.aes = FALSE,
+   size = 6
+ ) +   geom_signif(
+     comparisons = list(
+       c("orthosteric", "allosteric"),
+       c("orthosteric", "other"),
+       c("allosteric", "other")
+     ),
+     annotations = my_annotations, # Provide pre-formatted labels
+     parse = TRUE,                 # Mandates R to render plotmath (italics/notation)
+     step_increase = 0.1,
+     tip_length = 0.01,
+     textsize = 3.5
+   ) +
+   # Labels and theme
+   labs(
+     title = "PSD-95-PDZ3",
+     subtitle = "",
+     x = "",
+     y = "ESM-1v-ddGf residual"
+   ) +
+   scale_fill_manual(values = c(
+     "orthosteric" = "#E69F00",
+     "allosteric" = "#4DBBD5",
+     "other" = "#999999"
+   )) +
+   theme_classic() +
+   theme(legend.position = "none")
 
 p_violin
 ```
@@ -771,54 +798,70 @@ sh3_final_df_ddg_2plot$site_class <- factor(sh3_final_df_ddg_2plot$site_class, l
 
 table(sh3_final_df_ddg_2plot$site_class)
 
+p1_sh3 <- wilcox.test(residuals ~ factor(site_class, levels = c("orthosteric", "allosteric")), 
+                      data = subset(sh3_final_df_ddg_2plot, site_class %in% c("orthosteric", "allosteric")),
+                      alternative = "less")$p.value
+
+p2_sh3 <- wilcox.test(residuals ~ factor(site_class, levels = c("orthosteric", "other")), 
+                      data = subset(sh3_final_df_ddg_2plot, site_class %in% c("orthosteric", "other")),
+                      alternative = "less")$p.value
+
+p3_sh3 <- wilcox.test(residuals ~ factor(site_class, levels = c("allosteric", "other")), 
+                      data = subset(sh3_final_df_ddg_2plot, site_class %in% c("allosteric", "other")),
+                      alternative = "less")$p.value
+
+# Use the established helper function for italics and e-notation
+sh3_annotations <- c(format_p_e_notation(p1_sh3), 
+                     format_p_e_notation(p2_sh3), 
+                     format_p_e_notation(p3_sh3))
+
+# --- 2) Standardized Plotting Format ---
 p_violin2 <- ggplot(sh3_final_df_ddg_2plot, aes(x = site_class, y = residuals, fill = site_class)) +
-  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA)+
-  stat_summary(fun = median, geom = "crossbar", width = 0.4, color = "black", fatten = 1) +
-  stat_summary(fun = median, geom = "point", shape = 23, size = 2, fill = "black", color = "black", stroke = 0.7) +
-  geom_text(
-    data = label_df,
-    aes(x = site_class, y = max(sh3_final_df_ddg_2plot$residuals) * 1.1,
-        label = paste0("n = ", n)),
-    inherit.aes = FALSE,
-    size = 4
-  ) +
-  geom_text(
-    data = label_df,
-    aes(x = site_class, y = 10,
-        label = paste0("n = ", n)),
-    inherit.aes = FALSE,
-    size = 4
-  ) +
-  geom_text(
-    data = label_df,
-    aes(x = site_class, y = median_val + 1.9, label = sprintf("%.2f", median_val)),
-    inherit.aes = FALSE,
-    size = 6
-  ) +
-  geom_signif(
-    comparisons = list(
-      c("orthosteric", "allosteric"),
-      c("orthosteric", "other"),
-      c("allosteric", "other")
-    ),
-    map_signif_level = FALSE,
-    test = "wilcox.test",
-    step_increase = 0.1,
-    tip_length = 0.01
+  # Base Violin
+  geom_violin(trim = FALSE, scale = "width", alpha = 0.8, color = NA) +
+  
+  # Standardized Boxplot (defines IQR and whiskers)
+  geom_boxplot(width = 0.15, color = "slategrey", fill = "white", alpha = 0.5, outlier.shape = NA) +
+  
+  # Linerange for 95% quantiles (removes horizontal end-caps)
+  stat_summary(
+    fun.data = median_hilow, 
+    fun.args = list(conf.int = 0.95),
+    geom = "linerange", 
+    color = "slategrey",
+    linewidth = 0.5
   ) +
   
-  # Labels and theme
-  labs(
-    title = "GRB2-SH3",
-    subtitle = "",
-    x = "",
-    y = "ESM-1v-ddGf residual"
+  # Sample size labels
+  geom_text(data = label_df, aes(x = site_class, y = 10, label = paste0("n = ", n)),
+            inherit.aes = FALSE, size = 4) +
+  
+  # Median labels
+  geom_text(data = label_df, aes(x = site_class, y = median_val + 1.9, 
+                                 label = sprintf("%.2f", median_val)),
+            inherit.aes = FALSE, size = 6) +
+  
+  # Significance bars with italic P and e-notation
+  geom_signif(
+    comparisons = list(
+      c("orthosteric", "allosteric"), 
+      c("orthosteric", "other"), 
+      c("allosteric", "other")
+    ),
+    annotations = sh3_annotations, 
+    parse = TRUE, # Renders the plotmath expressions
+    step_increase = 0.1,
+    tip_length = 0.01,
+    textsize = 3.5
   ) +
+  
+  # Aesthetics and Labels
   scale_fill_manual(values = c(
     "orthosteric" = "#E69F00",
     "allosteric" = "#4DBBD5",
     "other" = "#999999"
   )) +
+  labs(title = "GRB2-SH3", x = "", y = "ESM-1v-ddGf residual") +
   theme_classic() +
   theme(legend.position = "none")
 

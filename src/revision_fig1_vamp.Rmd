@@ -177,7 +177,7 @@ nudt15_df <- nudt15_df %>% dplyr::rename( DMS_score = Average_abundance_score)
 nudt15_df$AM_clamped <- pmin(pmax(nudt15_df$am_pathogenicity, epsilon), 1 - epsilon)
 nudt15_df$AM_logit <- log(nudt15_df$AM_clamped / (1 - nudt15_df$AM_clamped))
 
-head(nudt15_df)
+nudt15_df
 ```
 
 
@@ -361,3 +361,8 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig1
        plot = p1, width = 8, height = 4, dpi = 300)
 p1
 ```
+```{r}
+write_csv(r2_df, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs1e2.csv")
+```
+
+

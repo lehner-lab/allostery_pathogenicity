@@ -155,7 +155,7 @@ nrow(nudt15_df) #2844
 nudt15_df <- nudt15_df %>%
   mutate(mutation_position = as.numeric(str_extract(mutant, "(?<=\\D)(\\d+)(?=\\D)")))
 
-head(nudt15_df)
+nudt15_df
 ```
 
 # PRKN (Parkin)
@@ -234,7 +234,6 @@ head(aspa_df)
 Define a helper function that fits a linear model of ESM1v on DMS score for each protein, collect the R² values into a data frame, annotate each protein with its functional class (enzyme vs. transporter), and rank proteins by R².
 
 ```{r}
-# Wrapper function to fit linear model and calculate R² for each data frame
 calculate_r2_for_dfs <- function(dfs, x_var, y_var) {
   # Initialize an empty list to store R² values
   r2_values <- list()
@@ -257,13 +256,15 @@ calculate_r2_for_dfs <- function(dfs, x_var, y_var) {
   return(r2_values)
 }
 
+
 # Example usage
 # Combine data frames into a named list
 combo_df <- list(vkor_df = vkor_df, oct_df = oct_df, gck_df = gck_df,
                  pten_df = pten_df, cyp2c9_df = cyp2c9_df, tpmt_df = tpmt_df,
                  nudt15_df = nudt15_df, prkn_df = prkn_df, aspa_df = aspa_df)
+nrow(nudt15_df)
 
-# Calculate R² for each data frame using the wrapper function
+ # Calculate R² for each data frame using the wrapper function
 r2_results <- calculate_r2_for_dfs(combo_df, x_var = "DMS_score", y_var = "ESM.1v")
 
 r2_df <- data.frame(
@@ -308,10 +309,16 @@ p1 <- ggplot(r2_df, aes(y = reorder(protein, r_squared), x = r_squared, fill = t
             hjust = 0.5, size = 5, color = "black") +
   coord_flip()
 
+
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig1_vamp_r2.pdf",
        plot = p1, width = 8, height = 4, dpi = 300)
 p1
 ```
+
+```{r}
+write_csv(r2_df, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs1e1.csv")
+```
+
 
 # ClinVar Variant Analysis
 

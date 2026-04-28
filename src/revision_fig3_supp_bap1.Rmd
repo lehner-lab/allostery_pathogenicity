@@ -303,6 +303,7 @@ p4
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_scatter3.pdf", 
        plot = p4, width = 9, height = 3, dpi = 300)
+write_csv(bap1_df, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs3b2.csv")
 ```
 
 ## Scatter Plot Legend Panel
@@ -437,6 +438,7 @@ print(p_violin)
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_violin4.pdf", 
        plot = p_violin, width = 4, height = 2.5, dpi = 300)
+write_csv(plot_df, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/fig3d3.csv")
 ```
 
 # Ligand Distance Calculation
@@ -645,6 +647,7 @@ p_decay
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_decay3.pdf", 
        plot = p_decay, width = 4, height = 4.5, dpi = 300)
+write_csv(merged_df_neg, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs3c2.csv")
 ```
 
 # Correlation Plots
@@ -706,6 +709,7 @@ p_corr
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_corr3.pdf", 
        plot = p_corr, width = 6, height = 4, dpi = 300)
+write_csv(bap1_df, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs4a3.csv")
 ```
 
 
@@ -793,6 +797,7 @@ print(p_unbinned)
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig3_bap1_compare.pdf", 
        plot = p_unbinned, width = 4, height = 4, dpi = 300)
+write_csv(plot_ready_raw, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs4b3.csv")
 ```
 
 

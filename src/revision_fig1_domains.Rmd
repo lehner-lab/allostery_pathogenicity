@@ -29,7 +29,7 @@ Read the Domainome 1.0 extended data table containing per-variant aPCA fitness s
 
 ```{r}
 # Load and preprocess data
-domainome_data <- read_tsv("/Users/xl7/Documents/0.Projects/00.large_supplements/domainome/Extended_data_Table_5_aPCA_vs_variant_effect_predictors.txt")
+domainome_data <- read_tsv("/Users/xl7/Documents/0.Projects/00.large_supplements/domainome_toni/Extended_data_Table_5_aPCA_vs_variant_effect_predictors.txt")
 setDT(domainome_data)
 
 # Initial dimensions
@@ -443,3 +443,8 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig1
        plot = p1, width = 5, height = 4, dpi = 500)
 p1
 ```
+
+```{r}
+write_csv(r2_combined, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs1d2.csv")
+```
+

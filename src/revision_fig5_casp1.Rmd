@@ -146,6 +146,8 @@ p1
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_casp1_p1.pdf",
        plot = p1, width = 4.5, height = 4, dpi = 300)
+write_csv(casp1_pred$merged_data, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs6a3.csv")
+
 ```
 
 # PDB B-factor Mapping
@@ -425,6 +427,8 @@ p_decay
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_decay4.pdf",
        plot = p_decay, width = 4, height = 4, dpi = 300)
+write_csv(merged_df_residue, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs6bc3.csv")
+
 ```
 
 # Log-Linear Regression

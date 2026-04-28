@@ -151,6 +151,8 @@ Write the LOESS residual scatter plot to disk.
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_gck_p1.pdf",
        plot = p1, width = 4.5, height = 4, dpi = 300)
+write_csv(gck_pred$merged_data, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs6a1.csv")
+
 ```
 
 # PDB B-factor Mapping
@@ -360,6 +362,8 @@ p_decay
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_decay2.pdf",
        plot = p_decay, width = 4, height = 4, dpi = 300)
+write_csv(merged_df_residue, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs6bc1.csv")
+
 ```
 
 # Log-Linear Regression
@@ -493,4 +497,5 @@ Write the violin plot panel to disk as a publication-ready PDF.
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_violin2.pdf",
        plot = p3, width = 3, height = 4, dpi = 300)
+
 ```

@@ -450,6 +450,7 @@ p5
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig2_scatter2.pdf", 
        plot = p5, width = 9, height = 3, dpi = 300)
+write_csv(gck_df, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs2a.csv")
 ```
 
 
@@ -669,6 +670,7 @@ print(p_violin)
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig2_violin3.pdf", 
        plot = p_violin, width = 3, height = 5, dpi = 300)
+write_csv(plot_df, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/fig2d2.csv")
 ```
 
 # Violin: Site-Stratified (Orthosteric vs. Non-Orthosteric)
@@ -1113,4 +1115,5 @@ p_decay
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig2_decay2.pdf", 
        plot = p_decay, width = 4, height = 4.5, dpi = 300)
+write_csv(merged_df_neg, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/fig2e2.csv")
 ```

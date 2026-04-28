@@ -234,6 +234,7 @@ p1
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig4_scatter1.pdf", 
        plot = p1, width = 3, height = 3.5, dpi = 300)
+write_csv(pdz3_final_df_ddg_2plot, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/fig4b1.csv")
 ```
 
 
@@ -356,6 +357,7 @@ p_violin
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig4_violin1.pdf", 
        plot = p_violin, width = 3, height = 3, dpi = 300)
+write_csv(pdz3_final_df_ddg_2plot, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/fig4c1.csv")
 ```
 
 ## Exponential Decay of Residuals vs. Ligand Distance for PDZ3
@@ -477,6 +479,7 @@ p_decay
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig4_decay1.pdf", 
        plot = p_decay, width = 3, height = 3, dpi = 300)
+write_csv(pdz3_final_df_ddg_2plot_neg, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/fig4d1.csv")
 ```
 
 ## ddGb Decay Plot for PDZ3
@@ -566,6 +569,8 @@ p_decay
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig4_decay3.pdf", 
        plot = p_decay, width = 3, height = 3, dpi = 300)
+write_csv(pdz3_final_df_ddg_2plot_pos, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs5b1.csv")
+
 ```
 
 ## Correlation Plot for PDZ3
@@ -611,6 +616,7 @@ p_corr
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig4_corr1.pdf", 
        plot = p_corr, width = 3, height = 3.5, dpi = 300)
+write_csv(merged_df_residue, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs5c1.csv")
 ```
 
 
@@ -772,6 +778,7 @@ p2
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig4_scatter2.pdf", 
        plot = p2, width = 3, height = 3.5, dpi = 300)
+write_csv(sh3_final_df_ddg_2plot, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/fig4b2.csv")
 ```
 
 ## Violin Plots for SH3
@@ -870,6 +877,7 @@ p_violin2
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig4_violin2.pdf", 
        plot = p_violin2, width = 3, height = 3, dpi = 300)
+write_csv(sh3_final_df_ddg_2plot, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/fig4c2.csv")
 ```
 
 ## Ligand Distance Calculation for SH3
@@ -1072,6 +1080,7 @@ p_decay2
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig4_decay2.pdf", 
        plot = p_decay2, width = 3, height = 3, dpi = 300)
+write_csv(sh3_final_df_ddg_2plot_neg, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/fig4d2.csv")
 ```
 
 ```{r}
@@ -1155,6 +1164,8 @@ p_decay
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig4_decay4.pdf", 
        plot = p_decay, width = 3, height = 3, dpi = 300)
+write_csv(sh3_final_df_ddg_2plot_pos, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs5b2.csv")
+
 ```
 
 
@@ -1195,4 +1206,6 @@ p_corr2
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig4_corr2.pdf", 
        plot = p_corr2, width = 3, height = 3.5, dpi = 300)
+write_csv(merged_df_residue, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs5c2.csv")
+
 ```

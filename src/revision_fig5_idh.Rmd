@@ -143,6 +143,8 @@ p1 <- idh_pred_residual$plot
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_idh_p1.pdf",
        plot = p1, width = 4.5, height = 4, dpi = 300)
 p1
+write_csv(idh_pred$merged_data, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs6a5.csv")
+
 ```
 
 # PDB B-factor Mapping
@@ -365,6 +367,8 @@ p_decay
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig5_decay6.pdf",
        plot = p_decay, width = 4, height = 4, dpi = 300)
+write_csv(merged_df_residue, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs6bc5.csv")
+
 ```
 
 # Log-Linear Regression

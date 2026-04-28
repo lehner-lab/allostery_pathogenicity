@@ -26,7 +26,7 @@ Read the Domainome 1.0 supplement table, remove variants missing ESM1v scores or
 
 ```{r}
 # Load and preprocess data
-domainome_data <- read_tsv("/Users/xl7/Documents/0.Projects/00.large_supplements/domainome/Extended_data_Table_5_aPCA_vs_variant_effect_predictors.txt")
+domainome_data <- read_tsv("/Users/xl7/Documents/0.Projects/00.large_supplements/domainome_toni/Extended_data_Table_5_aPCA_vs_variant_effect_predictors.txt")
 setDT(domainome_data)
 
 # Initial dimensions
@@ -106,7 +106,7 @@ valid_names <- unique(data$WT_name[data$WT_name %in% pdb_files])
 megascale_df <- data %>%
   filter(WT_name %in% valid_names) %>%
   group_by(WT_name) %>%
-  mutate(wt_seq = first(aa_seq[mut_type == "wt"])) %>%
+  mutate(wt_seq = dplyr::first(aa_seq[mut_type == "wt"])) %>%
   ungroup()
 ```
 
@@ -152,11 +152,8 @@ write.csv(megascale_merged_df,
 
 
 ```{r}
-unique(megascale_merged_df$WT_name)
-cat(paste(unique(megascale_merged_df$WT_name), collapse = ", "))
 
 clean_names <- sub("\\.pdb$", "", unique(megascale_merged_df$WT_name))
-cat(paste(clean_names, collapse = ", "))
 
 ## use uniprot IDmapping on the webserver #https://www.uniprot.org/tool-dashboard
 pdb_map <- read_tsv("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/megascale/idmapping_2025_06_14.tsv")
@@ -166,6 +163,7 @@ mapped_uniprots <- unique(pdb_map$Entry)
 
 overlapped_uniprot <- intersect(unique(domainome_data$uniprot_ID), mapped_uniprots)
 #"O75400" "O94993" "O95155" "P02640" "P07751" "P11961" "P40040" "Q13526" "Q16512" "Q9ULT8"
+overlapped_uniprot
 ```
 
 ## Identify Overlapping Proteins Between Datasets
@@ -178,7 +176,7 @@ megascale_merged_df_overlap <- megascale_merged_df %>% filter(base_name %in% ove
 
 megascale_merged_df_overlap <- megascale_merged_df_overlap %>%
   group_by(base_name) %>%
-  slice(1) %>%
+  dplyr::slice(1) %>%
   ungroup() %>% dplyr::select(base_name, wt_seq)
 ```
 
@@ -189,7 +187,7 @@ Retrieve one representative domain sequence per overlapping UniProt entry from t
 ```{r}
 domainome_data_overlap <- domainome_data %>% filter(uniprot_ID %in% overlapped_uniprot) %>%
   group_by(uniprot_ID) %>%
-  slice(1) %>%
+  dplyr::slice(1) %>%
   ungroup() %>% dplyr::select(uniprot_ID, domain_ID, aa_seq)
 ```
 
@@ -202,10 +200,6 @@ megascale_merged_df_fil <- megascale_merged_df %>% filter(!base_name %in% c("1UR
 nrow(megascale_merged_df_fil) #58055
 length(unique(megascale_merged_df_fil$base_name)) #56
 head(megascale_merged_df_fil)
-
-#write.csv(megascale_merged_df_fil,
-#          "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/paper_supplements/megascale/megascale_esm1v_58_proteingym.csv",
-#          row.names = FALSE)
 ```
 
 ```{r}
@@ -286,6 +280,10 @@ p1 <- ggplot(r2_combined, aes(x = source, y = adj.r.squared, fill = source)) +
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/fig1_domains_r2.pdf",
        plot = p1, width = 6, height = 4, dpi = 300)
 p1
+```
+
+```{r}
+write_csv(r2_combined, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs1d1.csv")
 ```
 
 ## Report R² Ranges for Both Datasets

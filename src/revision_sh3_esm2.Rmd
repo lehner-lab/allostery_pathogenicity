@@ -70,7 +70,7 @@ sh3_final_df_ddgb <- sh3_final_df_ddgb %>% filter(old_id != "WT")
 head(sh3_final_df_ddgb)
 
 test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/GRB2/ThermoMPNN_inference_AF-P62993-F1-model_v4.csv")
-test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P62993.csv")
+test_esm <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/figs7_esm1v/P62993.csv")
 
 colnames(test_esm)[2] <- "ESM1v"
 
@@ -300,6 +300,7 @@ Save the side-by-side ESM-1v vs. ESM-2 raw-score figure to PDF.
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_sh3_esm2.pdf",
        plot = p10, width = 6, height = 3, dpi = 300)
+write_csv(test_residue, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs9_esm2_sh3.csv")
 ```
 
 ## ESM-1v vs. ESM-2 Cross-Model Agreement

@@ -123,7 +123,7 @@ ThermoMPNN ddGf and ESM-1v scores are loaded for the full-length PSD95 protein a
 
 ```{r}
 test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/PSD95/ThermoMPNN_inference_AF-P78352-F1-model_v4.csv")
-test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P78352.csv")
+test_esm <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/figs7_esm1v/P78352.csv")
   
 colnames(test_esm)[2] <- "ESM1v"
   
@@ -246,7 +246,15 @@ p1 <- ggplot(merged_df, aes(x = positional_neff, y = residual_median, color = me
 p1
 ```
 
+```{r}
+write_csv(merged_df, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs8a_pdz3.csv")
+
+```
+
+
 ## Data Loading and Global Neff Computation (GRB2-SH3)
+
+
 
 The same Neff pipeline is applied to the GRB2-SH3 EVcouplings MSA, providing an independent domain for testing whether MSA depth correlates with the ESM-1v–ddGf residual signal.
 
@@ -348,7 +356,7 @@ ThermoMPNN and ESM-1v data for the full-length GRB2 protein are loaded, merged w
 
 ```{r}
 test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/GRB2/ThermoMPNN_inference_AF-P62993-F1-model_v4.csv")
-test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P62993.csv")
+test_esm <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/figs7_esm1v/P62993.csv")
   
 colnames(test_esm)[2] <- "ESM1v"
   
@@ -467,6 +475,11 @@ p2 <- ggplot(merged_df, aes(x = positional_neff, y = median_residual, color = me
 
 p2
 ```
+
+```{r}
+write_csv(merged_df, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs8a_sh3.csv")
+```
+
 
 ## Combined Panel and Save
 

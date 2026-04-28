@@ -107,6 +107,9 @@ p1
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_hypermutant_scatter1.pdf",
        plot = p1, width = 3, height = 4, dpi = 300)
+
+write_csv(df_residual$data, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs8e1.csv")
+
 ```
 
 ### Structural Distance Computation (CDR Loops)
@@ -318,6 +321,8 @@ p2
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_hypermutant_decay1.pdf", 
        plot = p2, width = 3, height = 3, dpi = 300)
+write_csv(merged_df_residue, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs8e3.csv")
+
 ```
 
 
@@ -552,6 +557,8 @@ p2
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_hypermutant_decay2.pdf", 
        plot = p2, width = 3, height = 3, dpi = 300)
+write_csv(merged_df_residue, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs8e2.csv")
+
 ```
 
 ## Protein 3: Immunoglobulin Kappa Variable 3D-7 (A0A0C4DH55)
@@ -785,4 +792,6 @@ p2
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_hypermutant_decay3.pdf", 
        plot = p2, width = 3, height = 3, dpi = 300)
+write_csv(merged_df_residue, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs8e4.csv")
+
 ```

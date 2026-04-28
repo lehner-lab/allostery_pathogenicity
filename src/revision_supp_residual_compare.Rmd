@@ -100,7 +100,7 @@ analyze_ddg_vs_esm1v <- function(ddg_file, esm_file, protein_name = "Protein") {
 }
 pten_pred <- analyze_ddg_vs_esm1v(
   ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/PTEN/AF-P60484-F1-model_v4.csv",
-  esm_file = "/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P60484.csv",
+  esm_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/figs7_esm1v/P60484.csv",
   protein_name = "PTEN"
 )
 
@@ -151,26 +151,12 @@ test_merged_df$residuals_comp <- test_merged_df$ESM1v - test_merged_df$fitted_co
 sum(is.na(test_merged_df$residuals_comp)) #4
 head(test_merged_df)
 ```
-
-
-## Residue-Level Correlation by Site Type
-
-Variants are aggregated to per-residue median residuals, residues are annotated as active site, binding site (CBR/membrane/PBM), or non-orthosteric, and Spearman correlations between the experimental and computational residuals are reported for each group.
-
 ```{r}
 test_merged_df_residue <- test_merged_df %>%
   group_by(new_position) %>%
   summarise(
     comp_residual_avg = median(residuals_comp, na.rm = TRUE),
     exp_residual_avg = median(residuals_exp, na.rm = TRUE))
-
-cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_residual_avg, method="spearman")
-# data:  test_merged_df_residue$comp_residual_avg and test_merged_df_residue$exp_residual_avg
-# S = 12175844, p-value = 1.048e-11
-# alternative hypothesis: true rho is not equal to 0
-# sample estimates:
-#        rho
-# -0.3419481
 
 active_positions <- c(
   88:98,    # WPD loop
@@ -191,6 +177,25 @@ binding_positions <- c(
 test_merged_df_residue$site_type <- "Non-orthosteric site"
 test_merged_df_residue$site_type[test_merged_df_residue$new_position %in% active_positions] <- "Active site"
 test_merged_df_residue$site_type[test_merged_df_residue$new_position %in% binding_positions] <- "Binding site"
+
+
+write_csv(test_merged_df_residue, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs7b_pten.csv")
+```
+
+
+## Residue-Level Correlation by Site Type
+
+Variants are aggregated to per-residue median residuals, residues are annotated as active site, binding site (CBR/membrane/PBM), or non-orthosteric, and Spearman correlations between the experimental and computational residuals are reported for each group.
+
+```{r}
+cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_residual_avg, method="spearman")
+# data:  test_merged_df_residue$comp_residual_avg and test_merged_df_residue$exp_residual_avg
+# S = 12175844, p-value = 1.048e-11
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho
+# -0.3419481
+
 
 test_merged_df_residue_active <- test_merged_df_residue %>% filter(site_type == "Active site")
 nrow(test_merged_df_residue_active) #34
@@ -363,6 +368,12 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp
        plot = p6, width = 3, height = 4, dpi = 300)
 p6
 ```
+```{r}
+write_csv(test_merged_df, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs7a_pten.csv")
+
+```
+
+
 ## Supplementary Scatter: ESM-1v vs. Measured Activity
 
 A variant-level 2D density scatter plot shows the raw Spearman correlation (rho = 0.48) between ESM-1v pathogenicity scores and experimental activity scores for PTEN.
@@ -409,7 +420,7 @@ ThermoMPNN ddGf predictions and ESM-1v scores for the full PSD-95 protein (P7835
 
 ```{r}
 test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/PSD95/ThermoMPNN_inference_AF-P78352-F1-model_v4.csv")
-test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P78352.csv")
+test_esm <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/figs7_esm1v/P78352.csv")
   
 colnames(test_esm)[2] <- "ESM1v"
   
@@ -462,17 +473,32 @@ sum(is.na(test_merged_df$residuals_comp)) #6
 head(test_merged_df)
 ```
 
-
-## Residue-Level Correlation by Site Type
-
-Per-residue median residuals are computed, residues are classified as binding site, allosteric site, or non-orthosteric, and Spearman correlations between the experimental median ddGb and the computational ESM-1v-ddGf residual are reported for each site category.
-
 ```{r}
 test_merged_df_residue <- test_merged_df %>%
   group_by(pos_match) %>%
   summarise(
     comp_residual_avg = median(residuals_comp, na.rm = TRUE),
     exp_residual_avg = median(b_ddg_pred, na.rm = TRUE))
+
+length(ortho_list)
+allo_pos <- c(312, 314, 318, 329, 330, 336, 338, 341, 347, 357, 359, 360, 362, 363, 367, 375, 386, 388)
+length(allo_pos)
+
+test_merged_df_residue$site_type <- "Non-orthosteric site"
+test_merged_df_residue$site_type[test_merged_df_residue$pos_match %in% allo_pos] <- "Allosteric site"
+test_merged_df_residue$site_type[test_merged_df_residue$pos_match %in% ortho_list] <- "Binding site"
+
+
+write_csv(test_merged_df_residue, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs7b_pdz3.csv")
+```
+
+
+## Residue-Level Correlation by Site Type
+
+Per-residue median residuals are computed, residues are classified as binding site, allosteric site, or non-orthosteric, and Spearman correlations between the experimental median ddGb and the computational ESM-1v-ddGf residual are reported for each site category.
+
+```{r}
+
 
 cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_residual_avg, method="spearman")
 # 	Spearman's rank correlation rho
@@ -483,13 +509,6 @@ cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_re
 # sample estimates:
 #        rho 
 # -0.4115015 
-length(ortho_list)
-allo_pos <- c(312, 314, 318, 329, 330, 336, 338, 341, 347, 357, 359, 360, 362, 363, 367, 375, 386, 388)
-length(allo_pos)
-
-test_merged_df_residue$site_type <- "Non-orthosteric site"
-test_merged_df_residue$site_type[test_merged_df_residue$pos_match %in% allo_pos] <- "Allosteric site"
-test_merged_df_residue$site_type[test_merged_df_residue$pos_match %in% ortho_list] <- "Binding site"
 
 test_merged_df_residue_binding <- test_merged_df_residue %>% filter(site_type == "Binding site")
 nrow(test_merged_df_residue_binding) #13
@@ -668,6 +687,11 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp
        plot = p7, width = 3, height = 4, dpi = 300)
 p7
 ```
+```{r}
+write_csv(test_merged_df, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs7a_pdz3.csv")
+
+```
+
 
 ## Supplementary Scatter: Measured vs. Predicted ddGf
 
@@ -737,7 +761,7 @@ ThermoMPNN ddGf predictions and ESM-1v scores for GRB2 (P62993) are loaded, the 
 
 ```{r}
 test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/GRB2/ThermoMPNN_inference_AF-P62993-F1-model_v4.csv")
-test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P62993.csv")
+test_esm <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/figs7_esm1v/P62993.csv")
   
 colnames(test_esm)[2] <- "ESM1v"
   
@@ -787,7 +811,6 @@ head(test_merged_df)
 ## Residue-Level Correlation by Site Type
 
 Per-residue median residuals are aggregated, residues are classified into binding site, allosteric site (positions 173, 183, 203), and non-orthosteric categories, and Spearman correlations between experimental ddGb and computational residuals are computed per group.
-
 ```{r}
 test_merged_df_residue <- test_merged_df %>%
   group_by(Pos_ref) %>%
@@ -795,6 +818,19 @@ test_merged_df_residue <- test_merged_df %>%
     comp_residual_avg = median(residuals_comp, na.rm = TRUE),
     exp_residual_avg = median(b_ddg_pred, na.rm = TRUE))
 
+test_merged_df_residue$site_type <- "Non-orthosteric site"
+test_merged_df_residue$site_type[test_merged_df_residue$Pos_ref %in% allo_pos] <- "Allosteric site"
+test_merged_df_residue$site_type[test_merged_df_residue$Pos_ref %in% ortho_list] <- "Binding site"
+
+test_merged_df_residue_binding <- test_merged_df_residue %>% filter(site_type == "Binding site")
+nrow(test_merged_df_residue_binding) #13
+
+write_csv(test_merged_df_residue , "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs7b_sh3.csv")
+
+```
+
+
+```{r}
 cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_residual_avg, method="spearman")
 # data:  test_merged_df_residue$comp_residual_avg and test_merged_df_residue$exp_residual_avg
 # S = 43682, p-value = 0.0001388
@@ -806,12 +842,7 @@ cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_re
 allo_pos <- c(173, 183, 203)
 length(allo_pos)
 
-test_merged_df_residue$site_type <- "Non-orthosteric site"
-test_merged_df_residue$site_type[test_merged_df_residue$Pos_ref %in% allo_pos] <- "Allosteric site"
-test_merged_df_residue$site_type[test_merged_df_residue$Pos_ref %in% ortho_list] <- "Binding site"
 
-test_merged_df_residue_binding <- test_merged_df_residue %>% filter(site_type == "Binding site")
-nrow(test_merged_df_residue_binding) #13
 cor.test(test_merged_df_residue_binding$comp_residual_avg, test_merged_df_residue_binding$exp_residual_avg, method="spearman")
 # data:  test_merged_df_residue_binding$comp_residual_avg and test_merged_df_residue_binding$exp_residual_avg
 # S = 600, p-value = 0.01958
@@ -969,6 +1000,8 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp
 p7
 ```
 
+
+
 ## Supplementary Scatter: Measured vs. Predicted ddGf
 
 MoCHI-inferred folding ddGf weights for GRB2-SH3 are merged with ThermoMPNN predictions, and a 2D density scatter plot illustrates their strong agreement (Spearman rho = 0.77).
@@ -1009,7 +1042,9 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp
        plot = p6, width = 3, height = 4, dpi = 300)
 p6
 ```
-
+```{r}
+write_csv(test_merged_df , "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs7a_sh3.csv")
+```
 # GCK (Glucokinase)
 
 ## Data Loading
@@ -1039,7 +1074,7 @@ gck_df <- gck_df %>%
 
 gck_pred <- analyze_ddg_vs_esm1v(
   ddg_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/GCK/AF-P35557-F1-model_v4.csv",
-  esm_file = "/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P35557.csv",
+  esm_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/figs7_esm1v/P35557.csv",
   protein_name = "GCK"
 )
 
@@ -1083,6 +1118,9 @@ test_merged_df$residuals_comp <- test_merged_df$ESM1v - test_merged_df$fitted_co
 sum(is.na(test_merged_df$residuals_comp)) #2
 head(test_merged_df)
 ```
+```{r}
+write_csv(test_merged_df, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs7a_gck.csv")
+```
 
 ## Residue-Level Correlation by Site Type
 
@@ -1094,14 +1132,6 @@ test_merged_df_residue <- test_merged_df %>%
   summarise(
     comp_residual_avg = median(residuals_comp, na.rm = TRUE),
     exp_residual_avg = median(residuals_exp, na.rm = TRUE))
-
-cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_residual_avg, method="spearman")
-# data:  test_merged_df_residue$comp_residual_avg and test_merged_df_residue$exp_residual_avg
-# S = 24507826, p-value < 2.2e-16
-# alternative hypothesis: true rho is not equal to 0
-# sample estimates:
-#        rho 
-# -0.4815458 
 
 active_positions <- c(
   151:179, # disordered loop
@@ -1116,6 +1146,24 @@ test_merged_df_residue$site_type[test_merged_df_residue$new_position %in% glu_po
 
 test_merged_df_residue_active <- test_merged_df_residue %>% filter(site_type == "Active site")
 nrow(test_merged_df_residue_active) #45
+
+write_csv(test_merged_df_residue, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs7b_gck.csv")
+
+```
+
+
+```{r}
+
+
+cor.test(test_merged_df_residue$comp_residual_avg, test_merged_df_residue$exp_residual_avg, method="spearman")
+# data:  test_merged_df_residue$comp_residual_avg and test_merged_df_residue$exp_residual_avg
+# S = 24507826, p-value < 2.2e-16
+# alternative hypothesis: true rho is not equal to 0
+# sample estimates:
+#        rho 
+# -0.4815458 
+
+
 cor.test(test_merged_df_residue_active$comp_residual_avg, test_merged_df_residue_active$exp_residual_avg, method="spearman")
 # data:  test_merged_df_residue_active$comp_residual_avg and test_merged_df_residue_active$exp_residual_avg
 # S = 15928, p-value = 0.7472
@@ -1247,3 +1295,8 @@ ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp
        plot = p5, width = 12, height = 3, dpi = 300)
 p5
 ```
+
+```{r}
+
+```
+

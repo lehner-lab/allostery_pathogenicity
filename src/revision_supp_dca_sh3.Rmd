@@ -70,7 +70,7 @@ Load ThermoMPNN ddGf and ESM-1v predictions, align sequences, and merge with exp
 
 ```{r}
 test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/GRB2/ThermoMPNN_inference_AF-P62993-F1-model_v4.csv")
-test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P62993.csv")
+test_esm <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/figs7_esm1v/P62993.csv")
 
 colnames(test_esm)[2] <- "ESM1v"
 
@@ -231,4 +231,5 @@ p1
 ```{r}
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_dca_sh3.pdf",
        plot = p1, width = 3, height = 4, dpi = 300)
+write_csv(merged, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs8b_sh3.csv")
 ```

@@ -42,7 +42,7 @@ Load ThermoMPNN ddGf and ESM-1v predictions, align sequences, and merge with bin
 
 ```{r}
 test_ddg <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/decay_pdb/PSD95/ThermoMPNN_inference_AF-P78352-F1-model_v4.csv")
-test_esm <- fread("/Users/xl7/Documents/0.Projects/00.large_supplements/ESM1v_proteome_wide/all_ESM1v/P78352.csv")
+test_esm <- fread("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/figs7_esm1v/P78352.csv")
 
 colnames(test_esm)[2] <- "ESM1v"
 
@@ -307,6 +307,8 @@ plot_grid(p2, p1, p5, p6, ncol = 4)
 p7 <- plot_grid(p5,p6, ncol = 2)
 ggsave("/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/figs/revision/supp_fig_pdz3_deviance.pdf",
        plot = p7, width = 6, height = 3.5, dpi = 300)
+write_csv(test_merged_df_residue, "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/source_data/figs8c_pdz3.csv")
+
 p7
 ```
 

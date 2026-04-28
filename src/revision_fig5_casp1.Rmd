@@ -61,7 +61,7 @@ analyze_ddg_vs_esm1v <- function(esm_file, protein_name = "Protein") {
 }
 
 casp1_pred <- analyze_ddg_vs_esm1v(
-  esm_file = "/Users/xl7/Documents/0.Projects/00.large_supplements/esm1v_ddgf_proteome_wide_mar2026/merged_out_dec2025/P29466_merged.csv",
+  esm_file = "/Users/xl7/Documents/0.Projects/01.protein-seq-evo-v1/data/revision/fig5_esm1v/P29466_merged.csv",
   protein_name = "CASP1"
 )
 

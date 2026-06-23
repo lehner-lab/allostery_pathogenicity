@@ -6,7 +6,7 @@
 
 Analysis code and metadata for:
 
-> **Liao & Lehner (2025).** Allostery is a widespread cause of loss-of-function variant pathogenicity. *bioRxiv*. https://doi.org/10.1101/2025.06.20.660737
+> **Liao, X., Lehner, B.** Allostery is a widespread cause of loss-of-function variant pathogenicity. *Nat Commun (2026)*. https://doi.org/10.1038/s41467-026-74517-8
 
 ---
 

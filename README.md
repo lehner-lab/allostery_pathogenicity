@@ -101,9 +101,9 @@ All analyses run in **R ≥ 4.3** using the [ProjectTemplate](http://projecttemp
 @article{liao2025allostery,
   title   = {Allostery is a widespread cause of loss-of-function variant pathogenicity},
   author  = {Liao, Xiaotian and Lehner, Ben},
-  journal = {bioRxiv},
-  year    = {2025},
-  doi     = {10.1101/2025.06.20.660737}
+  journal = {Nature Communications},
+  year    = {2026},
+  doi     = {10.1038/s41467-026-74517-8}
 }
 ```
 
